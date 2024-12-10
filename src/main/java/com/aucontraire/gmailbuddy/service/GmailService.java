@@ -52,4 +52,17 @@ public class GmailService {
             throw new IOException("Security exception creating Gmail service", e);
         }
     }
+
+    public List<Message> listMessagesFromSender(String userId, String senderEmail) throws IOException {
+        try {
+            var gmail = getGmailService();
+            return gmail.users().messages()
+                    .list(userId)
+                    .setQ("from:" + senderEmail)
+                    .execute()
+                    .getMessages();
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
 }
