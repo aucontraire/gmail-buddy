@@ -65,4 +65,37 @@ public class GmailService {
             throw new IOException("Security exception creating Gmail service", e);
         }
     }
+
+    public void deleteMessagesFromSender(String userId, String senderEmail) throws IOException {
+        try {
+            var gmail = getGmailService();
+
+            // 1. Find all messages from the given sender
+            var messages = gmail.users().messages()
+                    .list(userId)
+                    .setQ("from:" + senderEmail)
+                    .setMaxResults(500L) // Optional: limit for batch operations
+                    .execute()
+                    .getMessages();
+
+            if (messages == null || messages.isEmpty()) {
+                return; // No messages to delete
+            }
+
+            // 2. For each message, first move it to Trash, then permanently delete it
+            for (var message : messages) {
+                // Move the message to Trash
+                gmail.users().messages().trash(userId, message.getId()).execute();
+            }
+
+            for (var message : messages) {
+                // Now permanently delete it
+                gmail.users().messages().delete(userId, message.getId()).execute();
+            }
+
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
 }
