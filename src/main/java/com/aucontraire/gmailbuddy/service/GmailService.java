@@ -3,6 +3,8 @@ package com.aucontraire.gmailbuddy.service;
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
@@ -18,6 +20,7 @@ public class GmailService {
 
     private final GmailClient gmailClient;
     private final OAuth2AuthorizedClientService authorizedClientService;
+    private final Logger logger = LoggerFactory.getLogger(GmailService.class);
 
     public GmailService(GmailClient gmailClient, OAuth2AuthorizedClientService authorizedClientService) {
         this.gmailClient = gmailClient;
@@ -79,15 +82,19 @@ public class GmailService {
                     .getMessages();
 
             if (messages == null || messages.isEmpty()) {
+                logger.info("Found 0 matching messages");
                 return; // No messages to delete
             }
+            logger.info(String.format("Found %d matching messages", messages.size()));
 
             // 2. For each message, first move it to Trash, then permanently delete it
+            logger.info("Moving messages to trash");
             for (var message : messages) {
                 // Move the message to Trash
                 gmail.users().messages().trash(userId, message.getId()).execute();
             }
 
+            logger.info("Deleting messages");
             for (var message : messages) {
                 // Now permanently delete it
                 gmail.users().messages().delete(userId, message.getId()).execute();

@@ -2,6 +2,8 @@ package com.aucontraire.gmailbuddy.controller;
 
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.google.api.services.gmail.model.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,6 +21,7 @@ public class GmailController {
 
     private final GmailService gmailService;
     private OAuth2AuthorizedClientService authorizedClientService;
+    private final Logger logger = LoggerFactory.getLogger(GmailController.class);
 
 
     @Autowired
