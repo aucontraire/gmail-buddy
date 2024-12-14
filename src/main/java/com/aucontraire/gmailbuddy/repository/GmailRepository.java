@@ -10,4 +10,5 @@ public interface GmailRepository {
     List<Message> getLatestMessages(String userId, long maxResults) throws IOException;
     List<Message> getMessagesFromSender(String userId, String senderEmail) throws IOException;
     void deleteMessagesFromSender(String userId, String senderEmail) throws IOException;
+    String getMessageBody(String userId, String messageId) throws IOException;
 }

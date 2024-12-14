@@ -76,6 +76,17 @@ public class GmailController {
         }
     }
 
+    @GetMapping("/messages/{messageId}/body")
+    public ResponseEntity<String> getMessageBody(@PathVariable String messageId) {
+        try {
+            String messageBody = gmailService.getMessageBody("me", messageId);
+            return ResponseEntity.ok(messageBody);
+        } catch (IOException e) {
+            logger.error("Failed to get message body for messageId: " + messageId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
     @GetMapping("/debug/token")
     public String debugToken() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

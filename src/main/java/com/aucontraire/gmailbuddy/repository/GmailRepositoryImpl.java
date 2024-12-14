@@ -3,6 +3,7 @@ package com.aucontraire.gmailbuddy.repository;
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.Message;
+import com.google.api.services.gmail.model.MessagePart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.util.Base64;
 import java.util.List;
 
 @Component
@@ -109,5 +111,48 @@ public class GmailRepositoryImpl implements GmailRepository {
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
+    }
+
+    // GmailRepositoryImpl.java
+    @Override
+    public String getMessageBody(String userId, String messageId) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+            Message message = gmail.users().messages().get(userId, messageId).execute();
+            return getMessageBodyFromParts(message.getPayload().getParts()); // Call helper function
+
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    private String getMessageBodyFromParts(List<MessagePart> parts) {
+        if (parts == null) {
+            return ""; // No parts found
+        }
+
+        for (MessagePart part : parts) {
+            // Check if this part has a body
+            if (part.getBody() != null && part.getBody().getData() != null) {
+                // You can handle different MIME types here, for example:
+                if (part.getMimeType().equals("text/plain")) {
+                    return new String(Base64.getUrlDecoder().decode(part.getBody().getData()));
+                } else if (part.getMimeType().equals("text/html")) {
+                    // Decode and return HTML content
+                    return new String(Base64.getUrlDecoder().decode(part.getBody().getData()));
+                } else {
+                    // Handle other MIME types or log them
+                    System.out.println("Unsupported MIME type: " + part.getMimeType());
+                }
+            }
+
+            // Recursively process nested parts
+            String body = getMessageBodyFromParts(part.getParts());
+            if (!body.isEmpty()) {
+                return body;
+            }
+        }
+
+        return ""; // No body found in this part or its subparts
     }
 }

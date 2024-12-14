@@ -34,4 +34,8 @@ public class GmailService {
     public void deleteMessagesFromSender(String userId, String senderEmail) throws IOException {
         gmailRepository.deleteMessagesFromSender(userId, senderEmail);
     }
+
+    public String getMessageBody(String userId, String messageId) throws IOException {
+        return gmailRepository.getMessageBody(userId, messageId);
+    }
 }
