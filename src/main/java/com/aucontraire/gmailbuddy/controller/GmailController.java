@@ -5,6 +5,8 @@ import com.google.api.services.gmail.model.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
@@ -31,44 +33,46 @@ public class GmailController {
     }
 
     @GetMapping("/messages")
-    public String listMessages() {
+    public ResponseEntity<List<Message>> listMessages() {
         try {
-            return gmailService.listMessages("me").toString();
+            List<Message> messages = gmailService.listMessages("me");
+            return ResponseEntity.ok(messages);
         } catch (IOException e) {
-            e.printStackTrace();
-            return "Failed to fetch messages";
+            logger.error("Failed to fetch messages", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @GetMapping("/messages/latest")
-    public String listLatestFiftyMessages() {
+    public ResponseEntity<List<Message>> listLatestFiftyMessages() {
         try {
-            return gmailService.listLatestMessages("me", 50).toString();
+            List<Message> messages = gmailService.listLatestFiftyMessages("me");
+            return ResponseEntity.ok(messages);
         } catch (IOException e) {
-            e.printStackTrace();
-            return "Failed to fetch the latest messages";
+            logger.error("Failed to fetch latest messages", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
     @GetMapping("/messages/from/{email}")
-    public String listMessagesFromSender(@PathVariable("email") String email) {
+    public ResponseEntity<List<Message>> listMessagesFromSender(@PathVariable("email") String email) {
         try {
             List<Message> messages = gmailService.listMessagesFromSender("me", email);
-            return messages != null ? messages.toString() : "No messages found";
+            return ResponseEntity.ok(messages);
         } catch (IOException e) {
-            e.printStackTrace();
-            return "Failed to fetch messages from sender: " + email;
+            logger.error("Failed to fetch messages from sender: " + email, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
 
     @DeleteMapping("/messages/from/{email}")
-    public String deleteMessagesFromSender(@PathVariable("email") String email) {
+    public ResponseEntity<Void> deleteMessagesFromSender(@PathVariable("email") String email) {
         try {
             gmailService.deleteMessagesFromSender("me", email);
-            return "Messages from " + email + " have been deleted.";
+            return ResponseEntity.noContent().build(); // 204 No Content
         } catch (IOException e) {
-            e.printStackTrace();
-            return "Failed to delete messages from sender: " + email;
+            logger.error("Failed to delete messages from sender: " + email, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

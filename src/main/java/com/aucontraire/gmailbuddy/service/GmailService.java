@@ -11,7 +11,7 @@ import java.util.List;
 @Service
 public class GmailService {
 
-    private final GmailRepository gmailRepository; // Inject the repository
+    private final GmailRepository gmailRepository;
 
     @Autowired
     public GmailService(GmailRepository gmailRepository) {
@@ -22,7 +22,8 @@ public class GmailService {
         return gmailRepository.getMessages(userId);
     }
 
-    public List<Message> listLatestMessages(String userId, long maxResults) throws IOException {
+    public List<Message> listLatestFiftyMessages(String userId) throws IOException { // New method
+        int maxResults = 50;
         return gmailRepository.getLatestMessages(userId, maxResults);
     }
 
