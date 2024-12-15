@@ -63,12 +63,12 @@ public class GmailRepositoryImpl implements GmailRepository {
     }
 
     @Override
-    public List<Message> getMessagesFromSender(String userId, String senderEmail) throws IOException {
+    public List<Message> getMessagesFromSender(String userId, String senderEmail, String query) throws IOException {
         try {
             var gmail = getGmailService();
             return gmail.users().messages()
                     .list(userId)
-                    .setQ("from:" + senderEmail)
+                    .setQ(query)
                     .execute()
                     .getMessages();
         } catch (GeneralSecurityException e) {
@@ -136,12 +136,15 @@ public class GmailRepositoryImpl implements GmailRepository {
             if (part.getBody() != null && part.getBody().getData() != null) {
                 // You can handle different MIME types here, for example:
                 if (part.getMimeType().equals("text/plain")) {
+                    logger.info("Message is in text/plain");
                     return new String(Base64.getUrlDecoder().decode(part.getBody().getData()));
                 } else if (part.getMimeType().equals("text/html")) {
                     // Decode and return HTML content
+                    logger.info("Message is in text/html");
                     return new String(Base64.getUrlDecoder().decode(part.getBody().getData()));
                 } else {
                     // Handle other MIME types or log them
+                    logger.info("Message is in other MIME type");
                     System.out.println("Unsupported MIME type: " + part.getMimeType());
                 }
             }

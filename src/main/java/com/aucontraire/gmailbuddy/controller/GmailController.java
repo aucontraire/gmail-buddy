@@ -1,6 +1,7 @@
 package com.aucontraire.gmailbuddy.controller;
 
 import com.aucontraire.gmailbuddy.service.GmailService;
+import com.google.api.services.gmail.model.FilterCriteria;
 import com.google.api.services.gmail.model.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,10 +55,14 @@ public class GmailController {
         }
     }
 
-    @GetMapping("/messages/from/{email}")
-    public ResponseEntity<List<Message>> listMessagesFromSender(@PathVariable("email") String email) {
+    @PostMapping("/messages/from/{email}")
+    public ResponseEntity<List<Message>> listMessagesFromSender(
+            @PathVariable("email") String email,
+            @RequestBody FilterCriteria filterCriteria) {
+        logger.info("Received FilterCriteria: {}", filterCriteria); // Log the object
+
         try {
-            List<Message> messages = gmailService.listMessagesFromSender("me", email);
+            List<Message> messages = gmailService.listMessagesFromSender("me", email, filterCriteria);
             return ResponseEntity.ok(messages);
         } catch (IOException e) {
             logger.error("Failed to fetch messages from sender: " + email, e);
