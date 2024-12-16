@@ -1,6 +1,7 @@
 package com.aucontraire.gmailbuddy.controller;
 
 import com.aucontraire.gmailbuddy.service.GmailService;
+import com.aucontraire.gmailbuddy.service.LabelModificationRequest;
 import com.google.api.services.gmail.model.FilterCriteria;
 import com.google.api.services.gmail.model.Message;
 import org.slf4j.Logger;
@@ -77,6 +78,20 @@ public class GmailController {
             return ResponseEntity.noContent().build(); // 204 No Content
         } catch (IOException e) {
             logger.error("Failed to delete messages from sender: " + email, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PostMapping("/messages/from/{email}/modifyLabels")
+    public ResponseEntity<Void> modifyMessagesLabels(
+            @PathVariable String email,
+            @RequestBody LabelModificationRequest request
+    ) {
+        try {
+            gmailService.modifyMessagesLabels("me", email, request.getLabelsToAdd(), request.getLabelsToRemove());
+            return ResponseEntity.noContent().build();
+        } catch (IOException e) {
+            logger.error("Failed to modify labels for email: " + email, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

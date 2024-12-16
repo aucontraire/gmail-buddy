@@ -2,8 +2,7 @@ package com.aucontraire.gmailbuddy.repository;
 
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.google.api.services.gmail.Gmail;
-import com.google.api.services.gmail.model.Message;
-import com.google.api.services.gmail.model.MessagePart;
+import com.google.api.services.gmail.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,8 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.util.Base64;
-import java.util.List;
+import java.util.*;
 
 @Component
 public class GmailRepositoryImpl implements GmailRepository {
@@ -113,7 +111,56 @@ public class GmailRepositoryImpl implements GmailRepository {
         }
     }
 
-    // GmailRepositoryImpl.java
+    @Override
+    public Map<String, String> getLabels(String userId) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+            ListLabelsResponse response = gmail.users().labels().list(userId).execute();
+
+            Map<String, String> labels = new HashMap<>();
+            for (Label label : response.getLabels()) {
+                labels.put(label.getName().toUpperCase(), label.getId());
+            }
+            return labels;
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    private static List<String> getLabelIdList(Map<String, String> labelsMap, List<String> labelNameList) {
+        List<String> labelIdList = new ArrayList<>();
+        for (String labelName : labelNameList) {
+            if (labelsMap.containsKey(labelName.toUpperCase())) {
+                labelIdList.add(labelsMap.get(labelName.toUpperCase()));
+            }
+        }
+        return labelIdList;
+    }
+
+    @Override
+    public void modifyMessagesLabels(String userId, String senderEmail, List<String> labelsToAdd, List<String> labelsToRemove, String query) throws IOException {
+        try {
+            var gmail = getGmailService();
+
+            Map<String, String> labelsMap = getLabels(userId);
+            List<String> labelIdsToAdd = getLabelIdList(labelsMap, labelsToAdd);
+            List<String> labelIdsToRemove = getLabelIdList(labelsMap, labelsToRemove);
+
+            ModifyMessageRequest mods = new ModifyMessageRequest().setAddLabelIds(labelIdsToAdd).setRemoveLabelIds(labelIdsToRemove);
+
+            List<Message> messages = gmail.users().messages()
+                    .list(userId)
+                    .setQ(query)
+                    .execute()
+                    .getMessages();
+            for (var message : messages) {
+                gmail.users().messages().modify(userId, message.getId(), mods).execute();
+            }
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
     @Override
     public String getMessageBody(String userId, String messageId) throws IOException {
         try {

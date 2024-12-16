@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -34,6 +35,18 @@ public class GmailService {
         return query;
     }
 
+    public String buildQuery(String senderEmail, List<String> labelsToRemove) {
+        String queryString = String.join(" AND ", labelsToRemove.stream()
+                .map(label -> "label:" + label)
+                .toList());
+
+        String query = new GmailQueryBuilder()
+                .from(senderEmail)
+                .query(queryString)
+                .build();
+        return query;
+    }
+
     public List<Message> listMessages(String userId) throws IOException {
         return gmailRepository.getMessages(userId);
     }
@@ -51,6 +64,11 @@ public class GmailService {
     public void deleteMessagesFromSender(String userId, String senderEmail, FilterCriteria filterCriteria) throws IOException {
         String query = buildQuery(senderEmail, filterCriteria);
         gmailRepository.deleteMessagesFromSender(userId, senderEmail, query);
+    }
+
+    public void modifyMessagesLabels(String userId, String senderEmail, List<String> labelsToAdd, List<String> labelsToRemove) throws IOException {
+        String query = buildQuery(senderEmail, labelsToRemove );
+        gmailRepository.modifyMessagesLabels(userId, senderEmail, labelsToAdd, labelsToRemove, query);
     }
 
     public String getMessageBody(String userId, String messageId) throws IOException {
