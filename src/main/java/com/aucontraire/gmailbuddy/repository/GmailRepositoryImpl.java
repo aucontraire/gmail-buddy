@@ -77,14 +77,14 @@ public class GmailRepositoryImpl implements GmailRepository {
     }
 
     @Override
-    public void deleteMessagesFromSender(String userId, String senderEmail) throws IOException {
+    public void deleteMessagesFromSender(String userId, String senderEmail, String query) throws IOException {
         try {
             var gmail = getGmailService();
 
             // 1. Find all messages from the given sender
             var messages = gmail.users().messages()
                     .list(userId)
-                    .setQ("from:" + senderEmail)
+                    .setQ(query)
                     .setMaxResults(500L) // Optional: limit for batch operations
                     .execute()
                     .getMessages();

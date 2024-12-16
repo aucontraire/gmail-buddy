@@ -22,6 +22,18 @@ public class GmailService {
         this.gmailRepository = gmailRepository;
     }
 
+    public String buildQuery(String senderEmail, FilterCriteria filterCriteria) {
+        String query = new GmailQueryBuilder()
+                .from(senderEmail)
+                .to(filterCriteria.getTo())
+                .subject(filterCriteria.getSubject())
+                .hasAttachment(filterCriteria.getHasAttachment())
+                .query(filterCriteria.getQuery())
+                .negatedQuery(filterCriteria.getNegatedQuery())
+                .build();
+        return query;
+    }
+
     public List<Message> listMessages(String userId) throws IOException {
         return gmailRepository.getMessages(userId);
     }
@@ -32,20 +44,13 @@ public class GmailService {
     }
 
     public List<Message> listMessagesFromSender(String userId, String senderEmail, FilterCriteria filterCriteria) throws IOException {
-        String query = new GmailQueryBuilder()
-                .from(senderEmail)
-                .to(filterCriteria.getTo())
-                .subject(filterCriteria.getSubject())
-                .hasAttachment(filterCriteria.getHasAttachment())
-                .query(filterCriteria.getQuery())
-                .negatedQuery(filterCriteria.getNegatedQuery())
-                .build();
-        logger.info(String.format("Query: %s", query));
+        String query = buildQuery(senderEmail, filterCriteria);
         return gmailRepository.getMessagesFromSender(userId, senderEmail, query);
     }
 
-    public void deleteMessagesFromSender(String userId, String senderEmail) throws IOException {
-        gmailRepository.deleteMessagesFromSender(userId, senderEmail);
+    public void deleteMessagesFromSender(String userId, String senderEmail, FilterCriteria filterCriteria) throws IOException {
+        String query = buildQuery(senderEmail, filterCriteria);
+        gmailRepository.deleteMessagesFromSender(userId, senderEmail, query);
     }
 
     public String getMessageBody(String userId, String messageId) throws IOException {

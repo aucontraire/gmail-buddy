@@ -59,8 +59,6 @@ public class GmailController {
     public ResponseEntity<List<Message>> listMessagesFromSender(
             @PathVariable("email") String email,
             @RequestBody FilterCriteria filterCriteria) {
-        logger.info("Received FilterCriteria: {}", filterCriteria); // Log the object
-
         try {
             List<Message> messages = gmailService.listMessagesFromSender("me", email, filterCriteria);
             return ResponseEntity.ok(messages);
@@ -71,9 +69,11 @@ public class GmailController {
     }
 
     @DeleteMapping("/messages/from/{email}")
-    public ResponseEntity<Void> deleteMessagesFromSender(@PathVariable("email") String email) {
+    public ResponseEntity<Void> deleteMessagesFromSender(
+            @PathVariable("email") String email,
+            @RequestBody FilterCriteria filterCriteria) {
         try {
-            gmailService.deleteMessagesFromSender("me", email);
+            gmailService.deleteMessagesFromSender("me", email, filterCriteria);
             return ResponseEntity.noContent().build(); // 204 No Content
         } catch (IOException e) {
             logger.error("Failed to delete messages from sender: " + email, e);
