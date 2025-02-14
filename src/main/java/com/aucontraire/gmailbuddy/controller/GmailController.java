@@ -1,5 +1,7 @@
 package com.aucontraire.gmailbuddy.controller;
 
+import com.aucontraire.gmailbuddy.exception.GmailServiceException;
+import com.aucontraire.gmailbuddy.exception.MessageNotFoundException;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.LabelModificationRequest;
 import com.google.api.services.gmail.model.FilterCriteria;
@@ -16,7 +18,6 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -26,7 +27,6 @@ public class GmailController {
     private final GmailService gmailService;
     private OAuth2AuthorizedClientService authorizedClientService;
     private final Logger logger = LoggerFactory.getLogger(GmailController.class);
-
 
     @Autowired
     public GmailController(GmailService gmailService, OAuth2AuthorizedClientService authorizedClientService) {
@@ -39,7 +39,7 @@ public class GmailController {
         try {
             List<Message> messages = gmailService.listMessages("me");
             return ResponseEntity.ok(messages);
-        } catch (IOException e) {
+        } catch (GmailServiceException e) {
             logger.error("Failed to fetch messages", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
@@ -50,7 +50,7 @@ public class GmailController {
         try {
             List<Message> messages = gmailService.listLatestFiftyMessages("me");
             return ResponseEntity.ok(messages);
-        } catch (IOException e) {
+        } catch (GmailServiceException e) {
             logger.error("Failed to fetch latest messages", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
@@ -63,7 +63,7 @@ public class GmailController {
         try {
             List<Message> messages = gmailService.listMessagesFromSender("me", email, filterCriteria);
             return ResponseEntity.ok(messages);
-        } catch (IOException e) {
+        } catch (GmailServiceException e) {
             logger.error("Failed to fetch messages from sender: " + email, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
@@ -76,7 +76,7 @@ public class GmailController {
         try {
             gmailService.deleteMessagesFromSender("me", email, filterCriteria);
             return ResponseEntity.noContent().build(); // 204 No Content
-        } catch (IOException e) {
+        } catch (GmailServiceException e) {
             logger.error("Failed to delete messages from sender: " + email, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
@@ -90,7 +90,7 @@ public class GmailController {
         try {
             gmailService.modifyMessagesLabels("me", email, request.getLabelsToAdd(), request.getLabelsToRemove());
             return ResponseEntity.noContent().build();
-        } catch (IOException e) {
+        } catch (GmailServiceException e) {
             logger.error("Failed to modify labels for email: " + email, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
@@ -101,7 +101,10 @@ public class GmailController {
         try {
             String messageBody = gmailService.getMessageBody("me", messageId);
             return ResponseEntity.ok(messageBody);
-        } catch (IOException e) {
+        } catch (MessageNotFoundException e) {
+            logger.error("Message not found for messageId: " + messageId, e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (GmailServiceException e) {
             logger.error("Failed to get message body for messageId: " + messageId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
