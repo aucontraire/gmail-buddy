@@ -32,6 +32,12 @@ public class GmailRepositoryImpl implements GmailRepository {
     private Gmail getGmailService() throws IOException, GeneralSecurityException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient("google", authentication.getName());
+
+        if (client == null) {
+            logger.error("OAuth2AuthorizedClient is null for clientRegistrationId: google, principalName: {}", authentication.getName());
+            throw new IllegalStateException("OAuth2AuthorizedClient is null");
+        }
+
         String accessToken = client.getAccessToken().getTokenValue();
         return gmailClient.createGmailService(accessToken);
     }
