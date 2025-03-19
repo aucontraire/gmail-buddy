@@ -1,62 +1,59 @@
 package com.aucontraire.gmailbuddy.service;
 
+import org.springframework.stereotype.Component;
+
+@Component
 public class GmailQueryBuilder {
-    private StringBuilder query;
 
-    public GmailQueryBuilder() {
-        query = new StringBuilder();
-    }
-
-    public GmailQueryBuilder from(String sender) {
-        if (sender != null && !sender.isEmpty()) {
-            append("from:" + sender);
+    public String from(String senderEmail) {
+        if (senderEmail == null || senderEmail.isBlank()) {
+            return "";
         }
-        return this;
+        return "from:" + senderEmail + " ";
     }
 
-    public GmailQueryBuilder to(String recipient) {
-        if (recipient != null && !recipient.isEmpty()) {
-            append("to:" + recipient);
+    public String to(String recipientEmail) {
+        if (recipientEmail == null || recipientEmail.isBlank()) {
+            return "";
         }
-        return this;
+        return "to:" + recipientEmail + " ";
     }
 
-    public GmailQueryBuilder subject(String subject) {
-        if (subject != null && !subject.isEmpty()) {
-            append("subject:" + subject);
+    public String subject(String subject) {
+        if (subject == null || subject.isBlank()) {
+            return "";
         }
-        return this;
+        return "subject:" + subject + " ";
     }
 
-    public GmailQueryBuilder hasAttachment(boolean hasAttachment) {
-        if (hasAttachment) {
-            append("has:attachment");
+    public String hasAttachment(Boolean hasAttachment) {
+        if (hasAttachment == null) {
+            return "";
         }
-        return this;
+        return "has:attachment ";
     }
 
-    public GmailQueryBuilder query(String query) {
-        if (query != null && !query.isEmpty()) {
-            append(query);
+    public String query(String additionalQuery) {
+        if (additionalQuery == null || additionalQuery.isBlank()) {
+            return "";
         }
-        return this;
+        return additionalQuery + " ";
     }
 
-    public GmailQueryBuilder negatedQuery(String negatedQuery) {
-        if (negatedQuery != null && !negatedQuery.isEmpty()) {
-            append(negatedQuery);
+    public String negatedQuery(String negatedQuery) {
+        if (negatedQuery == null || negatedQuery.isBlank()) {
+            return "";
         }
-        return this;
+        return "-" + negatedQuery + " ";
     }
 
-    private void append(String clause) {
-        if (query.length() > 0) {
-            query.append(" AND ");
+    public String build(String... queryParts) {
+        StringBuilder queryBuilder = new StringBuilder();
+        for (String part : queryParts) {
+            if (part != null) {
+                queryBuilder.append(part.trim()).append(" ");
+            }
         }
-        query.append(clause);
-    }
-
-    public String build() {
-        return query.toString();
+        return queryBuilder.toString().trim();
     }
 }

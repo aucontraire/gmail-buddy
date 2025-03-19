@@ -18,35 +18,36 @@ import java.util.List;
 public class GmailService {
 
     private final GmailRepository gmailRepository;
+    private final GmailQueryBuilder gmailQueryBuilder;
     private final Logger logger = LoggerFactory.getLogger(GmailService.class);
 
     @Autowired
-    public GmailService(GmailRepository gmailRepository) {
+    public GmailService(GmailRepository gmailRepository, GmailQueryBuilder gmailQueryBuilder) {
         this.gmailRepository = gmailRepository;
+        this.gmailQueryBuilder = gmailQueryBuilder;
     }
 
     public String buildQuery(String senderEmail, FilterCriteria filterCriteria) {
-        String query = new GmailQueryBuilder()
-                .from(senderEmail)
-                .to(filterCriteria.getTo())
-                .subject(filterCriteria.getSubject())
-                .hasAttachment(filterCriteria.getHasAttachment())
-                .query(filterCriteria.getQuery())
-                .negatedQuery(filterCriteria.getNegatedQuery())
-                .build();
-        return query;
+        String from = gmailQueryBuilder.from(senderEmail);
+        String to = gmailQueryBuilder.to(filterCriteria.getTo());
+        String subject = gmailQueryBuilder.subject(filterCriteria.getSubject());
+        String hasAttachment = gmailQueryBuilder.hasAttachment(filterCriteria.getHasAttachment());
+        String additionalQuery = gmailQueryBuilder.query(filterCriteria.getQuery());
+        String negatedQuery = gmailQueryBuilder.negatedQuery(filterCriteria.getNegatedQuery());
+
+        return gmailQueryBuilder.build(from, to, subject, hasAttachment, additionalQuery, negatedQuery);
     }
 
     public String buildQuery(String senderEmail, List<String> labelsToRemove) {
-        String queryString = String.join(" AND ", labelsToRemove.stream()
+        // Build query for labels to remove
+        String labelsQuery = String.join(" AND ", labelsToRemove.stream()
                 .map(label -> "label:" + label)
                 .toList());
 
-        String query = new GmailQueryBuilder()
-                .from(senderEmail)
-                .query(queryString)
-                .build();
-        return query;
+        String from = gmailQueryBuilder.from(senderEmail);
+        String query = gmailQueryBuilder.query(labelsQuery);
+
+        return gmailQueryBuilder.build(from, query);
     }
 
     public List<Message> listMessages(String userId) throws GmailServiceException {
