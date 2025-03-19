@@ -90,17 +90,36 @@ class GmailServiceTest {
         String senderEmail = "test@example.com";
         FilterCriteria filterCriteria = mock(FilterCriteria.class);
 
-        String query = "from:test@example.com label:Inbox";
-        when(gmailQueryBuilder.from(senderEmail)).thenReturn("from:test@example.com ");
-        when(gmailQueryBuilder.build(anyString(), anyString(), anyString(), anyString(), anyString(), anyString())).thenReturn(query);
+        // Mock FilterCriteria behavior
+        when(filterCriteria.getTo()).thenReturn(null);
+        when(filterCriteria.getSubject()).thenReturn(null);
+        when(filterCriteria.getHasAttachment()).thenReturn(false); // Explicitly return false for test
+        when(filterCriteria.getQuery()).thenReturn("label:Inbox");
+        when(filterCriteria.getNegatedQuery()).thenReturn(null);
+
+        // Mock GmailQueryBuilder behavior
+        when(gmailQueryBuilder.from(senderEmail)).thenReturn("from:test@example.com");
+        when(gmailQueryBuilder.to(null)).thenReturn("");
+        when(gmailQueryBuilder.subject(null)).thenReturn("");
+        when(gmailQueryBuilder.hasAttachment(false)).thenReturn(""); // Mock for false flag
+        when(gmailQueryBuilder.query("label:Inbox")).thenReturn("label:Inbox");
+        when(gmailQueryBuilder.negatedQuery(null)).thenReturn("");
+        when(gmailQueryBuilder.build("from:test@example.com", "", "", "", "label:Inbox", ""))
+                .thenReturn("from:test@example.com label:Inbox");
 
         // Act
         gmailService.deleteMessagesFromSender(userId, senderEmail, filterCriteria);
 
         // Assert
-        verify(gmailRepository).deleteMessagesFromSender(eq(userId), eq(senderEmail), eq(query));
+        verify(gmailQueryBuilder).from(senderEmail);
+        verify(gmailQueryBuilder).to(null);
+        verify(gmailQueryBuilder).subject(null);
+        verify(gmailQueryBuilder).hasAttachment(false); // Ensure the interaction happens
+        verify(gmailQueryBuilder).query("label:Inbox");
+        verify(gmailQueryBuilder).negatedQuery(null);
+        verify(gmailQueryBuilder).build("from:test@example.com", "", "", "", "label:Inbox", "");
+        verify(gmailRepository).deleteMessagesFromSender(eq(userId), eq(senderEmail), eq("from:test@example.com label:Inbox"));
     }
-
     @Test
     void testModifyMessagesLabels() throws IOException, GmailServiceException {
         // Arrange

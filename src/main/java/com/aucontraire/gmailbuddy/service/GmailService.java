@@ -30,7 +30,12 @@ public class GmailService {
         String from = gmailQueryBuilder.from(senderEmail);
         String to = gmailQueryBuilder.to(filterCriteria.getTo());
         String subject = gmailQueryBuilder.subject(filterCriteria.getSubject());
-        String hasAttachment = filterCriteria.getHasAttachment() != null && filterCriteria.getHasAttachment() ? gmailQueryBuilder.hasAttachment(true) : ""; // Include has:attachment only if true
+
+        // Always call gmailQueryBuilder.hasAttachment(...)
+        String hasAttachment = filterCriteria.getHasAttachment() != null
+                ? gmailQueryBuilder.hasAttachment(filterCriteria.getHasAttachment())
+                : "";
+
         String additionalQuery = gmailQueryBuilder.query(filterCriteria.getQuery());
         String negatedQuery = gmailQueryBuilder.negatedQuery(filterCriteria.getNegatedQuery());
 
@@ -85,15 +90,16 @@ public class GmailService {
     }
 
     public void deleteMessagesFromSender(String userId, String senderEmail, FilterCriteria filterCriteria) throws GmailServiceException {
-        String query = buildQuery(senderEmail, filterCriteria);
         try {
+            // Build the query using the senderEmail and FilterCriteria
+            String query = buildQuery(senderEmail, filterCriteria);
+
+            // Use the constructed query to delete messages
             gmailRepository.deleteMessagesFromSender(userId, senderEmail, query);
-            logger.info("Deleted messages from sender: {} for user: {}. Query: {}", senderEmail, userId, query);
         } catch (IOException e) {
-            logger.error("Failed to delete messages from sender: {} for user: {}. Query: {}", senderEmail, userId, query, e);
+            logger.error("Failed to delete messages from sender: {} for user: {}. Query: {}", senderEmail, userId, null, e);
             throw new GmailServiceException(
-                    String.format("Failed to delete messages from sender: %s for user: %s. Query: %s", senderEmail, userId, query),
-                    e
+                    String.format("Failed to delete messages for sender: %s for user: %s. Query: %s", senderEmail, userId, null), e
             );
         }
     }
