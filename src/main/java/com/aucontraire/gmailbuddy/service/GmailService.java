@@ -38,15 +38,18 @@ public class GmailService {
     }
 
     public String buildQuery(String senderEmail, List<String> labelsToRemove) {
-        // Build query for labels to remove
-        String labelsQuery = String.join(" AND ", labelsToRemove.stream()
-                .map(label -> "label:" + label)
-                .toList());
+        // Use gmailQueryBuilder to build the labelsQuery
+        String labelsQuery = (labelsToRemove == null || labelsToRemove.isEmpty())
+                ? ""
+                : labelsToRemove.stream()
+                .map(label -> gmailQueryBuilder.query("label:" + label)) // Use query() for each label
+                .reduce((a, b) -> a + " AND " + b)  // Combine labels with AND
+                .orElse("");
 
-        String from = gmailQueryBuilder.from(senderEmail);
-        String query = gmailQueryBuilder.query(labelsQuery);
+        String from = gmailQueryBuilder.from(senderEmail);  // Generate "from" filter part
 
-        return gmailQueryBuilder.build(from, query);
+        // Return a full query combining both "from" and labels
+        return gmailQueryBuilder.build(from, labelsQuery);
     }
 
     public List<Message> listMessages(String userId) throws GmailServiceException {
@@ -96,14 +99,18 @@ public class GmailService {
     }
 
     public void modifyMessagesLabels(String userId, String senderEmail, List<String> labelsToAdd, List<String> labelsToRemove) throws GmailServiceException {
+        // The query must be built correctly
         String query = buildQuery(senderEmail, labelsToRemove);
+
         try {
+            // Pass the correctly built query to gmailRepository
             gmailRepository.modifyMessagesLabels(userId, senderEmail, labelsToAdd, labelsToRemove, query);
-            logger.info("Modified labels for messages from sender: {} for user: {}. LabelsToAdd: {}, LabelsToRemove: {}. Query: {}", senderEmail, userId, labelsToAdd, labelsToRemove, query);
         } catch (IOException e) {
             logger.error("Failed to modify labels for messages from sender: {} for user: {}. Query: {}", senderEmail, userId, query, e);
             throw new GmailServiceException(
-                    String.format("Failed to modify labels for messages from sender: %s for user: %s. LabelsToAdd: %s, LabelsToRemove: %s. Query: %s", senderEmail, userId, labelsToAdd, labelsToRemove, query),
+                    String.format("Failed to modify labels for messages from sender: %s for user: %s. LabelsToAdd: %s, LabelsToRemove: %s. Query: %s",
+                            senderEmail, userId, labelsToAdd, labelsToRemove, query
+                    ),
                     e
             );
         }
