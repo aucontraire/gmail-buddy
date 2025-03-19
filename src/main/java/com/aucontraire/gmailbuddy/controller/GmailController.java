@@ -46,9 +46,9 @@ public class GmailController {
     }
 
     @GetMapping("/messages/latest")
-    public ResponseEntity<List<Message>> listLatestFiftyMessages() {
+    public ResponseEntity<List<Message>> listLatestMessages() {
         try {
-            List<Message> messages = gmailService.listLatestFiftyMessages("me");
+            List<Message> messages = gmailService.listLatestMessages("me", 50);
             return ResponseEntity.ok(messages);
         } catch (GmailServiceException e) {
             logger.error("Failed to fetch latest messages", e);

@@ -39,27 +39,37 @@ class GmailServiceTest {
         String senderEmail = "test@example.com";
         FilterCriteria filterCriteria = mock(FilterCriteria.class);
 
+        // Mock the behavior of FilterCriteria
+        when(filterCriteria.getTo()).thenReturn(null);
+        when(filterCriteria.getSubject()).thenReturn(null);
+        when(filterCriteria.getHasAttachment()).thenReturn(false); // Simulates no attachment filtering
+        when(filterCriteria.getQuery()).thenReturn("some-query");
+        when(filterCriteria.getNegatedQuery()).thenReturn("-query-to-exclude");
+
         // Mock the behavior of the `gmailQueryBuilder`
         when(gmailQueryBuilder.from(senderEmail)).thenReturn("from:test@example.com ");
         when(gmailQueryBuilder.to(filterCriteria.getTo())).thenReturn("to:recipient@example.com ");
         when(gmailQueryBuilder.subject(filterCriteria.getSubject())).thenReturn("subject:Test Subject ");
-        when(gmailQueryBuilder.hasAttachment(filterCriteria.getHasAttachment())).thenReturn("has:attachment ");
         when(gmailQueryBuilder.query(filterCriteria.getQuery())).thenReturn("query:some-query ");
         when(gmailQueryBuilder.negatedQuery(filterCriteria.getNegatedQuery())).thenReturn("-query-to-exclude ");
         when(gmailQueryBuilder.build(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
-                .thenReturn("from:test@example.com to:recipient@example.com subject:Test Subject has:attachment query:some-query -query-to-exclude");
+                .thenReturn("from:test@example.com to:recipient@example.com subject:Test Subject query:some-query -query-to-exclude");
 
         // Act
         String result = gmailService.buildQuery(senderEmail, filterCriteria);
 
         // Assert
-        assertEquals("from:test@example.com to:recipient@example.com subject:Test Subject has:attachment query:some-query -query-to-exclude", result);
+        assertEquals(
+                "from:test@example.com to:recipient@example.com subject:Test Subject query:some-query -query-to-exclude",
+                result
+        );
 
         // Verify that each method on the builder was called appropriately
         verify(gmailQueryBuilder).from(eq(senderEmail));
         verify(gmailQueryBuilder).to(eq(filterCriteria.getTo()));
         verify(gmailQueryBuilder).subject(eq(filterCriteria.getSubject()));
-        verify(gmailQueryBuilder).hasAttachment(eq(filterCriteria.getHasAttachment()));
+        // Don't verify hasAttachment if the value is false
+        verify(gmailQueryBuilder, never()).hasAttachment(anyBoolean());
         verify(gmailQueryBuilder).query(eq(filterCriteria.getQuery()));
         verify(gmailQueryBuilder).negatedQuery(eq(filterCriteria.getNegatedQuery()));
         verify(gmailQueryBuilder).build(anyString(), anyString(), anyString(), anyString(), anyString(), anyString());

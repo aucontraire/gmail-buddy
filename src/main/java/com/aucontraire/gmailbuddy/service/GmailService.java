@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -31,7 +30,7 @@ public class GmailService {
         String from = gmailQueryBuilder.from(senderEmail);
         String to = gmailQueryBuilder.to(filterCriteria.getTo());
         String subject = gmailQueryBuilder.subject(filterCriteria.getSubject());
-        String hasAttachment = gmailQueryBuilder.hasAttachment(filterCriteria.getHasAttachment());
+        String hasAttachment = filterCriteria.getHasAttachment() != null && filterCriteria.getHasAttachment() ? gmailQueryBuilder.hasAttachment(true) : ""; // Include has:attachment only if true
         String additionalQuery = gmailQueryBuilder.query(filterCriteria.getQuery());
         String negatedQuery = gmailQueryBuilder.negatedQuery(filterCriteria.getNegatedQuery());
 
@@ -55,27 +54,30 @@ public class GmailService {
             return gmailRepository.getMessages(userId);
         } catch (IOException e) {
             logger.error("Failed to list messages for user: {}", userId, e);
-            throw new GmailServiceException("Failed to list messages", e);
+            throw new GmailServiceException("Failed to list messages for user: " + userId, e);
         }
     }
 
-    public List<Message> listLatestFiftyMessages(String userId) throws GmailServiceException {
-        int maxResults = 50;
+    public List<Message> listLatestMessages(String userId, int maxResults) throws GmailServiceException {
         try {
             return gmailRepository.getLatestMessages(userId, maxResults);
         } catch (IOException e) {
-            logger.error("Failed to list latest fifty messages for user: {}", userId, e);
-            throw new GmailServiceException("Failed to list latest fifty messages", e);
+            logger.error("Failed to list latest {} messages for user: {}", maxResults, userId, e);
+            throw new GmailServiceException(String.format("Failed to list latest %d messages for user: %s", maxResults, userId), e);
         }
     }
 
     public List<Message> listMessagesFromSender(String userId, String senderEmail, FilterCriteria filterCriteria) throws GmailServiceException {
         String query = buildQuery(senderEmail, filterCriteria);
         try {
+            logger.info("Generated Gmail query: {}", query);
             return gmailRepository.getMessagesFromSender(userId, senderEmail, query);
         } catch (IOException e) {
-            logger.error("Failed to list messages from sender: {} for user: {}", senderEmail, userId, e);
-            throw new GmailServiceException("Failed to list messages from sender", e);
+            logger.error("Failed to list messages from sender: {} for user: {}. Query: {}", senderEmail, userId, query, e);
+            throw new GmailServiceException(
+                    String.format("Failed to list messages from sender: %s for user: %s. Query: %s", senderEmail, userId, query),
+                    e
+            );
         }
     }
 
@@ -83,9 +85,13 @@ public class GmailService {
         String query = buildQuery(senderEmail, filterCriteria);
         try {
             gmailRepository.deleteMessagesFromSender(userId, senderEmail, query);
+            logger.info("Deleted messages from sender: {} for user: {}. Query: {}", senderEmail, userId, query);
         } catch (IOException e) {
-            logger.error("Failed to delete messages from sender: {} for user: {}", senderEmail, userId, e);
-            throw new GmailServiceException("Failed to delete messages from sender", e);
+            logger.error("Failed to delete messages from sender: {} for user: {}. Query: {}", senderEmail, userId, query, e);
+            throw new GmailServiceException(
+                    String.format("Failed to delete messages from sender: %s for user: %s. Query: %s", senderEmail, userId, query),
+                    e
+            );
         }
     }
 
@@ -93,9 +99,13 @@ public class GmailService {
         String query = buildQuery(senderEmail, labelsToRemove);
         try {
             gmailRepository.modifyMessagesLabels(userId, senderEmail, labelsToAdd, labelsToRemove, query);
+            logger.info("Modified labels for messages from sender: {} for user: {}. LabelsToAdd: {}, LabelsToRemove: {}. Query: {}", senderEmail, userId, labelsToAdd, labelsToRemove, query);
         } catch (IOException e) {
-            logger.error("Failed to modify labels for messages from sender: {} for user: {}", senderEmail, userId, e);
-            throw new GmailServiceException("Failed to modify labels for messages", e);
+            logger.error("Failed to modify labels for messages from sender: {} for user: {}. Query: {}", senderEmail, userId, query, e);
+            throw new GmailServiceException(
+                    String.format("Failed to modify labels for messages from sender: %s for user: %s. LabelsToAdd: %s, LabelsToRemove: %s. Query: %s", senderEmail, userId, labelsToAdd, labelsToRemove, query),
+                    e
+            );
         }
     }
 
@@ -103,8 +113,11 @@ public class GmailService {
         try {
             return gmailRepository.getMessageBody(userId, messageId);
         } catch (IOException e) {
-            logger.error("Failed to get message body for message: {} for user: {}", messageId, userId, e);
-            throw new MessageNotFoundException("Failed to get message body", e);
+            logger.error("Failed to get message body for messageId: {} for user: {}", messageId, userId, e);
+            throw new GmailServiceException(
+                    String.format("Failed to get message body for messageId: %s for user: %s", messageId, userId),
+                    e
+            );
         }
     }
 }
