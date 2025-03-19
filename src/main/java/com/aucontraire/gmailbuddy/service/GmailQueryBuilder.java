@@ -27,7 +27,7 @@ public class GmailQueryBuilder {
     }
 
     public String hasAttachment(Boolean hasAttachment) {
-        if (hasAttachment == null) {
+        if (hasAttachment == null || !hasAttachment) {
             return "";
         }
         return "has:attachment ";
@@ -44,13 +44,13 @@ public class GmailQueryBuilder {
         if (negatedQuery == null || negatedQuery.isBlank()) {
             return "";
         }
-        return "-" + negatedQuery + " ";
+        return negatedQuery + " ";
     }
 
     public String build(String... queryParts) {
         StringBuilder queryBuilder = new StringBuilder();
         for (String part : queryParts) {
-            if (part != null) {
+            if (part != null && !part.isBlank()) {
                 queryBuilder.append(part.trim()).append(" ");
             }
         }
