@@ -74,6 +74,18 @@ public class GmailController {
         }
     }
 
+    @DeleteMapping(value = "/messages/{messageId}",
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> deleteMessage(@PathVariable String messageId) {
+        try {
+            gmailService.deleteMessage("me", messageId);
+            return ResponseEntity.noContent().build();
+        } catch (GmailServiceException e) {
+            logger.error("Failed to delete message with id: {}", messageId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
     @DeleteMapping(value = "/messages/from/{email}",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)

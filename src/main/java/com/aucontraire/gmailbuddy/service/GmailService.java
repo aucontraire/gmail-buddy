@@ -92,6 +92,17 @@ public class GmailService {
         }
     }
 
+    public void deleteMessage(String userId, String messageId) throws GmailServiceException {
+        try {
+            gmailRepository.deleteMessage(userId, messageId);
+        } catch (IOException e) {
+            logger.error("Failed to delete message for messageId: {} for user: {}", messageId, userId, e);
+            throw new GmailServiceException(
+                    String.format("Failed to delete message for messageId: %s for user: %s", messageId, userId), e
+            );
+        }
+    }
+
     public void deleteMessagesFromSender(String userId, String senderEmail, FilterCriteriaDTO filterCriteriaDTO) throws GmailServiceException {
         try {
             FilterCriteria criteria = filterCriteriaMapper.toFilterCriteria(filterCriteriaDTO);

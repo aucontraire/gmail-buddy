@@ -81,6 +81,18 @@ public class GmailRepositoryImpl implements GmailRepository {
     }
 
     @Override
+    public void deleteMessage(String userId, String messageId) throws IOException {
+        try {
+            var gmail = getGmailService();
+            // Move message to trash and then delete permanently
+            gmail.users().messages().trash(userId, messageId).execute();
+            gmail.users().messages().delete(userId, messageId).execute();
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    @Override
     public void deleteMessagesFromSender(String userId, String senderEmail, String query) throws IOException {
         try {
             var gmail = getGmailService();
