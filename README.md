@@ -113,14 +113,15 @@ Welcome to your dashboard!
 
 All routes require you to be authenticated via Google OAuth2. The primary endpoints:
 
-| HTTP Method | Path                                  | Description                                                                                                     |
-|-------------|---------------------------------------|-----------------------------------------------------------------------------------------------------------------|
-| **GET**     | `/dashboard`                          | A simple test route that shows "Welcome to your dashboard!" once authenticated.                                 |
-| **GET**     | `/api/v1/gmail/messages`              | Lists **all** Gmail messages for the authenticated user.                                                        |
-| **GET**     | `/api/v1/gmail/messages/latest`       | Lists the **latest 50** Gmail messages for the authenticated user.                                              |
-| **GET**     | `/api/v1/gmail/messages/from/{email}` | Lists all messages from a **specific sender** (e.g. `@airbnb.com`).                                             |
-| **DELETE**  | `/api/v1/gmail/messages/from/{email}` | Deletes all messages from a specific sender (moves them to trash, then permanently deletes).                    |
-| **GET**     | `/api/v1/gmail/debug/token`           | (Development-only) Debug endpoint to return your current OAuth access token. **Do not use in production.**      |
+| HTTP Method  | Path                                       | Description                                                                                                |
+|--------------|--------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| **GET**      | `/dashboard`                               | A simple test route that shows "Welcome to your dashboard!" once authenticated.                            |
+| **GET**      | `/api/v1/gmail/messages`                   | Lists **all** Gmail messages for the authenticated user.                                                   |
+| **GET**      | `/api/v1/gmail/messages/latest`            | Lists the **latest 50** Gmail messages for the authenticated user.                                         |
+| **GET**      | `/api/v1/gmail/messages/from/{email}`      | Lists all messages from a **specific sender** (e.g. `@airbnb.com`).                                        |
+| **DELETE**   | `/api/v1/gmail/messages/from/{email}`      | Deletes all messages from a specific sender (moves them to trash, then permanently deletes).               |
+| **PUT**      | `/api/vi/gmail/messages/{message_id}/read` | Marks message as read                                                                                      |
+| **GET**      | `/api/v1/gmail/debug/token`                | (Development-only) Debug endpoint to return your current OAuth access token. **Do not use in production.** |
 
 
 ## Testing with OAuth2
