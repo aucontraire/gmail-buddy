@@ -47,7 +47,7 @@ public class GmailController {
         }
     }
 
-    @GetMapping("/messages/latest")
+    @GetMapping(value = "/messages/latest", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<Message>> listLatestMessages() {
         try {
             List<Message> messages = gmailService.listLatestMessages("me", 50);
@@ -75,7 +75,9 @@ public class GmailController {
         }
     }
 
-    @DeleteMapping("/messages/from/{email}")
+    @DeleteMapping(value = "/messages/from/{email}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> deleteMessagesFromSender(
             @PathVariable("email") String email,
             @RequestBody FilterCriteriaDTO filterCriteriaDTO) {
@@ -88,7 +90,9 @@ public class GmailController {
         }
     }
 
-    @PostMapping("/messages/from/{email}/modifyLabels")
+    @PostMapping(value = "/messages/from/{email}/modifyLabels",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> modifyMessagesLabels(
             @PathVariable String email,
             @RequestBody LabelModificationRequest request
@@ -102,7 +106,7 @@ public class GmailController {
         }
     }
 
-    @GetMapping("/messages/{messageId}/body")
+    @GetMapping(value = "/messages/{messageId}/body", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> getMessageBody(@PathVariable String messageId) {
         try {
             String messageBody = gmailService.getMessageBody("me", messageId);
@@ -116,7 +120,7 @@ public class GmailController {
         }
     }
 
-    @GetMapping("/debug/token")
+    @GetMapping(value = "/debug/token", produces = MediaType.APPLICATION_JSON_VALUE)
     public String debugToken() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.isAuthenticated() && authentication instanceof OAuth2AuthenticationToken) {

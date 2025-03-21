@@ -1,7 +1,9 @@
 package com.aucontraire.gmailbuddy.service;
 
+import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.exception.GmailServiceException;
 import com.aucontraire.gmailbuddy.exception.MessageNotFoundException;
+import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.google.api.services.gmail.model.FilterCriteria;
 import com.google.api.services.gmail.model.Message;
@@ -18,13 +20,15 @@ class GmailServiceTest {
 
     private GmailRepository gmailRepository;
     private GmailQueryBuilder gmailQueryBuilder;
+    private FilterCriteriaMapper filterCriteriaMapper;
     private GmailService gmailService;
 
     @BeforeEach
     void setUp() {
         gmailRepository = mock(GmailRepository.class);
         gmailQueryBuilder = mock(GmailQueryBuilder.class);
-        gmailService = new GmailService(gmailRepository, gmailQueryBuilder);
+        filterCriteriaMapper = mock(FilterCriteriaMapper.class);
+        gmailService = new GmailService(gmailRepository, gmailQueryBuilder, filterCriteriaMapper);
     }
 
     @Test
@@ -89,11 +93,15 @@ class GmailServiceTest {
         String userId = "test-user";
         String senderEmail = "test@example.com";
         FilterCriteria filterCriteria = mock(FilterCriteria.class);
+        FilterCriteriaDTO filterCriteriaDTO = mock(FilterCriteriaDTO.class);
+
+        // Stub the mapper
+        when(filterCriteriaMapper.toFilterCriteria(filterCriteriaDTO)).thenReturn(filterCriteria);
 
         // Mock FilterCriteria behavior
         when(filterCriteria.getTo()).thenReturn(null);
         when(filterCriteria.getSubject()).thenReturn(null);
-        when(filterCriteria.getHasAttachment()).thenReturn(false); // Explicitly return false for test
+        when(filterCriteria.getHasAttachment()).thenReturn(false);
         when(filterCriteria.getQuery()).thenReturn("label:Inbox");
         when(filterCriteria.getNegatedQuery()).thenReturn(null);
 
@@ -101,25 +109,26 @@ class GmailServiceTest {
         when(gmailQueryBuilder.from(senderEmail)).thenReturn("from:test@example.com");
         when(gmailQueryBuilder.to(null)).thenReturn("");
         when(gmailQueryBuilder.subject(null)).thenReturn("");
-        when(gmailQueryBuilder.hasAttachment(false)).thenReturn(""); // Mock for false flag
+        when(gmailQueryBuilder.hasAttachment(false)).thenReturn("");
         when(gmailQueryBuilder.query("label:Inbox")).thenReturn("label:Inbox");
         when(gmailQueryBuilder.negatedQuery(null)).thenReturn("");
         when(gmailQueryBuilder.build("from:test@example.com", "", "", "", "label:Inbox", ""))
                 .thenReturn("from:test@example.com label:Inbox");
 
         // Act
-        gmailService.deleteMessagesFromSender(userId, senderEmail, filterCriteria);
+        gmailService.deleteMessagesFromSender(userId, senderEmail, filterCriteriaDTO);
 
         // Assert
         verify(gmailQueryBuilder).from(senderEmail);
         verify(gmailQueryBuilder).to(null);
         verify(gmailQueryBuilder).subject(null);
-        verify(gmailQueryBuilder).hasAttachment(false); // Ensure the interaction happens
+        verify(gmailQueryBuilder).hasAttachment(false);
         verify(gmailQueryBuilder).query("label:Inbox");
         verify(gmailQueryBuilder).negatedQuery(null);
         verify(gmailQueryBuilder).build("from:test@example.com", "", "", "", "label:Inbox", "");
         verify(gmailRepository).deleteMessagesFromSender(eq(userId), eq(senderEmail), eq("from:test@example.com label:Inbox"));
     }
+
     @Test
     void testModifyMessagesLabels() throws IOException, GmailServiceException {
         // Arrange
