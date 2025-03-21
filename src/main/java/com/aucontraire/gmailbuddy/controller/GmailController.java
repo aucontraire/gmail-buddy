@@ -1,5 +1,6 @@
 package com.aucontraire.gmailbuddy.controller;
 
+import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.exception.GmailServiceException;
 import com.aucontraire.gmailbuddy.exception.MessageNotFoundException;
 import com.aucontraire.gmailbuddy.service.GmailService;
@@ -10,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,7 +36,7 @@ public class GmailController {
         this.authorizedClientService = authorizedClientService;
     }
 
-    @GetMapping("/messages")
+    @GetMapping(value = "/messages", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<Message>> listMessages() {
         try {
             List<Message> messages = gmailService.listMessages("me");
@@ -56,12 +58,16 @@ public class GmailController {
         }
     }
 
-    @PostMapping("/messages/from/{email}")
+    @PostMapping(value = "/messages/from/{email}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<Message>> listMessagesFromSender(
             @PathVariable("email") String email,
-            @RequestBody FilterCriteria filterCriteria) {
+            @RequestBody FilterCriteriaDTO filterCriteriaDTO) {
         try {
-            List<Message> messages = gmailService.listMessagesFromSender("me", email, filterCriteria);
+            // Map the DTO to the actual FilterCriteria required by your service
+            // For example, you can create a helper method in your service for mapping
+            List<Message> messages = gmailService.listMessagesFromSender("me", email, filterCriteriaDTO);
             return ResponseEntity.ok(messages);
         } catch (GmailServiceException e) {
             logger.error("Failed to fetch messages from sender: " + email, e);
@@ -72,9 +78,9 @@ public class GmailController {
     @DeleteMapping("/messages/from/{email}")
     public ResponseEntity<Void> deleteMessagesFromSender(
             @PathVariable("email") String email,
-            @RequestBody FilterCriteria filterCriteria) {
+            @RequestBody FilterCriteriaDTO filterCriteriaDTO) {
         try {
-            gmailService.deleteMessagesFromSender("me", email, filterCriteria);
+            gmailService.deleteMessagesFromSender("me", email, filterCriteriaDTO);
             return ResponseEntity.noContent().build(); // 204 No Content
         } catch (GmailServiceException e) {
             logger.error("Failed to delete messages from sender: " + email, e);
