@@ -136,4 +136,16 @@ public class GmailService {
             );
         }
     }
+
+    public void markMessageAsRead(String userId, String messageId) throws GmailServiceException {
+        try {
+            gmailRepository.markMessageAsRead(userId, messageId);
+        } catch (IOException e) {
+            logger.error("Failed to mark message as read for messageId: {} for user: {}", messageId, userId, e);
+            throw new GmailServiceException(
+                    String.format("Failed to mark message as read for messageId: %s for user: %s", messageId, userId),
+                    e
+            );
+        }
+    }
 }

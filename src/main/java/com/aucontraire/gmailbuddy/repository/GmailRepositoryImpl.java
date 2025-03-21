@@ -211,4 +211,16 @@ public class GmailRepositoryImpl implements GmailRepository {
 
         return ""; // No body found in this part or its subparts
     }
+
+    @Override
+    public void markMessageAsRead(String userId, String messageId) throws IOException {
+        try {
+            var gmail = getGmailService();
+            // Remove the UNREAD label from the message
+            var mods = new com.google.api.services.gmail.model.ModifyMessageRequest().setRemoveLabelIds(List.of("UNREAD"));
+            gmail.users().messages().modify(userId, messageId, mods).execute();
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
 }

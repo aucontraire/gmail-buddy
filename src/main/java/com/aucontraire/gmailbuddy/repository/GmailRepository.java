@@ -14,4 +14,5 @@ public interface GmailRepository {
     void modifyMessagesLabels(String userId, String senderEmail, List<String> labelsToAdd, List<String> labelsToRemove, String query) throws IOException;
     String getMessageBody(String userId, String messageId) throws IOException;
     Map<String, String> getLabels(String userId) throws IOException;
+    void markMessageAsRead(String userId, String messageId) throws IOException;
 }

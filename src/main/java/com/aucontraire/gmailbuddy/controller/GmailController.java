@@ -5,7 +5,6 @@ import com.aucontraire.gmailbuddy.exception.GmailServiceException;
 import com.aucontraire.gmailbuddy.exception.MessageNotFoundException;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.LabelModificationRequest;
-import com.google.api.services.gmail.model.FilterCriteria;
 import com.google.api.services.gmail.model.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -116,6 +115,18 @@ public class GmailController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         } catch (GmailServiceException e) {
             logger.error("Failed to get message body for messageId: " + messageId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PutMapping(value = "/messages/{messageId}/read",
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> markMessageAsRead(@PathVariable String messageId) {
+        try {
+            gmailService.markMessageAsRead("me", messageId);
+            return ResponseEntity.noContent().build();
+        } catch (GmailServiceException e) {
+            logger.error("Failed to mark message as read for messageId: {}", messageId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
