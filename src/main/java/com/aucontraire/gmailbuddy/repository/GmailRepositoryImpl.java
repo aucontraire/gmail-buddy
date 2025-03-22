@@ -109,7 +109,7 @@ public class GmailRepositoryImpl implements GmailRepository {
                 logger.info("Found 0 matching messages");
                 return; // No messages to delete
             }
-            logger.info(String.format("Found %d matching messages", messages.size()));
+            logger.info("Found {} matching messages", messages.size());
 
             // 2. For each message, first move it to Trash, then permanently delete it
             logger.info("Moving messages to trash");
@@ -228,7 +228,7 @@ public class GmailRepositoryImpl implements GmailRepository {
             }
         }
 
-        return ""; // No body found
+        return ""; // No message body found
     }
 
     @Override
