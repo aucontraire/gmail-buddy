@@ -196,32 +196,39 @@ public class GmailRepositoryImpl implements GmailRepository {
             return ""; // No parts found
         }
 
+        // Prioritize HTML content if there is any
         for (MessagePart part : parts) {
-            // Check if this part has a body
             if (part.getBody() != null && part.getBody().getData() != null) {
-                // You can handle different MIME types here, for example:
-                if (part.getMimeType().equals("text/plain")) {
-                    logger.info("Message is in text/plain");
-                    return new String(Base64.getUrlDecoder().decode(part.getBody().getData()));
-                } else if (part.getMimeType().equals("text/html")) {
-                    // Decode and return HTML content
+                String mimeType = part.getMimeType();
+                if ("text/html".equals(mimeType)) {
+                    String data = new String(Base64.getUrlDecoder().decode(part.getBody().getData()));
                     logger.info("Message is in text/html");
-                    return new String(Base64.getUrlDecoder().decode(part.getBody().getData()));
-                } else {
-                    // Handle other MIME types or log them
-                    logger.info("Message is in other MIME type");
-                    System.out.println("Unsupported MIME type: " + part.getMimeType());
+                    return data;
                 }
             }
+        }
 
-            // Recursively process nested parts
+        // Fallback to plain text content if HTML not found
+        for (MessagePart part : parts) {
+            if (part.getBody() != null && part.getBody().getData() != null) {
+                String mimeType = part.getMimeType();
+                if ("text/plain".equals(mimeType)) {
+                    String data = new String(Base64.getUrlDecoder().decode(part.getBody().getData()));
+                    logger.info("Message is in text/plain");
+                    return data;
+                }
+            }
+        }
+
+        // Recursively check nested parts
+        for (MessagePart part : parts) {
             String body = getMessageBodyFromParts(part.getParts());
             if (!body.isEmpty()) {
                 return body;
             }
         }
 
-        return ""; // No body found in this part or its subparts
+        return ""; // No body found
     }
 
     @Override

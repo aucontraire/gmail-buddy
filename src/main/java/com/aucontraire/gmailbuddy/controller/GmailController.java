@@ -117,7 +117,7 @@ public class GmailController {
         }
     }
 
-    @GetMapping(value = "/messages/{messageId}/body", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/messages/{messageId}/body", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> getMessageBody(@PathVariable String messageId) {
         try {
             String messageBody = gmailService.getMessageBody("me", messageId);
