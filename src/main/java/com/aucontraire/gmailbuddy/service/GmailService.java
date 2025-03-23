@@ -30,8 +30,8 @@ public class GmailService {
         this.filterCriteriaMapper = filterCriteriaMapper;
     }
 
-    public String buildQuery(String senderEmail, FilterCriteria filterCriteria) {
-        String from = gmailQueryBuilder.from(senderEmail);
+    public String buildQuery(FilterCriteria filterCriteria) {
+        String from = gmailQueryBuilder.from(filterCriteria.getFrom());
         String to = gmailQueryBuilder.to(filterCriteria.getTo());
         String subject = gmailQueryBuilder.subject(filterCriteria.getSubject());
 
@@ -79,15 +79,15 @@ public class GmailService {
         }
     }
 
-    public List<Message> listMessagesFromSender(String userId, String senderEmail, FilterCriteriaDTO filterCriteriaDTO) throws GmailServiceException {
+    public List<Message> listMessagesByFilterCriteria(String userId, FilterCriteriaDTO filterCriteriaDTO) throws GmailServiceException {
         FilterCriteria criteria = filterCriteriaMapper.toFilterCriteria(filterCriteriaDTO);
-        String query = buildQuery(senderEmail, criteria);
+        String query = buildQuery(criteria);
 
         try {
             logger.info("Fetching messages with query: {}", query);
-            return gmailRepository.getMessagesFromSender(userId, senderEmail, query);
+            return gmailRepository.getMessagesByFilterCriteria(userId, query);
         } catch (IOException e) {
-            logger.error("Failed to list messages from sender: {} for user: {}. Query: {}", senderEmail, userId, query, e);
+            logger.error("Failed to list messages for user: {}. Query: {}", userId, query, e);
             throw new GmailServiceException("Failed to list messages", e);
         }
     }
@@ -103,17 +103,17 @@ public class GmailService {
         }
     }
 
-    public void deleteMessagesFromSender(String userId, String senderEmail, FilterCriteriaDTO filterCriteriaDTO) throws GmailServiceException {
+    public void deleteMessagesByFilterCriteria(String userId, FilterCriteriaDTO filterCriteriaDTO) throws GmailServiceException {
         try {
             FilterCriteria criteria = filterCriteriaMapper.toFilterCriteria(filterCriteriaDTO);
-            String query = buildQuery(senderEmail, criteria);
+            String query = buildQuery(criteria);
 
             // Use the constructed query to delete messages
-            gmailRepository.deleteMessagesFromSender(userId, senderEmail, query);
+            gmailRepository.deleteMessagesByFilterCriteria(userId, query);
         } catch (IOException e) {
-            logger.error("Failed to delete messages from sender: {} for user: {}. Query: {}", senderEmail, userId, null, e);
+            logger.error("Failed to delete messages for user: {}. Query: {}", userId, null, e);
             throw new GmailServiceException(
-                    String.format("Failed to delete messages for sender: %s for user: %s. Query: %s", senderEmail, userId, null), e
+                    String.format("Failed to delete messages for user: %s. Query: %s", userId, null), e
             );
         }
     }

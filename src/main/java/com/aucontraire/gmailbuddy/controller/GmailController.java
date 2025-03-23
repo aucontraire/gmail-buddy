@@ -57,19 +57,18 @@ public class GmailController {
         }
     }
 
-    @PostMapping(value = "/messages/from/{email}",
+    @PostMapping(value = "/messages/filter",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<Message>> listMessagesFromSender(
-            @PathVariable("email") String email,
+    public ResponseEntity<List<Message>> listMessagesByFilterCriteria(
             @RequestBody FilterCriteriaDTO filterCriteriaDTO) {
         try {
             // Map the DTO to the actual FilterCriteria required by your service
             // For example, you can create a helper method in your service for mapping
-            List<Message> messages = gmailService.listMessagesFromSender("me", email, filterCriteriaDTO);
+            List<Message> messages = gmailService.listMessagesByFilterCriteria("me", filterCriteriaDTO);
             return ResponseEntity.ok(messages);
         } catch (GmailServiceException e) {
-            logger.error("Failed to fetch messages from sender: " + email, e);
+            logger.error("Failed to fetch messages", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
@@ -86,17 +85,16 @@ public class GmailController {
         }
     }
 
-    @DeleteMapping(value = "/messages/from/{email}",
+    @DeleteMapping(value = "/messages/filter",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> deleteMessagesFromSender(
-            @PathVariable("email") String email,
+    public ResponseEntity<Void> deleteMessagesByFilterCriteria(
             @RequestBody FilterCriteriaDTO filterCriteriaDTO) {
         try {
-            gmailService.deleteMessagesFromSender("me", email, filterCriteriaDTO);
+            gmailService.deleteMessagesByFilterCriteria("me", filterCriteriaDTO);
             return ResponseEntity.noContent().build(); // 204 No Content
         } catch (GmailServiceException e) {
-            logger.error("Failed to delete messages from sender: " + email, e);
+            logger.error("Failed to delete messages", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

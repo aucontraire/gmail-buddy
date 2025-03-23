@@ -2,9 +2,14 @@
 
 A Spring Boot application that connects to a user’s Gmail account, enabling you to:
 
-- List messages (all or limited to 50)
-- Search for messages from a specific sender
-- Delete messages from a specific sender (first trashing them, then permanently deleting)
+- List messages (all or limited to the latest 50)
+- Search for messages by filter criteria
+- Delete message
+- Bulk delete messages by filter criteria (first trashing them, then permanently deleting)
+- Modify labels for all messages from a specific email
+- Get message body from an email
+- Mark message as read
+
 
 This project demonstrates:
 - **Spring Boot** (v3.4.0)
@@ -118,9 +123,9 @@ All routes require you to be authenticated via Google OAuth2. The primary endpoi
 | **GET**        | `/dashboard`                                       | A simple test route that shows "Welcome to your dashboard!" once authenticated.                            |
 | **GET**        | `/api/v1/gmail/messages`                           | Lists **all** Gmail messages for the authenticated user.                                                   |
 | **GET**        | `/api/v1/gmail/messages/latest`                    | Lists the **latest 50** Gmail messages for the authenticated user.                                         |
-| **GET**        | `/api/v1/gmail/messages/from/{email}`              | Lists all messages from a **specific sender** (e.g. `@airbnb.com`).                                        |
+| **GET**        | `/api/v1/gmail/messages/filter`                    | Lists all messages by **filter criteria**.                                                                 |
 | **DELETE**     | `/api/vi/gmail/messages/{messageId}`               | Delete message                                                                                             |
-| **DELETE**     | `/api/v1/gmail/messages/from/{email}`              | Deletes all messages from a specific sender (moves them to trash, then permanently deletes).               |
+| **DELETE**     | `/api/v1/gmail/messages/filter`                    | Deletes all messages by filter criteria (moves them to trash, then permanently deletes).                   |
 | **POST**       | `/api/v1/gmail/messages/from/{email}/modifyLabels` | Modify labels for all messages from an email                                                               |
 | **GET**        | `/api/v1/gmail/messages/{messageId}/body`          | Get message body from an email                                                                             |
 | **PUT**        | `/api/vi/gmail/messages/{messageId}/read`          | Marks message as read                                                                                      |

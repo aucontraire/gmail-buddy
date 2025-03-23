@@ -67,7 +67,7 @@ public class GmailRepositoryImpl implements GmailRepository {
     }
 
     @Override
-    public List<Message> getMessagesFromSender(String userId, String senderEmail, String query) throws IOException {
+    public List<Message> getMessagesByFilterCriteria(String userId, String query) throws IOException {
         try {
             var gmail = getGmailService();
             return gmail.users().messages()
@@ -93,7 +93,7 @@ public class GmailRepositoryImpl implements GmailRepository {
     }
 
     @Override
-    public void deleteMessagesFromSender(String userId, String senderEmail, String query) throws IOException {
+    public void deleteMessagesByFilterCriteria(String userId, String query) throws IOException {
         try {
             var gmail = getGmailService();
 
@@ -184,6 +184,7 @@ public class GmailRepositoryImpl implements GmailRepository {
         try {
             Gmail gmail = getGmailService();
             Message message = gmail.users().messages().get(userId, messageId).execute();
+            logger.info("Message retrieved: {}", message.toPrettyString());
             return getMessageBodyFromParts(message.getPayload().getParts()); // Call helper function
 
         } catch (GeneralSecurityException e) {

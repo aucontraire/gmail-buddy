@@ -9,9 +9,9 @@ import java.util.Map;
 public interface GmailRepository {
     List<Message> getMessages(String userId) throws IOException;
     List<Message> getLatestMessages(String userId, long maxResults) throws IOException;
-    List<Message> getMessagesFromSender(String userId, String senderEmail, String query) throws IOException;
+    List<Message> getMessagesByFilterCriteria(String userId, String query) throws IOException;
     void deleteMessage(String userId, String messageId) throws IOException;
-    void deleteMessagesFromSender(String userId, String senderEmail, String query) throws IOException;
+    void deleteMessagesByFilterCriteria(String userId, String query) throws IOException;
     void modifyMessagesLabels(String userId, String senderEmail, List<String> labelsToAdd, List<String> labelsToRemove, String query) throws IOException;
     String getMessageBody(String userId, String messageId) throws IOException;
     Map<String, String> getLabels(String userId) throws IOException;

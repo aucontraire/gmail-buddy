@@ -11,9 +11,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class GmailServiceTest {
@@ -32,32 +35,37 @@ class GmailServiceTest {
     }
 
     @Test
-    void testBuildQueryWithFilterCriteria() throws IOException {
-        // Arrange
-        String senderEmail = "test@example.com";
-        FilterCriteria filterCriteria = mock(FilterCriteria.class);
+    void testBuildQueryWithFilterCriteria() {
+        // Arrange: create a real instance of FilterCriteria with desired values.
+        FilterCriteria filterCriteria = new FilterCriteria();
+        filterCriteria.setFrom("test@example.com");
+        filterCriteria.setTo("");
+        filterCriteria.setSubject("");
+        filterCriteria.setHasAttachment(false);
+        filterCriteria.setQuery("some-query");
+        filterCriteria.setNegatedQuery("-query-to-exclude");
 
-        when(gmailQueryBuilder.from(senderEmail)).thenReturn("from:test@example.com ");
-        when(gmailQueryBuilder.to(filterCriteria.getTo())).thenReturn("to: ");
-        when(gmailQueryBuilder.subject(filterCriteria.getSubject())).thenReturn("subject: ");
+        when(gmailQueryBuilder.from("test@example.com")).thenReturn("from:test@example.com ");
+        when(gmailQueryBuilder.to("")).thenReturn("to: ");
+        when(gmailQueryBuilder.subject("")).thenReturn("subject: ");
         when(gmailQueryBuilder.hasAttachment(false)).thenReturn("has:attachment ");
-        when(gmailQueryBuilder.query(filterCriteria.getQuery())).thenReturn("query:some-query ");
-        when(gmailQueryBuilder.negatedQuery(filterCriteria.getNegatedQuery())).thenReturn("-query-to-exclude ");
-        when(gmailQueryBuilder.build(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+        when(gmailQueryBuilder.query("some-query")).thenReturn("query:some-query ");
+        when(gmailQueryBuilder.negatedQuery("-query-to-exclude")).thenReturn("-query-to-exclude ");
+        when(gmailQueryBuilder.build("from:test@example.com ", "to: ", "subject: ", "has:attachment ", "query:some-query ", "-query-to-exclude "))
                 .thenReturn("from:test@example.com to: subject: has:attachment query:some-query -query-to-exclude");
 
-        // Act
-        String result = gmailService.buildQuery(senderEmail, filterCriteria);
+        // Act: call the new buildQuery method which accepts FilterCriteria.
+        String result = gmailService.buildQuery(filterCriteria);
 
         // Assert
         assertEquals("from:test@example.com to: subject: has:attachment query:some-query -query-to-exclude", result);
-
-        verify(gmailQueryBuilder).from(senderEmail);
-        verify(gmailQueryBuilder).to(filterCriteria.getTo());
-        verify(gmailQueryBuilder).subject(filterCriteria.getSubject());
+        verify(gmailQueryBuilder).from("test@example.com");
+        verify(gmailQueryBuilder).to("");
+        verify(gmailQueryBuilder).subject("");
         verify(gmailQueryBuilder).hasAttachment(false);
-        verify(gmailQueryBuilder).query(filterCriteria.getQuery());
-        verify(gmailQueryBuilder).negatedQuery(filterCriteria.getNegatedQuery());
+        verify(gmailQueryBuilder).query("some-query");
+        verify(gmailQueryBuilder).negatedQuery("-query-to-exclude");
+        verify(gmailQueryBuilder).build("from:test@example.com ", "to: ", "subject: ", "has:attachment ", "query:some-query ", "-query-to-exclude ");
     }
 
     @Test
@@ -88,45 +96,47 @@ class GmailServiceTest {
     }
 
     @Test
-    void testDeleteMessagesFromSender() throws IOException, GmailServiceException {
-        // Arrange
-        String userId = "test-user";
-        String senderEmail = "test@example.com";
-        FilterCriteria filterCriteria = mock(FilterCriteria.class);
-        FilterCriteriaDTO filterCriteriaDTO = mock(FilterCriteriaDTO.class);
+    void testDeleteMessagesByFilterCriteria() throws IOException, GmailServiceException {
+        // Arrange: Create a real FilterCriteria and corresponding DTO.
+        FilterCriteria filterCriteria = new FilterCriteria();
+        filterCriteria.setFrom("test@example.com");
+        filterCriteria.setTo("");
+        filterCriteria.setSubject("");
+        filterCriteria.setHasAttachment(false);
+        filterCriteria.setQuery("label:Inbox");
+        filterCriteria.setNegatedQuery("");
 
-        // Stub the mapper
+        FilterCriteriaDTO filterCriteriaDTO = new FilterCriteriaDTO();
+        filterCriteriaDTO.setFrom("test@example.com");
+        filterCriteriaDTO.setTo("");
+        filterCriteriaDTO.setSubject("");
+        filterCriteriaDTO.setHasAttachment(false);
+        filterCriteriaDTO.setQuery("label:Inbox");
+        filterCriteriaDTO.setNegatedQuery("");
+
         when(filterCriteriaMapper.toFilterCriteria(filterCriteriaDTO)).thenReturn(filterCriteria);
 
-        // Mock FilterCriteria behavior
-        when(filterCriteria.getTo()).thenReturn(null);
-        when(filterCriteria.getSubject()).thenReturn(null);
-        when(filterCriteria.getHasAttachment()).thenReturn(false);
-        when(filterCriteria.getQuery()).thenReturn("label:Inbox");
-        when(filterCriteria.getNegatedQuery()).thenReturn(null);
-
-        // Mock GmailQueryBuilder behavior
-        when(gmailQueryBuilder.from(senderEmail)).thenReturn("from:test@example.com");
-        when(gmailQueryBuilder.to(null)).thenReturn("");
-        when(gmailQueryBuilder.subject(null)).thenReturn("");
+        when(gmailQueryBuilder.from("test@example.com")).thenReturn("from:test@example.com ");
+        when(gmailQueryBuilder.to("")).thenReturn("");
+        when(gmailQueryBuilder.subject("")).thenReturn("");
         when(gmailQueryBuilder.hasAttachment(false)).thenReturn("");
         when(gmailQueryBuilder.query("label:Inbox")).thenReturn("label:Inbox");
-        when(gmailQueryBuilder.negatedQuery(null)).thenReturn("");
-        when(gmailQueryBuilder.build("from:test@example.com", "", "", "", "label:Inbox", ""))
+        when(gmailQueryBuilder.negatedQuery("")).thenReturn("");
+        when(gmailQueryBuilder.build("from:test@example.com ", "", "", "", "label:Inbox", ""))
                 .thenReturn("from:test@example.com label:Inbox");
 
         // Act
-        gmailService.deleteMessagesFromSender(userId, senderEmail, filterCriteriaDTO);
+        gmailService.deleteMessagesByFilterCriteria("test-user", filterCriteriaDTO);
 
-        // Assert
-        verify(gmailQueryBuilder).from(senderEmail);
-        verify(gmailQueryBuilder).to(null);
-        verify(gmailQueryBuilder).subject(null);
+        // Assert: Verify that the query was built and then passed to deleteMessagesByFilterCriteria.
+        verify(gmailQueryBuilder).from("test@example.com");
+        verify(gmailQueryBuilder).to("");
+        verify(gmailQueryBuilder).subject("");
         verify(gmailQueryBuilder).hasAttachment(false);
         verify(gmailQueryBuilder).query("label:Inbox");
-        verify(gmailQueryBuilder).negatedQuery(null);
-        verify(gmailQueryBuilder).build("from:test@example.com", "", "", "", "label:Inbox", "");
-        verify(gmailRepository).deleteMessagesFromSender(eq(userId), eq(senderEmail), eq("from:test@example.com label:Inbox"));
+        verify(gmailQueryBuilder).negatedQuery("");
+        verify(gmailQueryBuilder).build("from:test@example.com ", "", "", "", "label:Inbox", "");
+        verify(gmailRepository).deleteMessagesByFilterCriteria("test-user", "from:test@example.com label:Inbox");
     }
 
     @Test
@@ -137,20 +147,19 @@ class GmailServiceTest {
         List<String> labelsToAdd = List.of("Important");
         List<String> labelsToRemove = List.of("Spam");
 
-        // Mock query builder behavior
         when(gmailQueryBuilder.from(senderEmail)).thenReturn("from:test@example.com ");
         when(gmailQueryBuilder.query("label:Spam")).thenReturn("label:Spam");
         when(gmailQueryBuilder.build("from:test@example.com ", "label:Spam"))
                 .thenReturn("from:test@example.com label:Spam");
 
-        // Act: Call the method being tested
+        // Act
         gmailService.modifyMessagesLabels(userId, senderEmail, labelsToAdd, labelsToRemove);
 
-        // Assert: Verify that mocks were correctly invoked
+        // Assert
         verify(gmailQueryBuilder).from(senderEmail);
-        verify(gmailQueryBuilder).query("label:Spam"); // Ensure this is invoked
-        verify(gmailQueryBuilder).build("from:test@example.com ", "label:Spam"); // Ensure build() is invoked with proper arguments
-        verify(gmailRepository).modifyMessagesLabels(eq(userId), eq(senderEmail), eq(labelsToAdd), eq(labelsToRemove), eq("from:test@example.com label:Spam"));
+        verify(gmailQueryBuilder).query("label:Spam");
+        verify(gmailQueryBuilder).build("from:test@example.com ", "label:Spam");
+        verify(gmailRepository).modifyMessagesLabels("test-user", senderEmail, labelsToAdd, labelsToRemove, "from:test@example.com label:Spam");
     }
 
     @Test
