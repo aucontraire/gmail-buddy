@@ -1,6 +1,7 @@
 package com.aucontraire.gmailbuddy.controller;
 
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
+import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
 import com.aucontraire.gmailbuddy.exception.GmailServiceException;
 import com.aucontraire.gmailbuddy.exception.MessageNotFoundException;
 import com.aucontraire.gmailbuddy.service.GmailService;
@@ -99,18 +100,16 @@ public class GmailController {
         }
     }
 
-    @PostMapping(value = "/messages/from/{email}/modifyLabels",
+    @PostMapping(value = "/messages/filter/modifyLabels",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> modifyMessagesLabels(
-            @PathVariable String email,
-            @RequestBody LabelModificationRequest request
-    ) {
+    public ResponseEntity<Void> modifyMessagesLabelsByFilter(
+            @RequestBody FilterCriteriaWithLabelsDTO dto) {
         try {
-            gmailService.modifyMessagesLabels("me", email, request.getLabelsToAdd(), request.getLabelsToRemove());
+            gmailService.modifyMessagesLabelsByFilterCriteria("me", dto);
             return ResponseEntity.noContent().build();
         } catch (GmailServiceException e) {
-            logger.error("Failed to modify labels for email: " + email, e);
+            logger.error("Failed to modify labels with filter criteria", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

@@ -118,18 +118,18 @@ Welcome to your dashboard!
 
 All routes require you to be authenticated via Google OAuth2. The primary endpoints:
 
-| HTTP Method    | Path                                               | Description                                                                                                |
-|----------------|----------------------------------------------------|------------------------------------------------------------------------------------------------------------|
-| **GET**        | `/dashboard`                                       | A simple test route that shows "Welcome to your dashboard!" once authenticated.                            |
-| **GET**        | `/api/v1/gmail/messages`                           | Lists **all** Gmail messages for the authenticated user.                                                   |
-| **GET**        | `/api/v1/gmail/messages/latest`                    | Lists the **latest 50** Gmail messages for the authenticated user.                                         |
-| **GET**        | `/api/v1/gmail/messages/filter`                    | Lists all messages by **filter criteria**.                                                                 |
-| **DELETE**     | `/api/vi/gmail/messages/{messageId}`               | Delete message                                                                                             |
-| **DELETE**     | `/api/v1/gmail/messages/filter`                    | Deletes all messages by filter criteria (moves them to trash, then permanently deletes).                   |
-| **POST**       | `/api/v1/gmail/messages/from/{email}/modifyLabels` | Modify labels for all messages from an email                                                               |
-| **GET**        | `/api/v1/gmail/messages/{messageId}/body`          | Get message body from an email                                                                             |
-| **PUT**        | `/api/vi/gmail/messages/{messageId}/read`          | Marks message as read                                                                                      |
-| **GET**        | `/api/v1/gmail/debug/token`                        | (Development-only) Debug endpoint to return your current OAuth access token. **Do not use in production.** |
+| HTTP Method    | Path                                         | Description                                                                                                |
+|----------------|----------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| **GET**        | `/dashboard`                                 | A simple test route that shows "Welcome to your dashboard!" once authenticated.                            |
+| **GET**        | `/api/v1/gmail/messages`                     | Lists **all** Gmail messages for the authenticated user.                                                   |
+| **GET**        | `/api/v1/gmail/messages/latest`              | Lists the **latest 50** Gmail messages for the authenticated user.                                         |
+| **GET**        | `/api/v1/gmail/messages/filter`              | Lists all messages by **filter criteria**.                                                                 |
+| **DELETE**     | `/api/vi/gmail/messages/{messageId}`         | Delete message                                                                                             |
+| **DELETE**     | `/api/v1/gmail/messages/filter`              | Deletes all messages by filter criteria (moves them to trash, then permanently deletes).                   |
+| **POST**       | `/api/v1/gmail/messages/filter/modifyLabels` | Modify labels for all messages by filter criteria                                                          |
+| **GET**        | `/api/v1/gmail/messages/{messageId}/body`    | Get message body from an email                                                                             |
+| **PUT**        | `/api/vi/gmail/messages/{messageId}/read`    | Marks message as read                                                                                      |
+| **GET**        | `/api/v1/gmail/debug/token`                  | (Development-only) Debug endpoint to return your current OAuth access token. **Do not use in production.** |
 
 
 ## Testing with OAuth2

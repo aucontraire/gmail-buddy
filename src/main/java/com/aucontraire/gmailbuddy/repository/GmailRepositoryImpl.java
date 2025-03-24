@@ -156,7 +156,7 @@ public class GmailRepositoryImpl implements GmailRepository {
     }
 
     @Override
-    public void modifyMessagesLabels(String userId, String senderEmail, List<String> labelsToAdd, List<String> labelsToRemove, String query) throws IOException {
+    public void modifyMessagesLabels(String userId, List<String> labelsToAdd, List<String> labelsToRemove, String query) throws IOException {
         try {
             var gmail = getGmailService();
 
@@ -171,6 +171,7 @@ public class GmailRepositoryImpl implements GmailRepository {
                     .setQ(query)
                     .execute()
                     .getMessages();
+            logger.info("Found {} matching messages", messages.size());
             for (var message : messages) {
                 gmail.users().messages().modify(userId, message.getId(), mods).execute();
             }

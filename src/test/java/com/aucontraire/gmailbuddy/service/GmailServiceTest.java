@@ -1,6 +1,7 @@
 package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
+import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
 import com.aucontraire.gmailbuddy.exception.GmailServiceException;
 import com.aucontraire.gmailbuddy.exception.MessageNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
@@ -144,22 +145,32 @@ class GmailServiceTest {
         // Arrange
         String userId = "test-user";
         String senderEmail = "test@example.com";
+        FilterCriteriaWithLabelsDTO dto = new FilterCriteriaWithLabelsDTO();
+        dto.setFrom(senderEmail);
+        dto.setLabelsToAdd(Collections.singletonList("Important"));
+        dto.setLabelsToRemove(Collections.singletonList("Spam"));
         List<String> labelsToAdd = List.of("Important");
         List<String> labelsToRemove = List.of("Spam");
 
+        // Stub calls related to the new buildQuery(String, List) flow
         when(gmailQueryBuilder.from(senderEmail)).thenReturn("from:test@example.com ");
         when(gmailQueryBuilder.query("label:Spam")).thenReturn("label:Spam");
         when(gmailQueryBuilder.build("from:test@example.com ", "label:Spam"))
                 .thenReturn("from:test@example.com label:Spam");
 
         // Act
-        gmailService.modifyMessagesLabels(userId, senderEmail, labelsToAdd, labelsToRemove);
+        gmailService.modifyMessagesLabelsByFilterCriteria(userId, dto);
 
         // Assert
         verify(gmailQueryBuilder).from(senderEmail);
         verify(gmailQueryBuilder).query("label:Spam");
         verify(gmailQueryBuilder).build("from:test@example.com ", "label:Spam");
-        verify(gmailRepository).modifyMessagesLabels("test-user", senderEmail, labelsToAdd, labelsToRemove, "from:test@example.com label:Spam");
+        verify(gmailRepository).modifyMessagesLabels(
+                userId,
+                labelsToAdd,
+                labelsToRemove,
+                "from:test@example.com label:Spam"
+        );
     }
 
     @Test

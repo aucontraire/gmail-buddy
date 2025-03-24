@@ -1,5 +1,6 @@
 package com.aucontraire.gmailbuddy.service;
 
+import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
 import com.aucontraire.gmailbuddy.exception.GmailServiceException;
 import com.aucontraire.gmailbuddy.exception.MessageNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
@@ -46,19 +47,45 @@ public class GmailService {
         return gmailQueryBuilder.build(from, to, subject, hasAttachment, additionalQuery, negatedQuery);
     }
 
-    public String buildQuery(String senderEmail, List<String> labelsToRemove) {
-        // Use gmailQueryBuilder to build the labelsQuery
-        String labelsQuery = (labelsToRemove == null || labelsToRemove.isEmpty())
-                ? ""
-                : labelsToRemove.stream()
-                .map(label -> gmailQueryBuilder.query("label:" + label)) // Use query() for each label
-                .reduce((a, b) -> a + " AND " + b)  // Combine labels with AND
-                .orElse("");
+    // File: src/main/java/com/aucontraire/gmailbuddy/service/GmailService.java
+// Language: java
+    public String buildQuery(FilterCriteriaWithLabelsDTO dto) {
+        // Build search parts using non-null checks.
+        String from = gmailQueryBuilder.from(dto.getFrom());
+        String to = dto.getTo() != null ? gmailQueryBuilder.to(dto.getTo()) : "";
+        String subject = dto.getSubject() != null ? gmailQueryBuilder.subject(dto.getSubject()) : "";
+        String hasAttachment = dto.getHasAttachment() != null ? gmailQueryBuilder.hasAttachment(dto.getHasAttachment()) : "";
+        String additionalQuery = dto.getQuery() != null ? gmailQueryBuilder.query(dto.getQuery()) : "";
+        String negatedQuery = dto.getNegatedQuery() != null ? gmailQueryBuilder.negatedQuery(dto.getNegatedQuery()) : "";
 
-        String from = gmailQueryBuilder.from(senderEmail);  // Generate "from" filter part
+        // Build the label-based criteria.
+        String labelsQuery = "";
+        if (dto.getLabelsToRemove() != null && !dto.getLabelsToRemove().isEmpty()) {
+            labelsQuery = dto.getLabelsToRemove().stream()
+                    .map(label -> gmailQueryBuilder.query("label:" + label))
+                    .reduce((a, b) -> a + " AND " + b)
+                    .orElse("");
+        }
 
-        // Return a full query combining both "from" and labels
-        return gmailQueryBuilder.build(from, labelsQuery);
+        // Check if there is any search criteria besides the "from" value.
+        boolean hasSearchCriteria = !(to.isEmpty() && subject.isEmpty() && hasAttachment.isEmpty() && additionalQuery.isEmpty() && negatedQuery.isEmpty());
+
+        if (!hasSearchCriteria) {
+            // Only "from" is provided along with label modifications.
+            return gmailQueryBuilder.build(from, labelsQuery);
+        }
+
+        // If search criteria exist, build the full query.
+        String baseQuery = gmailQueryBuilder.build(from, to, subject, hasAttachment, additionalQuery, negatedQuery);
+        baseQuery = baseQuery != null ? baseQuery : "";
+
+        if (!baseQuery.isEmpty() && !labelsQuery.isEmpty()) {
+            return baseQuery + " AND " + labelsQuery;
+        } else if (!labelsQuery.isEmpty()) {
+            return labelsQuery;
+        } else {
+            return baseQuery;
+        }
     }
 
     public List<Message> listMessages(String userId) throws GmailServiceException {
@@ -118,20 +145,17 @@ public class GmailService {
         }
     }
 
-    public void modifyMessagesLabels(String userId, String senderEmail, List<String> labelsToAdd, List<String> labelsToRemove) throws GmailServiceException {
-        // The query must be built correctly
-        String query = buildQuery(senderEmail, labelsToRemove);
-
+    public void modifyMessagesLabelsByFilterCriteria(String userId, FilterCriteriaWithLabelsDTO dto) throws GmailServiceException {
         try {
-            // Pass the correctly built query to gmailRepository
-            gmailRepository.modifyMessagesLabels(userId, senderEmail, labelsToAdd, labelsToRemove, query);
+            // Use the existing mapper to map filter criteria portion if needed
+            // Otherwise build a FilterCriteria manually here
+            FilterCriteriaMapper criteriaMapper = new FilterCriteriaMapper();
+            var filterCriteria = criteriaMapper.toFilterCriteria(dto);
+            String query = buildQuery(dto);
+            gmailRepository.modifyMessagesLabels(userId, dto.getLabelsToAdd(), dto.getLabelsToRemove(), query);
         } catch (IOException e) {
-            logger.error("Failed to modify labels for messages from sender: {} for user: {}. Query: {}", senderEmail, userId, query, e);
             throw new GmailServiceException(
-                    String.format("Failed to modify labels for messages from sender: %s for user: %s. LabelsToAdd: %s, LabelsToRemove: %s. Query: %s",
-                            senderEmail, userId, labelsToAdd, labelsToRemove, query
-                    ),
-                    e
+                    String.format("Failed to modify labels for messages for user: %s", userId), e
             );
         }
     }
