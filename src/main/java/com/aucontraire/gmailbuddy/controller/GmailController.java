@@ -27,7 +27,7 @@ import java.util.List;
 public class GmailController {
 
     private final GmailService gmailService;
-    private OAuth2AuthorizedClientService authorizedClientService;
+    private final OAuth2AuthorizedClientService authorizedClientService;
     private final Logger logger = LoggerFactory.getLogger(GmailController.class);
 
     @Autowired
