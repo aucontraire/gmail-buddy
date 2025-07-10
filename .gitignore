@@ -52,3 +52,6 @@ src/main/resources/service-account.json
 # Logs
 logs/
 *.log
+
+# Local documentation (kept locally, not in repo)
+PROJECT_PLAN.md
