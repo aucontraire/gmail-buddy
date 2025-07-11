@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
@@ -62,7 +63,7 @@ public class GmailController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<Message>> listMessagesByFilterCriteria(
-            @RequestBody FilterCriteriaDTO filterCriteriaDTO) {
+            @Valid @RequestBody FilterCriteriaDTO filterCriteriaDTO) {
         try {
             // Map the DTO to the actual FilterCriteria required by your service
             // For example, you can create a helper method in your service for mapping
@@ -90,7 +91,7 @@ public class GmailController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> deleteMessagesByFilterCriteria(
-            @RequestBody FilterCriteriaDTO filterCriteriaDTO) {
+            @Valid @RequestBody FilterCriteriaDTO filterCriteriaDTO) {
         try {
             gmailService.deleteMessagesByFilterCriteria("me", filterCriteriaDTO);
             return ResponseEntity.noContent().build(); // 204 No Content
@@ -104,7 +105,7 @@ public class GmailController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> modifyMessagesLabelsByFilter(
-            @RequestBody FilterCriteriaWithLabelsDTO dto) {
+            @Valid @RequestBody FilterCriteriaWithLabelsDTO dto) {
         try {
             gmailService.modifyMessagesLabelsByFilterCriteria("me", dto);
             return ResponseEntity.noContent().build();
