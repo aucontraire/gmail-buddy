@@ -1,8 +1,8 @@
 package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
-import com.aucontraire.gmailbuddy.exception.GmailServiceException;
-import com.aucontraire.gmailbuddy.exception.MessageNotFoundException;
+import com.aucontraire.gmailbuddy.exception.GmailApiException;
+import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
@@ -88,25 +88,25 @@ public class GmailService {
         }
     }
 
-    public List<Message> listMessages(String userId) throws GmailServiceException {
+    public List<Message> listMessages(String userId) throws GmailApiException {
         try {
             return gmailRepository.getMessages(userId);
         } catch (IOException e) {
             logger.error("Failed to list messages for user: {}", userId, e);
-            throw new GmailServiceException("Failed to list messages for user: " + userId, e);
+            throw new GmailApiException("Failed to list messages for user: " + userId, e);
         }
     }
 
-    public List<Message> listLatestMessages(String userId, int maxResults) throws GmailServiceException {
+    public List<Message> listLatestMessages(String userId, int maxResults) throws GmailApiException {
         try {
             return gmailRepository.getLatestMessages(userId, maxResults);
         } catch (IOException e) {
             logger.error("Failed to list latest {} messages for user: {}", maxResults, userId, e);
-            throw new GmailServiceException(String.format("Failed to list latest %d messages for user: %s", maxResults, userId), e);
+            throw new GmailApiException(String.format("Failed to list latest %d messages for user: %s", maxResults, userId), e);
         }
     }
 
-    public List<Message> listMessagesByFilterCriteria(String userId, FilterCriteriaDTO filterCriteriaDTO) throws GmailServiceException {
+    public List<Message> listMessagesByFilterCriteria(String userId, FilterCriteriaDTO filterCriteriaDTO) throws GmailApiException {
         FilterCriteria criteria = filterCriteriaMapper.toFilterCriteria(filterCriteriaDTO);
         String query = buildQuery(criteria);
 
@@ -115,22 +115,22 @@ public class GmailService {
             return gmailRepository.getMessagesByFilterCriteria(userId, query);
         } catch (IOException e) {
             logger.error("Failed to list messages for user: {}. Query: {}", userId, query, e);
-            throw new GmailServiceException("Failed to list messages", e);
+            throw new GmailApiException("Failed to list messages", e);
         }
     }
 
-    public void deleteMessage(String userId, String messageId) throws GmailServiceException {
+    public void deleteMessage(String userId, String messageId) throws GmailApiException {
         try {
             gmailRepository.deleteMessage(userId, messageId);
         } catch (IOException e) {
             logger.error("Failed to delete message for messageId: {} for user: {}", messageId, userId, e);
-            throw new GmailServiceException(
+            throw new GmailApiException(
                     String.format("Failed to delete message for messageId: %s for user: %s", messageId, userId), e
             );
         }
     }
 
-    public void deleteMessagesByFilterCriteria(String userId, FilterCriteriaDTO filterCriteriaDTO) throws GmailServiceException {
+    public void deleteMessagesByFilterCriteria(String userId, FilterCriteriaDTO filterCriteriaDTO) throws GmailApiException {
         try {
             FilterCriteria criteria = filterCriteriaMapper.toFilterCriteria(filterCriteriaDTO);
             String query = buildQuery(criteria);
@@ -139,13 +139,13 @@ public class GmailService {
             gmailRepository.deleteMessagesByFilterCriteria(userId, query);
         } catch (IOException e) {
             logger.error("Failed to delete messages for user: {}. Query: {}", userId, null, e);
-            throw new GmailServiceException(
+            throw new GmailApiException(
                     String.format("Failed to delete messages for user: %s. Query: %s", userId, null), e
             );
         }
     }
 
-    public void modifyMessagesLabelsByFilterCriteria(String userId, FilterCriteriaWithLabelsDTO dto) throws GmailServiceException {
+    public void modifyMessagesLabelsByFilterCriteria(String userId, FilterCriteriaWithLabelsDTO dto) throws GmailApiException {
         try {
             // Use the existing mapper to map filter criteria portion if needed
             // Otherwise build a FilterCriteria manually here
@@ -154,30 +154,30 @@ public class GmailService {
             String query = buildQuery(dto);
             gmailRepository.modifyMessagesLabels(userId, dto.getLabelsToAdd(), dto.getLabelsToRemove(), query);
         } catch (IOException e) {
-            throw new GmailServiceException(
+            throw new GmailApiException(
                     String.format("Failed to modify labels for messages for user: %s", userId), e
             );
         }
     }
 
-    public String getMessageBody(String userId, String messageId) throws GmailServiceException, MessageNotFoundException {
+    public String getMessageBody(String userId, String messageId) throws GmailApiException, ResourceNotFoundException {
         try {
             return gmailRepository.getMessageBody(userId, messageId);
         } catch (IOException e) {
             logger.error("Failed to get message body for messageId: {} for user: {}", messageId, userId, e);
-            throw new GmailServiceException(
+            throw new GmailApiException(
                     String.format("Failed to get message body for messageId: %s for user: %s", messageId, userId),
                     e
             );
         }
     }
 
-    public void markMessageAsRead(String userId, String messageId) throws GmailServiceException {
+    public void markMessageAsRead(String userId, String messageId) throws GmailApiException {
         try {
             gmailRepository.markMessageAsRead(userId, messageId);
         } catch (IOException e) {
             logger.error("Failed to mark message as read for messageId: {} for user: {}", messageId, userId, e);
-            throw new GmailServiceException(
+            throw new GmailApiException(
                     String.format("Failed to mark message as read for messageId: %s for user: %s", messageId, userId),
                     e
             );

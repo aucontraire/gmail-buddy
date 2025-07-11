@@ -1,7 +1,7 @@
 package com.aucontraire.gmailbuddy.controller;
 
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
-import com.aucontraire.gmailbuddy.exception.MessageNotFoundException;
+import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.TestOAuth2AuthorizedClientService;
 import com.google.api.services.gmail.model.Message;
@@ -38,9 +38,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
-@Import(GmailController.class)
 public class GmailControllerTest {
 
     private static final Logger logger = LoggerFactory.getLogger(GmailControllerTest.class);
@@ -110,7 +109,7 @@ public class GmailControllerTest {
     @Test
     public void testGetMessageBody_MessageNotFoundException() throws Exception {
         when(gmailService.getMessageBody("me", "12345"))
-                .thenThrow(new MessageNotFoundException("Message not found"));
+                .thenThrow(new ResourceNotFoundException("Message not found"));
 
         mockMvc.perform(get("/api/v1/gmail/messages/{messageId}/body", "12345")
                         .with(csrf()))

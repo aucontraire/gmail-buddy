@@ -1,6 +1,11 @@
 package com.aucontraire.gmailbuddy.exception;
 
-public class MessageNotFoundException extends Exception {
+/**
+ * Legacy exception for message not found scenarios.
+ * @deprecated Use ResourceNotFoundException instead for new code
+ */
+@Deprecated(since = "1.0", forRemoval = true)
+public class MessageNotFoundException extends ResourceNotFoundException {
     public MessageNotFoundException(String message) {
         super(message);
     }
