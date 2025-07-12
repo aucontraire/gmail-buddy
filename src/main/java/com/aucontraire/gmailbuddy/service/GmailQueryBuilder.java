@@ -1,36 +1,45 @@
 package com.aucontraire.gmailbuddy.service;
 
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class GmailQueryBuilder {
+    
+    private final GmailBuddyProperties properties;
+    
+    @Autowired
+    public GmailQueryBuilder(GmailBuddyProperties properties) {
+        this.properties = properties;
+    }
 
     public String from(String senderEmail) {
         if (senderEmail == null || senderEmail.isBlank()) {
             return "";
         }
-        return "from:" + senderEmail + " ";
+        return properties.gmailApi().queryOperators().from() + senderEmail + " ";
     }
 
     public String to(String recipientEmail) {
         if (recipientEmail == null || recipientEmail.isBlank()) {
             return "";
         }
-        return "to:" + recipientEmail + " ";
+        return properties.gmailApi().queryOperators().to() + recipientEmail + " ";
     }
 
     public String subject(String subject) {
         if (subject == null || subject.isBlank()) {
             return "";
         }
-        return "subject:" + subject + " ";
+        return properties.gmailApi().queryOperators().subject() + subject + " ";
     }
 
     public String hasAttachment(Boolean hasAttachment) {
         if (hasAttachment == null || !hasAttachment) {
             return "";
         }
-        return "has:attachment ";
+        return properties.gmailApi().queryOperators().hasAttachment();
     }
 
     public String query(String additionalQuery) {

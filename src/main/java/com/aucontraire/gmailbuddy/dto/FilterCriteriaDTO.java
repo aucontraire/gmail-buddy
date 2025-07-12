@@ -1,11 +1,27 @@
 package com.aucontraire.gmailbuddy.dto;
 
+import jakarta.validation.constraints.Size;
+import com.aucontraire.gmailbuddy.validation.OptionalEmail;
+import com.aucontraire.gmailbuddy.validation.ValidGmailQuery;
+
 public class FilterCriteriaDTO {
+    @OptionalEmail
     private String from;
+    
+    @OptionalEmail
     private String to;
+    
+    @Size(max = 255, message = "Subject must not exceed 255 characters")
     private String subject;
+    
     private Boolean hasAttachment;
+    
+    @Size(max = 500, message = "Query must not exceed 500 characters")
+    @ValidGmailQuery
     private String query;
+    
+    @Size(max = 500, message = "Negated query must not exceed 500 characters")
+    @ValidGmailQuery
     private String negatedQuery;
 
     // Getters and setters

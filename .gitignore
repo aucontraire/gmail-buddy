@@ -33,3 +33,25 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Security & Configuration ###
+# Environment specific configuration
+application-local.properties
+application-dev.properties
+application-prod.properties
+
+# Google API credentials
+src/main/resources/credentials.json
+src/main/resources/service-account.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Local documentation (kept locally, not in repo)
+PROJECT_PLAN.md

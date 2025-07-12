@@ -2,8 +2,8 @@ package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
-import com.aucontraire.gmailbuddy.exception.GmailServiceException;
-import com.aucontraire.gmailbuddy.exception.MessageNotFoundException;
+import com.aucontraire.gmailbuddy.exception.GmailApiException;
+import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.google.api.services.gmail.model.FilterCriteria;
@@ -70,7 +70,7 @@ class GmailServiceTest {
     }
 
     @Test
-    void testListMessagesSuccess() throws IOException, GmailServiceException {
+    void testListMessagesSuccess() throws IOException, GmailApiException {
         // Arrange
         String userId = "test-user";
         List<Message> mockMessages = List.of(new Message(), new Message());
@@ -91,13 +91,13 @@ class GmailServiceTest {
         when(gmailRepository.getMessages(userId)).thenThrow(ioException);
 
         // Act & Assert
-        GmailServiceException exception = assertThrows(GmailServiceException.class, () -> gmailService.listMessages(userId));
+        GmailApiException exception = assertThrows(GmailApiException.class, () -> gmailService.listMessages(userId));
         assertEquals("Failed to list messages for user: test-user", exception.getMessage());
         assertEquals(ioException, exception.getCause());
     }
 
     @Test
-    void testDeleteMessagesByFilterCriteria() throws IOException, GmailServiceException {
+    void testDeleteMessagesByFilterCriteria() throws IOException, GmailApiException {
         // Arrange: Create a real FilterCriteria and corresponding DTO.
         FilterCriteria filterCriteria = new FilterCriteria();
         filterCriteria.setFrom("test@example.com");
@@ -141,7 +141,7 @@ class GmailServiceTest {
     }
 
     @Test
-    void testModifyMessagesLabels() throws IOException, GmailServiceException {
+    void testModifyMessagesLabels() throws IOException, GmailApiException {
         // Arrange
         String userId = "test-user";
         String senderEmail = "test@example.com";
@@ -174,7 +174,7 @@ class GmailServiceTest {
     }
 
     @Test
-    void testGetMessageBodyReturnsMessageBody() throws IOException, GmailServiceException, MessageNotFoundException {
+    void testGetMessageBodyReturnsMessageBody() throws IOException, GmailApiException, ResourceNotFoundException {
         // Arrange
         String userId = "test-user";
         String messageId = "test-message-id";
@@ -196,7 +196,7 @@ class GmailServiceTest {
         when(gmailRepository.getMessageBody(userId, messageId)).thenThrow(ioException);
 
         // Act & Assert
-        GmailServiceException exception = assertThrows(GmailServiceException.class, () -> gmailService.getMessageBody(userId, messageId));
+        GmailApiException exception = assertThrows(GmailApiException.class, () -> gmailService.getMessageBody(userId, messageId));
         assertEquals("Failed to get message body for messageId: test-message-id for user: test-user", exception.getMessage());
         assertEquals(ioException, exception.getCause());
     }

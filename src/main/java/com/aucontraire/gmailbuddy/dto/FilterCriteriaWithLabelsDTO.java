@@ -1,16 +1,36 @@
 package com.aucontraire.gmailbuddy.dto;
 
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
+import com.aucontraire.gmailbuddy.validation.OptionalEmail;
+import com.aucontraire.gmailbuddy.validation.ValidGmailQuery;
 import java.util.List;
 
 public class FilterCriteriaWithLabelsDTO {
+    @OptionalEmail
     private String from;
+    
+    @OptionalEmail
     private String to;
+    
+    @Size(max = 255, message = "Subject must not exceed 255 characters")
     private String subject;
+    
     private Boolean hasAttachment;
+    
+    @Size(max = 500, message = "Query must not exceed 500 characters")
+    @ValidGmailQuery
     private String query;
+    
+    @Size(max = 500, message = "Negated query must not exceed 500 characters")
+    @ValidGmailQuery
     private String negatedQuery;
-    private List<String> labelsToAdd;
-    private List<String> labelsToRemove;
+    
+    @Size(max = 10, message = "Cannot add more than 10 labels at once")
+    private List<@NotEmpty(message = "Label name cannot be empty") @Size(max = 50, message = "Label name must not exceed 50 characters") String> labelsToAdd;
+    
+    @Size(max = 10, message = "Cannot remove more than 10 labels at once")
+    private List<@NotEmpty(message = "Label name cannot be empty") @Size(max = 50, message = "Label name must not exceed 50 characters") String> labelsToRemove;
 
     public String getFrom() {
         return from;
