@@ -294,12 +294,10 @@ class ExceptionHierarchyTest {
     // ===========================================
 
     @Test
-    void testMessageNotFoundException_extendsResourceNotFoundException() {
-        String message = "Message not found";
-        MessageNotFoundException exception = new MessageNotFoundException(message);
+    void testResourceNotFoundException_properties() {
+        String message = "Resource not found";
+        ResourceNotFoundException exception = new ResourceNotFoundException(message);
         
-        // Should behave like ResourceNotFoundException
-        assertTrue(exception instanceof ResourceNotFoundException);
         assertEquals("RESOURCE_NOT_FOUND", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.NOT_FOUND.value(), exception.getHttpStatus());
@@ -308,16 +306,15 @@ class ExceptionHierarchyTest {
     }
 
     @Test
-    void testGmailServiceException_extendsGmailApiException() {
-        String message = "Gmail service error";
-        GmailServiceException exception = new GmailServiceException(message);
+    void testGmailApiException_properties() {
+        String message = "Gmail API error";
+        GmailApiException exception = new GmailApiException(message);
         
-        // Should behave like GmailApiException
-        assertTrue(exception instanceof GmailApiException);
         assertEquals("GMAIL_API_ERROR", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.BAD_GATEWAY.value(), exception.getHttpStatus());
         assertFalse(exception.isClientError());
+        assertFalse(exception.isRetryable()); // Default not retryable
         assertNotNull(exception.getCorrelationId());
     }
 

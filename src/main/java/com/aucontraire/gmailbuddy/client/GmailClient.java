@@ -1,10 +1,12 @@
 package com.aucontraire.gmailbuddy.client;
 
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.gmail.Gmail;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -21,6 +23,13 @@ import java.security.GeneralSecurityException;
 @Component
 public class GmailClient {
     private static final Logger logger = LoggerFactory.getLogger(GmailClient.class);
+    
+    private final GmailBuddyProperties properties;
+    
+    @Autowired
+    public GmailClient(GmailBuddyProperties properties) {
+        this.properties = properties;
+    }
 
     /**
      * Creates a Gmail service instance authenticated with the provided access token.
@@ -33,10 +42,13 @@ public class GmailClient {
      */
     public Gmail createGmailService(String accessToken) throws GeneralSecurityException, IOException {
         logger.debug("Creating Gmail service with access token");
+        String tokenPrefix = properties.oauth2().token().prefix();
+        String applicationName = properties.gmailApi().applicationName();
+        
         return new Gmail.Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),
                 GsonFactory.getDefaultInstance(),
-                request -> request.getHeaders().setAuthorization("Bearer " + accessToken)
-        ).setApplicationName("gmail-buddy").build();
+                request -> request.getHeaders().setAuthorization(tokenPrefix + accessToken)
+        ).setApplicationName(applicationName).build();
     }
 }

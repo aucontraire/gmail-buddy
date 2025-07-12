@@ -117,37 +117,7 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
-    /**
-     * Handles legacy GmailServiceException for backward compatibility.
-     * @deprecated Use new exception hierarchy instead
-     */
-    @ExceptionHandler(GmailServiceException.class)
-    public ResponseEntity<ErrorResponse> handleGmailServiceException(GmailServiceException ex) {
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .code("GMAIL_SERVICE_ERROR")
-                .message(ex.getMessage())
-                .category("SERVER_ERROR")
-                .build();
 
-        logger.error("Gmail service error: {}", ex.getMessage(), ex);
-        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-
-    /**
-     * Handles legacy MessageNotFoundException for backward compatibility.
-     * @deprecated Use ResourceNotFoundException instead
-     */
-    @ExceptionHandler(MessageNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleMessageNotFoundException(MessageNotFoundException ex) {
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .code("MESSAGE_NOT_FOUND")
-                .message(ex.getMessage())
-                .category("CLIENT_ERROR")
-                .build();
-
-        logger.warn("Message not found: {}", ex.getMessage());
-        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
-    }
 
     /**
      * Handles all unexpected exceptions as internal server errors.

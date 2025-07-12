@@ -1,5 +1,6 @@
 package com.aucontraire.gmailbuddy.controller;
 
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
@@ -29,23 +30,29 @@ public class GmailController {
 
     private final GmailService gmailService;
     private final OAuth2AuthorizedClientService authorizedClientService;
+    private final GmailBuddyProperties properties;
     private final Logger logger = LoggerFactory.getLogger(GmailController.class);
 
     @Autowired
-    public GmailController(GmailService gmailService, OAuth2AuthorizedClientService authorizedClientService) {
+    public GmailController(GmailService gmailService, OAuth2AuthorizedClientService authorizedClientService, 
+                          GmailBuddyProperties properties) {
         this.gmailService = gmailService;
         this.authorizedClientService = authorizedClientService;
+        this.properties = properties;
     }
 
     @GetMapping(value = "/messages", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<Message>> listMessages() {
-        List<Message> messages = gmailService.listMessages("me");
+        String userId = properties.gmailApi().defaultUserId();
+        List<Message> messages = gmailService.listMessages(userId);
         return ResponseEntity.ok(messages);
     }
 
     @GetMapping(value = "/messages/latest", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<Message>> listLatestMessages() {
-        List<Message> messages = gmailService.listLatestMessages("me", 50);
+        String userId = properties.gmailApi().defaultUserId();
+        int limit = properties.gmailApi().defaultLatestMessagesLimit();
+        List<Message> messages = gmailService.listLatestMessages(userId, limit);
         return ResponseEntity.ok(messages);
     }
 
@@ -54,16 +61,16 @@ public class GmailController {
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<Message>> listMessagesByFilterCriteria(
             @Valid @RequestBody FilterCriteriaDTO filterCriteriaDTO) {
-        // Map the DTO to the actual FilterCriteria required by your service
-        // For example, you can create a helper method in your service for mapping
-        List<Message> messages = gmailService.listMessagesByFilterCriteria("me", filterCriteriaDTO);
+        String userId = properties.gmailApi().defaultUserId();
+        List<Message> messages = gmailService.listMessagesByFilterCriteria(userId, filterCriteriaDTO);
         return ResponseEntity.ok(messages);
     }
 
     @DeleteMapping(value = "/messages/{messageId}",
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> deleteMessage(@PathVariable String messageId) {
-        gmailService.deleteMessage("me", messageId);
+        String userId = properties.gmailApi().defaultUserId();
+        gmailService.deleteMessage(userId, messageId);
         return ResponseEntity.noContent().build();
     }
 
@@ -72,7 +79,8 @@ public class GmailController {
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> deleteMessagesByFilterCriteria(
             @Valid @RequestBody FilterCriteriaDTO filterCriteriaDTO) {
-        gmailService.deleteMessagesByFilterCriteria("me", filterCriteriaDTO);
+        String userId = properties.gmailApi().defaultUserId();
+        gmailService.deleteMessagesByFilterCriteria(userId, filterCriteriaDTO);
         return ResponseEntity.noContent().build(); // 204 No Content
     }
 
@@ -81,20 +89,23 @@ public class GmailController {
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> modifyMessagesLabelsByFilter(
             @Valid @RequestBody FilterCriteriaWithLabelsDTO dto) {
-        gmailService.modifyMessagesLabelsByFilterCriteria("me", dto);
+        String userId = properties.gmailApi().defaultUserId();
+        gmailService.modifyMessagesLabelsByFilterCriteria(userId, dto);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping(value = "/messages/{messageId}/body", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> getMessageBody(@PathVariable String messageId) {
-        String messageBody = gmailService.getMessageBody("me", messageId);
+        String userId = properties.gmailApi().defaultUserId();
+        String messageBody = gmailService.getMessageBody(userId, messageId);
         return ResponseEntity.ok(messageBody);
     }
 
     @PutMapping(value = "/messages/{messageId}/read",
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> markMessageAsRead(@PathVariable String messageId) {
-        gmailService.markMessageAsRead("me", messageId);
+        String userId = properties.gmailApi().defaultUserId();
+        gmailService.markMessageAsRead(userId, messageId);
         return ResponseEntity.noContent().build();
     }
 
@@ -103,11 +114,13 @@ public class GmailController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.isAuthenticated() && authentication instanceof OAuth2AuthenticationToken) {
             OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
-            OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(oauthToken.getAuthorizedClientRegistrationId(), oauthToken.getName());
+            String registrationId = properties.oauth2().clientRegistrationId();
+            OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(registrationId, oauthToken.getName());
             if (client != null) {
                 String accessToken = client.getAccessToken().getTokenValue();
-                System.out.println("Access Token: " + accessToken);
-                return "Access Token: " + accessToken;
+                String tokenPrefix = properties.oauth2().token().prefix();
+                System.out.println("Access Token: " + tokenPrefix + accessToken);
+                return "Access Token: " + tokenPrefix + accessToken;
             }
         }
         return "No token found or user not authenticated.";

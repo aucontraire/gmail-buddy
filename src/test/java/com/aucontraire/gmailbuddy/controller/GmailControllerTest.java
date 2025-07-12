@@ -107,7 +107,7 @@ public class GmailControllerTest {
     }
 
     @Test
-    public void testGetMessageBody_MessageNotFoundException() throws Exception {
+    public void testGetMessageBody_ResourceNotFoundException() throws Exception {
         when(gmailService.getMessageBody("me", "12345"))
                 .thenThrow(new ResourceNotFoundException("Message not found"));
 

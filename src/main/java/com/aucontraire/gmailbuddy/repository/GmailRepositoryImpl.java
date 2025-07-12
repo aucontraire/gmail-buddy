@@ -1,6 +1,7 @@
 package com.aucontraire.gmailbuddy.repository;
 
 import com.aucontraire.gmailbuddy.client.GmailClient;
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.*;
 import org.slf4j.Logger;
@@ -21,20 +22,25 @@ public class GmailRepositoryImpl implements GmailRepository {
 
     private final GmailClient gmailClient;
     private final OAuth2AuthorizedClientService authorizedClientService;
+    private final GmailBuddyProperties properties;
     private final Logger logger = LoggerFactory.getLogger(GmailRepositoryImpl.class);
 
     @Autowired
-    public GmailRepositoryImpl(GmailClient gmailClient, OAuth2AuthorizedClientService authorizedClientService) {
+    public GmailRepositoryImpl(GmailClient gmailClient, OAuth2AuthorizedClientService authorizedClientService,
+                              GmailBuddyProperties properties) {
         this.gmailClient = gmailClient;
         this.authorizedClientService = authorizedClientService;
+        this.properties = properties;
     }
 
     private Gmail getGmailService() throws IOException, GeneralSecurityException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient("google", authentication.getName());
+        String registrationId = properties.oauth2().clientRegistrationId();
+        OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(registrationId, authentication.getName());
 
         if (client == null) {
-            logger.error("OAuth2AuthorizedClient is null for clientRegistrationId: google, principalName: {}", authentication.getName());
+            logger.error("OAuth2AuthorizedClient is null for clientRegistrationId: {}, principalName: {}", 
+                        registrationId, authentication.getName());
             throw new IllegalStateException("OAuth2AuthorizedClient is null");
         }
 
@@ -101,7 +107,7 @@ public class GmailRepositoryImpl implements GmailRepository {
             var messages = gmail.users().messages()
                     .list(userId)
                     .setQ(query)
-                    .setMaxResults(500L) // Optional: limit for batch operations
+                    .setMaxResults(properties.gmailApi().batchDeleteMaxResults())
                     .execute()
                     .getMessages();
 
@@ -202,7 +208,7 @@ public class GmailRepositoryImpl implements GmailRepository {
         for (MessagePart part : parts) {
             if (part.getBody() != null && part.getBody().getData() != null) {
                 String mimeType = part.getMimeType();
-                if ("text/html".equals(mimeType)) {
+                if (properties.gmailApi().messageProcessing().mimeTypes().html().equals(mimeType)) {
                     String data = new String(Base64.getUrlDecoder().decode(part.getBody().getData()));
                     logger.info("Message is in text/html");
                     return data;
@@ -214,7 +220,7 @@ public class GmailRepositoryImpl implements GmailRepository {
         for (MessagePart part : parts) {
             if (part.getBody() != null && part.getBody().getData() != null) {
                 String mimeType = part.getMimeType();
-                if ("text/plain".equals(mimeType)) {
+                if (properties.gmailApi().messageProcessing().mimeTypes().plain().equals(mimeType)) {
                     String data = new String(Base64.getUrlDecoder().decode(part.getBody().getData()));
                     logger.info("Message is in text/plain");
                     return data;
@@ -238,7 +244,8 @@ public class GmailRepositoryImpl implements GmailRepository {
         try {
             var gmail = getGmailService();
             // Remove the UNREAD label from the message
-            var mods = new com.google.api.services.gmail.model.ModifyMessageRequest().setRemoveLabelIds(List.of("UNREAD"));
+            String unreadLabel = properties.gmailApi().messageProcessing().labels().unread();
+            var mods = new com.google.api.services.gmail.model.ModifyMessageRequest().setRemoveLabelIds(List.of(unreadLabel));
             gmail.users().messages().modify(userId, messageId, mods).execute();
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);

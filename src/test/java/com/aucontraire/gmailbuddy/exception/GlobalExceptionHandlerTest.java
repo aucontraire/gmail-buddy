@@ -273,35 +273,35 @@ class GlobalExceptionHandlerTest {
     // ===========================================
 
     @Test
-    void testHandleGmailServiceException_LegacySupport() {
-        GmailServiceException exception = new GmailServiceException("Legacy Gmail service error");
+    void testHandleGmailApiException() {
+        GmailApiException exception = new GmailApiException("Gmail API error");
         
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailServiceException(exception);
+        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
         
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertEquals(HttpStatus.BAD_GATEWAY, response.getStatusCode());
         
         ErrorResponse errorResponse = response.getBody();
         assertNotNull(errorResponse);
-        assertEquals("GMAIL_SERVICE_ERROR", errorResponse.getCode());
-        assertEquals("Legacy Gmail service error", errorResponse.getMessage());
+        assertEquals("GMAIL_API_ERROR", errorResponse.getCode());
+        assertEquals("Gmail API error", errorResponse.getMessage());
         assertEquals("SERVER_ERROR", errorResponse.getCategory());
-        assertNull(errorResponse.getCorrelationId()); // Legacy exceptions don't have correlation ID
+        assertNotNull(errorResponse.getCorrelationId()); // Modern handler extracts correlation ID
     }
 
     @Test
-    void testHandleMessageNotFoundException_LegacySupport() {
-        MessageNotFoundException exception = new MessageNotFoundException("Legacy message not found");
+    void testHandleResourceNotFoundException() {
+        ResourceNotFoundException exception = new ResourceNotFoundException("Resource not found");
         
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleMessageNotFoundException(exception);
+        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
         
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         
         ErrorResponse errorResponse = response.getBody();
         assertNotNull(errorResponse);
-        assertEquals("MESSAGE_NOT_FOUND", errorResponse.getCode());
-        assertEquals("Legacy message not found", errorResponse.getMessage());
+        assertEquals("RESOURCE_NOT_FOUND", errorResponse.getCode());
+        assertEquals("Resource not found", errorResponse.getMessage());
         assertEquals("CLIENT_ERROR", errorResponse.getCategory());
-        assertNull(errorResponse.getCorrelationId()); // Legacy handler doesn't extract correlation ID
+        assertNotNull(errorResponse.getCorrelationId()); // Modern handler extracts correlation ID
     }
 
     // ===========================================
