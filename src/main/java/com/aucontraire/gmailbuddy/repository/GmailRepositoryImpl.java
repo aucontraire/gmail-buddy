@@ -2,15 +2,13 @@ package com.aucontraire.gmailbuddy.repository;
 
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
+import com.aucontraire.gmailbuddy.exception.AuthenticationException;
+import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -21,31 +19,26 @@ import java.util.*;
 public class GmailRepositoryImpl implements GmailRepository {
 
     private final GmailClient gmailClient;
-    private final OAuth2AuthorizedClientService authorizedClientService;
+    private final TokenProvider tokenProvider;
     private final GmailBuddyProperties properties;
     private final Logger logger = LoggerFactory.getLogger(GmailRepositoryImpl.class);
 
     @Autowired
-    public GmailRepositoryImpl(GmailClient gmailClient, OAuth2AuthorizedClientService authorizedClientService,
+    public GmailRepositoryImpl(GmailClient gmailClient, TokenProvider tokenProvider,
                               GmailBuddyProperties properties) {
         this.gmailClient = gmailClient;
-        this.authorizedClientService = authorizedClientService;
+        this.tokenProvider = tokenProvider;
         this.properties = properties;
     }
 
     private Gmail getGmailService() throws IOException, GeneralSecurityException {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String registrationId = properties.oauth2().clientRegistrationId();
-        OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(registrationId, authentication.getName());
-
-        if (client == null) {
-            logger.error("OAuth2AuthorizedClient is null for clientRegistrationId: {}, principalName: {}", 
-                        registrationId, authentication.getName());
-            throw new IllegalStateException("OAuth2AuthorizedClient is null");
+        try {
+            String accessToken = tokenProvider.getAccessToken();
+            return gmailClient.createGmailService(accessToken);
+        } catch (AuthenticationException e) {
+            logger.error("Failed to retrieve access token for Gmail service", e);
+            throw new IllegalStateException("Failed to authenticate with Gmail API: " + e.getMessage(), e);
         }
-
-        String accessToken = client.getAccessToken().getTokenValue();
-        return gmailClient.createGmailService(accessToken);
     }
 
     @Override
