@@ -81,7 +81,13 @@ A robust, enterprise-ready Spring Boot application for Gmail management with com
 ## 📡 API Endpoints
 
 ### Authentication
-All endpoints require OAuth2 authentication via Google. The application will redirect unauthenticated users to Google's sign-in page.
+
+Gmail Buddy supports **dual authentication modes**:
+
+- **Browser Users**: OAuth2 flow with automatic redirect to Google's sign-in page
+- **API Clients**: Bearer token authentication for programmatic access (Postman, curl, scripts)
+
+**For API Testing**: See the [API Testing Guide](docs/API_TESTING_GUIDE.md) for detailed instructions on using Bearer tokens with Postman, curl, and automation scripts.
 
 ### Core Endpoints
 
@@ -102,6 +108,7 @@ All endpoints require OAuth2 authentication via Google. The application will red
 **Filter Messages:**
 ```bash
 curl -X POST http://localhost:8020/api/v1/gmail/messages/filter \
+  -H "Authorization: Bearer ya29.a0ARrdaM..." \
   -H "Content-Type: application/json" \
   -d '{
     "from": "notifications@example.com",
@@ -113,6 +120,7 @@ curl -X POST http://localhost:8020/api/v1/gmail/messages/filter \
 **Modify Labels:**
 ```bash
 curl -X POST http://localhost:8020/api/v1/gmail/messages/filter/modifyLabels \
+  -H "Authorization: Bearer ya29.a0ARrdaM..." \
   -H "Content-Type: application/json" \
   -d '{
     "from": "newsletter@example.com",
@@ -120,6 +128,8 @@ curl -X POST http://localhost:8020/api/v1/gmail/messages/filter/modifyLabels \
     "labelsToRemove": ["INBOX"]
   }'
 ```
+
+> **Note**: Replace `ya29.a0ARrdaM...` with your actual Bearer token. See [API Testing Guide](docs/API_TESTING_GUIDE.md) for instructions on obtaining tokens.
 
 ### Error Responses
 
@@ -181,6 +191,12 @@ Centralized configuration using `@ConfigurationProperties`:
 - OAuth2 configuration
 - Security settings (CORS, headers)
 - Validation rules and patterns
+
+#### Authentication Architecture
+- **Dual Authentication Support**: OAuth2 for browsers, Bearer tokens for API clients
+- **Security Context Decoupling**: Repository layer independent of Spring Security context
+- **Token Validation**: Google TokenInfo endpoint integration for Bearer tokens
+- **Graceful Fallback**: API requests fall back to OAuth2 when Bearer token invalid
 
 ---
 
@@ -320,6 +336,7 @@ When running the application, interactive API documentation is available at:
 - **OpenAPI JSON**: `http://localhost:8020/v3/api-docs`
 
 ### Project Documentation
+- **[API Testing Guide](docs/API_TESTING_GUIDE.md)**: Bearer token authentication and Postman setup
 - **[Project Plan](PROJECT_PLAN.md)**: Detailed development roadmap
 - **[Configuration Guide](docs/configuration.md)**: Complete configuration reference
 - **[Deployment Guide](docs/deployment.md)**: Production deployment instructions

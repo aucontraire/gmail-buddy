@@ -1,5 +1,6 @@
 package com.aucontraire.gmailbuddy.controller;
 
+import com.aucontraire.gmailbuddy.config.TestTokenProviderConfiguration;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.service.GmailService;
@@ -40,6 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
+@Import(TestTokenProviderConfiguration.class)
 public class GmailControllerTest {
 
     private static final Logger logger = LoggerFactory.getLogger(GmailControllerTest.class);

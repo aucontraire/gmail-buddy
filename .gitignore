@@ -34,6 +34,9 @@ build/
 ### VS Code ###
 .vscode/
 
+### MacOS ###
+.DS_Store
+
 ### Security & Configuration ###
 # Environment specific configuration
 application-local.properties
@@ -55,3 +58,6 @@ logs/
 
 # Local documentation (kept locally, not in repo)
 PROJECT_PLAN.md
+
+### Backup files ###
+*.bak
