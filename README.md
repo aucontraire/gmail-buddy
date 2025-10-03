@@ -374,6 +374,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Common Issues
 
+**OAuth2 Client Not Found / Invalid Client**
+- See the [Google Client Verification Guide](docs/GOOGLE_CLIENT_VERIFICATION.md) for step-by-step troubleshooting
+- Verify you're in the correct Google Cloud project
+- Ensure OAuth2 client ID and secret are properly configured
+
 **OAuth2 Redirect URI Mismatch**
 - Ensure `http://localhost:8020/login/oauth2/code/google` is added to Google Cloud Console
 - Verify the redirect URI matches exactly (including port)

@@ -3,9 +3,10 @@ package com.aucontraire.gmailbuddy.service;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
@@ -106,15 +107,25 @@ public class GoogleTokenValidator {
     /**
      * Internal method to call Google's TokenInfo endpoint.
      *
+     * SECURITY: Uses POST with token in request body to prevent token exposure in URL parameters,
+     * logs, browser history, and HTTP referrer headers.
+     *
      * @param accessToken the access token to validate
      * @return TokenInfoResponse containing token details
      * @throws Exception if the HTTP call fails or returns invalid response
      */
     private TokenInfoResponse validateTokenWithGoogle(String accessToken) throws Exception {
-        String url = GOOGLE_TOKEN_INFO_URL + "?access_token=" + accessToken;
+        // Create POST request with token in body to prevent URL exposure
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-        logger.debug("Validating token with Google TokenInfo endpoint");
-        ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, null, Map.class);
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("access_token", accessToken);
+
+        HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity<>(body, headers);
+
+        logger.debug("Validating token with Google TokenInfo endpoint using secure POST method");
+        ResponseEntity<Map> response = restTemplate.exchange(GOOGLE_TOKEN_INFO_URL, HttpMethod.POST, requestEntity, Map.class);
 
         if (!response.getStatusCode().is2xxSuccessful()) {
             logger.debug("Google TokenInfo returned non-success status: {}", response.getStatusCode());

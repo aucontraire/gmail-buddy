@@ -17,6 +17,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -95,7 +96,7 @@ class Phase2ErrorScenariosTest {
         void shouldHandleGoogleTokenInfoApiTimeoutGracefully() throws Exception {
             // Given
             String timeoutToken = "ya29.a0ARrdaM-timeout-token";
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new ResourceAccessException("Read timed out", new SocketTimeoutException("Read timed out")));
 
             // When
@@ -103,14 +104,14 @@ class Phase2ErrorScenariosTest {
 
             // Then
             assertThat(result).isFalse();
-            verify(restTemplate).exchange(contains(timeoutToken), eq(HttpMethod.GET), isNull(), eq(Map.class));
+            verify(restTemplate).exchange(eq("https://www.googleapis.com/oauth2/v1/tokeninfo"), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class));
         }
 
         @Test
         @DisplayName("Should handle Google TokenInfo API connection refused")
         void shouldHandleGoogleTokenInfoApiConnectionRefused() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new ResourceAccessException("Connection refused"));
 
             // When
@@ -118,14 +119,14 @@ class Phase2ErrorScenariosTest {
 
             // Then
             assertThat(result).isFalse();
-            verify(restTemplate).exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class));
+            verify(restTemplate).exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class));
         }
 
         @Test
         @DisplayName("Should handle Google TokenInfo API DNS resolution failure")
         void shouldHandleGoogleTokenInfoApiDnsResolutionFailure() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new ResourceAccessException("Name resolution failed"));
 
             // When
@@ -139,7 +140,7 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle Google TokenInfo API SSL handshake failure")
         void shouldHandleGoogleTokenInfoApiSslHandshakeFailure() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new ResourceAccessException("SSL handshake failed"));
 
             // When
@@ -157,7 +158,7 @@ class Phase2ErrorScenariosTest {
             rateLimitResponse.put("error", "rate_limit_exceeded");
             rateLimitResponse.put("error_description", "Rate limit exceeded");
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(rateLimitResponse, HttpStatus.TOO_MANY_REQUESTS));
 
             // When
@@ -171,7 +172,7 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle Google API returning HTTP 500 Internal Server Error")
         void shouldHandleGoogleApiReturningHttp500InternalServerError() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(new HashMap<>(), HttpStatus.INTERNAL_SERVER_ERROR));
 
             // When
@@ -185,7 +186,7 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle Google API returning HTTP 503 Service Unavailable")
         void shouldHandleGoogleApiReturningHttp503ServiceUnavailable() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(new HashMap<>(), HttpStatus.SERVICE_UNAVAILABLE));
 
             // When
@@ -216,7 +217,7 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle various malformed token formats")
         void shouldHandleVariousMalformedTokenFormats(String malformedToken) throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createErrorResponse("invalid_token"), HttpStatus.BAD_REQUEST));
 
             // When
@@ -231,7 +232,7 @@ class Phase2ErrorScenariosTest {
         void shouldHandleExtremelyLongTokens() throws Exception {
             // Given
             String extremelyLongToken = "ya29.a0ARrdaM-" + "x".repeat(10000);
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createErrorResponse("invalid_token"), HttpStatus.BAD_REQUEST));
 
             // When
@@ -246,7 +247,7 @@ class Phase2ErrorScenariosTest {
         void shouldHandleTokensWithUnicodeCharacters() throws Exception {
             // Given
             String unicodeToken = "ya29.a0ARrdaM-tökèñ-wïth-üñïçödé";
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createErrorResponse("invalid_token"), HttpStatus.BAD_REQUEST));
 
             // When
@@ -261,7 +262,7 @@ class Phase2ErrorScenariosTest {
         void shouldHandleBinaryDataAsToken() throws Exception {
             // Given
             String binaryToken = new String(new byte[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createErrorResponse("invalid_token"), HttpStatus.BAD_REQUEST));
 
             // When
@@ -284,7 +285,7 @@ class Phase2ErrorScenariosTest {
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch finishLatch = new CountDownLatch(numberOfThreads);
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createValidTokenResponse(), HttpStatus.OK));
 
             // When
@@ -311,7 +312,7 @@ class Phase2ErrorScenariosTest {
             for (CompletableFuture<Boolean> future : futures) {
                 assertThat(future.get()).isTrue();
             }
-            verify(restTemplate, times(numberOfThreads)).exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class));
+            verify(restTemplate, times(numberOfThreads)).exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class));
         }
 
         @Test
@@ -323,7 +324,7 @@ class Phase2ErrorScenariosTest {
             CountDownLatch finishLatch = new CountDownLatch(numberOfThreads);
 
             // Mock some success and some failures
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createValidTokenResponse(), HttpStatus.OK))
                 .thenThrow(new RestClientException("Network error"))
                 .thenReturn(new ResponseEntity<>(createValidTokenResponse(), HttpStatus.OK))
@@ -393,7 +394,7 @@ class Phase2ErrorScenariosTest {
             when(request.getHeader("Authorization")).thenReturn("Bearer " + VALID_TOKEN);
             when(securityContext.getAuthentication()).thenReturn(null);
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createValidTokenResponse(), HttpStatus.OK));
 
             doThrow(new RuntimeException("SecurityContext corrupted")).when(securityContext).setAuthentication(any());
@@ -434,7 +435,7 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle memory pressure during token validation")
         void shouldHandleMemoryPressureDuringTokenValidation() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new OutOfMemoryError("Java heap space"));
 
             // When & Then
@@ -446,7 +447,7 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle thread interruption during token validation")
         void shouldHandleThreadInterruptionDuringTokenValidation() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenAnswer(invocation -> {
                     Thread.currentThread().interrupt();
                     throw new InterruptedException("Thread interrupted");
@@ -467,7 +468,7 @@ class Phase2ErrorScenariosTest {
             Map<String, Object> largeResponse = createValidTokenResponse();
             largeResponse.put("large_field", "x".repeat(1000000)); // 1MB string
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(largeResponse, HttpStatus.OK));
 
             // When
@@ -490,7 +491,7 @@ class Phase2ErrorScenariosTest {
             unexpectedResponse.put("unexpected_field", "unexpected_value");
             unexpectedResponse.put("nested", Map.of("deep", Map.of("structure", "value")));
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(unexpectedResponse, HttpStatus.OK));
 
             // When
@@ -507,7 +508,7 @@ class Phase2ErrorScenariosTest {
             Map<String, Object> malformedResponse = createValidTokenResponse();
             malformedResponse.put("expires_in", "not-a-number");
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(malformedResponse, HttpStatus.OK));
 
             // When
@@ -526,7 +527,7 @@ class Phase2ErrorScenariosTest {
             nullResponse.put("email", null);
             nullResponse.put("expires_in", null);
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(nullResponse, HttpStatus.OK));
 
             // When
@@ -549,7 +550,7 @@ class Phase2ErrorScenariosTest {
             mixedResponse.put("expires_in", true); // Boolean instead of string/number
             mixedResponse.put("email", new String[]{"array", "instead", "of", "string"});
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(mixedResponse, HttpStatus.OK));
 
             // When & Then
