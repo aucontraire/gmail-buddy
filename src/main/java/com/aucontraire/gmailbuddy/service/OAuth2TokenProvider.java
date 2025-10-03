@@ -2,6 +2,7 @@ package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
+import com.aucontraire.gmailbuddy.util.SecurityLogUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,7 +69,8 @@ public class OAuth2TokenProvider implements TokenProvider {
             }
             
             String tokenValue = accessToken.getTokenValue();
-            logger.debug("Successfully retrieved access token for user: {}", userId);
+            logger.debug("Successfully retrieved access token for user: {} - token: {}",
+                        userId, SecurityLogUtil.maskToken(tokenValue));
             return tokenValue;
             
         } catch (Exception e) {
@@ -164,7 +166,8 @@ public class OAuth2TokenProvider implements TokenProvider {
             throw new AuthenticationException("Bearer token is empty");
         }
 
-        logger.debug("Successfully extracted Bearer token from Authorization header");
+        logger.debug("Successfully extracted Bearer token from Authorization header: {}",
+                    SecurityLogUtil.maskBearerToken(token));
         return token;
     }
 
@@ -181,7 +184,8 @@ public class OAuth2TokenProvider implements TokenProvider {
         try {
             String bearerToken = getBearerToken();
             if (isValidBearerToken(bearerToken)) {
-                logger.debug("Successfully authenticated using Bearer token");
+                logger.debug("Successfully authenticated using Bearer token: {}",
+                            SecurityLogUtil.maskBearerToken(bearerToken));
                 return bearerToken;
             } else {
                 logger.debug("Bearer token validation failed");
@@ -200,7 +204,8 @@ public class OAuth2TokenProvider implements TokenProvider {
                 Object credentials = authentication.getCredentials();
                 if (credentials instanceof String) {
                     String token = (String) credentials;
-                    logger.debug("Successfully retrieved token from API client authentication");
+                    logger.debug("Successfully retrieved token from API client authentication: {}",
+                                SecurityLogUtil.maskToken(token));
                     return token;
                 }
             }
@@ -213,7 +218,8 @@ public class OAuth2TokenProvider implements TokenProvider {
         try {
             String principalName = getCurrentPrincipalName();
             String oauth2Token = getAccessToken(principalName);
-            logger.debug("Successfully authenticated using OAuth2 context");
+            logger.debug("Successfully authenticated using OAuth2 context: {}",
+                        SecurityLogUtil.maskToken(oauth2Token));
             return oauth2Token;
         } catch (Exception e) {
             logger.error("All authentication methods failed. Bearer: {}, API Client: {}, OAuth2: {}",
