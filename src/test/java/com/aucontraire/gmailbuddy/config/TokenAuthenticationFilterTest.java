@@ -1,5 +1,7 @@
 package com.aucontraire.gmailbuddy.config;
 
+import com.aucontraire.gmailbuddy.security.TokenReference;
+import com.aucontraire.gmailbuddy.security.TokenReferenceService;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -48,6 +50,9 @@ class TokenAuthenticationFilterTest {
     private GoogleTokenValidator tokenValidator;
 
     @Mock
+    private TokenReferenceService tokenReferenceService;
+
+    @Mock
     private HttpServletRequest request;
 
     @Mock
@@ -62,17 +67,25 @@ class TokenAuthenticationFilterTest {
     @Mock
     private Authentication existingAuthentication;
 
+    @Mock
+    private TokenReference tokenReference;
+
     private TokenAuthenticationFilter filter;
 
     private static final String VALID_BEARER_TOKEN = "ya29.a0ARrdaM-valid-token";
     private static final String INVALID_BEARER_TOKEN = "invalid-token";
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String TEST_REFERENCE_ID = "ref-12345-67890-abcdef";
 
     @BeforeEach
     void setUp() {
-        filter = new TokenAuthenticationFilter(tokenValidator);
+        filter = new TokenAuthenticationFilter(tokenValidator, tokenReferenceService);
         SecurityContextHolder.setContext(securityContext);
+
+        // Setup default token reference mock behavior (lenient for tests that don't use them)
+        lenient().when(tokenReference.getReferenceId()).thenReturn(TEST_REFERENCE_ID);
+        lenient().when(tokenReferenceService.createTokenReference(anyString(), anyString())).thenReturn(tokenReference);
     }
 
     @Nested
@@ -331,11 +344,15 @@ class TokenAuthenticationFilterTest {
             verify(securityContext).setAuthentication(argThat(auth -> {
                 assertThat(auth).isInstanceOf(UsernamePasswordAuthenticationToken.class);
                 assertThat(auth.getName()).isEqualTo(userEmail);
-                assertThat(auth.getCredentials()).isEqualTo(VALID_BEARER_TOKEN);
+                // SECURITY: Verify credentials contain reference ID, NOT raw token
+                assertThat(auth.getCredentials()).isEqualTo(TEST_REFERENCE_ID);
+                assertThat(auth.getCredentials()).isNotEqualTo(VALID_BEARER_TOKEN); // Must NOT be raw token
                 assertThat(auth.getAuthorities()).hasSize(1);
                 assertThat(auth.getAuthorities().iterator().next().getAuthority()).isEqualTo("ROLE_API_USER");
                 return true;
             }));
+            // Verify token reference was created
+            verify(tokenReferenceService).createTokenReference(VALID_BEARER_TOKEN, userEmail);
             verify(filterChain).doFilter(request, response);
         }
 

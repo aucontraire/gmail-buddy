@@ -6,6 +6,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
+import com.aucontraire.gmailbuddy.security.TokenReferenceService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,11 +35,13 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 /**
  * Security-focused test suite for OAuth2TokenProvider logging functionality.
@@ -93,9 +96,14 @@ class OAuth2TokenProviderSecurityLoggingTest {
     @Mock
     private ServletRequestAttributes requestAttributes;
 
+    @Mock
+    private TokenReferenceService tokenReferenceService;
+
     private OAuth2TokenProvider tokenProvider;
     private ListAppender<ILoggingEvent> logAppender;
     private Logger oauth2TokenProviderLogger;
+    private MockedStatic<RequestContextHolder> mockedRequestContextHolder;
+    private MockedStatic<SecurityContextHolder> mockedSecurityContextHolder;
 
     // Test tokens that represent realistic sensitive values
     private static final String LONG_OAUTH2_TOKEN = "ya29.a0AfH6SMC_SENSITIVE_DATA_1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -107,7 +115,7 @@ class OAuth2TokenProviderSecurityLoggingTest {
 
     @BeforeEach
     void setUp() {
-        tokenProvider = new OAuth2TokenProvider(authorizedClientService, properties, tokenValidator);
+        tokenProvider = new OAuth2TokenProvider(authorizedClientService, properties, tokenValidator, tokenReferenceService);
 
         // Setup log capture
         oauth2TokenProviderLogger = (Logger) LoggerFactory.getLogger(OAuth2TokenProvider.class);
@@ -116,10 +124,15 @@ class OAuth2TokenProviderSecurityLoggingTest {
         logAppender.start();
         oauth2TokenProviderLogger.addAppender(logAppender);
 
-        // Setup mocks
+        // Setup static mocks
+        mockedRequestContextHolder = mockStatic(RequestContextHolder.class);
+        mockedSecurityContextHolder = mockStatic(SecurityContextHolder.class);
+
+        // Setup mocks - use lenient stubbing for optionally used mocks
         SecurityContextHolder.setContext(securityContext);
-        when(properties.oauth2()).thenReturn(oauth2Config);
-        when(oauth2Config.clientRegistrationId()).thenReturn(CLIENT_REGISTRATION_ID);
+        mockedSecurityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+        lenient().when(properties.oauth2()).thenReturn(oauth2Config);
+        lenient().when(oauth2Config.clientRegistrationId()).thenReturn(CLIENT_REGISTRATION_ID);
     }
 
     @AfterEach
@@ -127,6 +140,14 @@ class OAuth2TokenProviderSecurityLoggingTest {
         oauth2TokenProviderLogger.detachAppender(logAppender);
         logAppender.stop();
         SecurityContextHolder.clearContext();
+
+        // Close static mocks
+        if (mockedRequestContextHolder != null) {
+            mockedRequestContextHolder.close();
+        }
+        if (mockedSecurityContextHolder != null) {
+            mockedSecurityContextHolder.close();
+        }
     }
 
     @Nested
@@ -134,7 +155,7 @@ class OAuth2TokenProviderSecurityLoggingTest {
     class AccessTokenRetrievalLoggingSecurityTests {
 
         @ParameterizedTest
-        @MethodSource("provideSensitiveTokens")
+        @MethodSource("com.aucontraire.gmailbuddy.service.OAuth2TokenProviderSecurityLoggingTest#provideSensitiveTokens")
         @DisplayName("Should never log full access tokens when retrieving by user ID")
         void shouldNeverLogFullAccessTokensWhenRetrievingByUserId(String sensitiveToken) {
             // Given
@@ -174,15 +195,17 @@ class OAuth2TokenProviderSecurityLoggingTest {
             when(authorizedClientService.loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL))
                 .thenReturn(authorizedClient);
             when(authorizedClient.getAccessToken()).thenReturn(accessToken);
-            when(accessToken.getTokenValue()).thenReturn(LONG_OAUTH2_TOKEN);
             when(accessToken.getExpiresAt()).thenReturn(Instant.now().minusSeconds(3600)); // Expired
 
             // When & Then
             assertThatThrownBy(() -> tokenProvider.getAccessToken(USER_EMAIL))
                 .isInstanceOf(AuthenticationException.class);
 
-            // Verify no sensitive data in logs even during error scenarios
-            verifyNoSensitiveDataInLogs(LONG_OAUTH2_TOKEN);
+            // Verify error logging doesn't expose sensitive data
+            List<String> logMessages = getLogMessages();
+            assertThat(logMessages)
+                .anyMatch(message -> message.contains("Access token is expired for user"))
+                .noneMatch(message -> message.contains("SENSITIVE_DATA"));
         }
     }
 
@@ -191,12 +214,12 @@ class OAuth2TokenProviderSecurityLoggingTest {
     class BearerTokenProcessingLoggingSecurityTests {
 
         @ParameterizedTest
-        @MethodSource("provideSensitiveTokens")
+        @MethodSource("com.aucontraire.gmailbuddy.service.OAuth2TokenProviderSecurityLoggingTest#provideSensitiveTokens")
         @DisplayName("Should never log full Bearer tokens")
         void shouldNeverLogFullBearerTokens(String sensitiveToken) {
             // Given
             mockHttpRequestContext(sensitiveToken);
-            when(tokenValidator.isValidGoogleToken(sensitiveToken)).thenReturn(true);
+            lenient().when(tokenValidator.isValidGoogleToken(sensitiveToken)).thenReturn(true);
 
             // When
             String result = tokenProvider.getBearerToken();
@@ -238,7 +261,7 @@ class OAuth2TokenProviderSecurityLoggingTest {
             List<String> logMessages = getLogMessages();
             assertThat(logMessages)
                 .anyMatch(message -> message.contains("Successfully authenticated using Bearer token"))
-                .anyMatch(message -> message.contains("sk-S****xyz"))
+                .anyMatch(message -> message.contains("sk-S****wxyz"))
                 .noneMatch(message -> message.contains("SENSITIVE_API_KEY_DATA"))
                 .noneMatch(message -> message.contains("1234567890abcdefghijklmnopqrstuvwxyz"));
         }
@@ -263,8 +286,8 @@ class OAuth2TokenProviderSecurityLoggingTest {
 
             List<String> logMessages = getLogMessages();
             assertThat(logMessages)
-                .anyMatch(message -> message.contains("Successfully retrieved token from API client"))
-                .anyMatch(message -> message.contains("ghp_****xyz"))
+                .anyMatch(message -> message.contains("Successfully retrieved token from secure token reference"))
+                .anyMatch(message -> message.contains("ghp_****wxyz"))
                 .noneMatch(message -> message.contains("SENSITIVE_GITHUB_TOKEN"))
                 .noneMatch(message -> message.contains("1234567890abcdefghijklmnopqrstuvwxyz"));
         }
@@ -393,8 +416,8 @@ class OAuth2TokenProviderSecurityLoggingTest {
             List<String> logMessages = getLogMessages();
             assertThat(logMessages)
                 .anyMatch(message -> message.contains("Bearer token validation failed"))
-                .anyMatch(message -> message.contains("Successfully retrieved token from API client"))
-                .anyMatch(message -> message.contains("ghp_****xyz"));
+                .anyMatch(message -> message.contains("Successfully retrieved token from secure token reference"))
+                .anyMatch(message -> message.contains("ghp_****wxyz"));
         }
     }
 
@@ -413,24 +436,32 @@ class OAuth2TokenProviderSecurityLoggingTest {
 
     private void mockHttpRequestContext(String bearerToken) {
         String authHeader = bearerToken != null ? "Bearer " + bearerToken : null;
-        try (MockedStatic<RequestContextHolder> mockedRequestContextHolder = mockStatic(RequestContextHolder.class)) {
-            mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes).thenReturn(requestAttributes);
-            when(requestAttributes.getRequest()).thenReturn(httpRequest);
-            when(httpRequest.getHeader("Authorization")).thenReturn(authHeader);
-        }
+        mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes).thenReturn(requestAttributes);
+        when(requestAttributes.getRequest()).thenReturn(httpRequest);
+        when(httpRequest.getHeader("Authorization")).thenReturn(authHeader);
     }
 
     private void mockApiClientAuthentication(String token) {
+        String tokenReferenceId = "ref_" + token.hashCode();
+
         when(securityContext.getAuthentication()).thenReturn(authentication);
         when(authentication.isAuthenticated()).thenReturn(true);
         when(authentication.getAuthorities()).thenAnswer(invocation -> Arrays.asList(new SimpleGrantedAuthority("ROLE_API_USER")));
-        when(authentication.getCredentials()).thenReturn(token);
+        when(authentication.getCredentials()).thenReturn(tokenReferenceId);
+
+        // Mock the token reference service to return the actual token
+        when(tokenReferenceService.getToken(tokenReferenceId)).thenReturn(Optional.of(token));
     }
 
     private void mockOAuth2AuthorizedClient(String tokenValue) {
-        when(authorizedClientService.loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL))
+        // Setup OAuth2 authentication context - use lenient for conditional usage
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
+        lenient().when(authentication.getName()).thenReturn(USER_EMAIL);
+        lenient().when(authentication.isAuthenticated()).thenReturn(true);
+
+        lenient().when(authorizedClientService.loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL))
             .thenReturn(authorizedClient);
-        when(authorizedClient.getAccessToken()).thenReturn(accessToken);
+        lenient().when(authorizedClient.getAccessToken()).thenReturn(accessToken);
         when(accessToken.getTokenValue()).thenReturn(tokenValue);
         when(accessToken.getExpiresAt()).thenReturn(Instant.now().plusSeconds(3600));
     }

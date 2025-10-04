@@ -2,6 +2,7 @@ package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
+import com.aucontraire.gmailbuddy.security.TokenReferenceService;
 import com.aucontraire.gmailbuddy.util.SecurityLogUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -20,6 +21,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * OAuth2 implementation of TokenProvider supporting dual authentication modes.
@@ -29,8 +31,11 @@ import java.util.Map;
  * API client Bearer token authentication, providing a bridge between the repository layer
  * and Spring Security's OAuth2 infrastructure.
  *
- * @author Gmail Buddy Team
- * @since Sprint 2
+ * SECURITY UPDATE: Now integrates with Encrypted Token Reference Pattern to securely
+ * retrieve tokens from token references instead of raw tokens from Security Context.
+ *
+ * @author Gmail Buddy Security Team
+ * @since Sprint 2 - Updated for Security Context Decoupling
  */
 @Service
 public class OAuth2TokenProvider implements TokenProvider {
@@ -39,13 +44,16 @@ public class OAuth2TokenProvider implements TokenProvider {
     private final OAuth2AuthorizedClientService authorizedClientService;
     private final GmailBuddyProperties properties;
     private final GoogleTokenValidator tokenValidator;
+    private final TokenReferenceService tokenReferenceService;
 
     public OAuth2TokenProvider(OAuth2AuthorizedClientService authorizedClientService,
                               GmailBuddyProperties properties,
-                              GoogleTokenValidator tokenValidator) {
+                              GoogleTokenValidator tokenValidator,
+                              TokenReferenceService tokenReferenceService) {
         this.authorizedClientService = authorizedClientService;
         this.properties = properties;
         this.tokenValidator = tokenValidator;
+        this.tokenReferenceService = tokenReferenceService;
     }
     
     @Override
@@ -200,13 +208,21 @@ public class OAuth2TokenProvider implements TokenProvider {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null && authentication.isAuthenticated() &&
                 authentication.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_API_USER"))) {
-                // API client authenticated via our custom filter, use the token stored as credentials
+                // SECURITY FIX: API client authenticated via our custom filter - retrieve token from secure reference
                 Object credentials = authentication.getCredentials();
                 if (credentials instanceof String) {
-                    String token = (String) credentials;
-                    logger.debug("Successfully retrieved token from API client authentication: {}",
-                                SecurityLogUtil.maskToken(token));
-                    return token;
+                    String tokenReferenceId = (String) credentials;
+
+                    // Retrieve actual token from secure token reference
+                    Optional<String> token = tokenReferenceService.getToken(tokenReferenceId);
+                    if (token.isPresent()) {
+                        logger.debug("Successfully retrieved token from secure token reference {}: {}",
+                                    tokenReferenceId, SecurityLogUtil.maskToken(token.get()));
+                        return token.get();
+                    } else {
+                        logger.warn("Token reference not found or expired");
+                        throw new AuthenticationException("Token reference not found or expired");
+                    }
                 }
             }
         } catch (Exception e) {

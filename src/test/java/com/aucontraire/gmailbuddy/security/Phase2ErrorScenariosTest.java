@@ -1,9 +1,12 @@
 package com.aucontraire.gmailbuddy.security;
 
 import com.aucontraire.gmailbuddy.config.TokenAuthenticationFilter;
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import com.aucontraire.gmailbuddy.service.OAuth2TokenProvider;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
+import com.aucontraire.gmailbuddy.security.TokenReference;
+import com.aucontraire.gmailbuddy.security.TokenReferenceService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -23,6 +26,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -74,6 +78,9 @@ class Phase2ErrorScenariosTest {
     @Mock
     private SecurityContext securityContext;
 
+    @Mock
+    private TokenReferenceService tokenReferenceService;
+
     private GoogleTokenValidator tokenValidator;
     private TokenAuthenticationFilter authenticationFilter;
 
@@ -83,7 +90,7 @@ class Phase2ErrorScenariosTest {
     @BeforeEach
     void setUp() {
         tokenValidator = new GoogleTokenValidator(restTemplate);
-        authenticationFilter = new TokenAuthenticationFilter(tokenValidator);
+        authenticationFilter = new TokenAuthenticationFilter(tokenValidator, tokenReferenceService);
         SecurityContextHolder.setContext(securityContext);
     }
 
@@ -262,7 +269,7 @@ class Phase2ErrorScenariosTest {
         void shouldHandleBinaryDataAsToken() throws Exception {
             // Given
             String binaryToken = new String(new byte[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+            lenient().when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createErrorResponse("invalid_token"), HttpStatus.BAD_REQUEST));
 
             // When
@@ -373,13 +380,10 @@ class Phase2ErrorScenariosTest {
             when(failingValidator.isValidGoogleToken(VALID_TOKEN))
                 .thenThrow(new RuntimeException("Validator internal error"));
 
-            TokenAuthenticationFilter filterWithFailingValidator = new TokenAuthenticationFilter(failingValidator);
+            TokenAuthenticationFilter filterWithFailingValidator = new TokenAuthenticationFilter(failingValidator, tokenReferenceService);
 
             // When
-            // We can't directly call doFilterInternal (protected method), so we test through the public doFilter method
-        // filterWithFailingValidator.doFilter(request, response, filterChain);
-        // For this test, we'll verify behavior through integration testing instead
-        verify(failingValidator, never()).isValidGoogleToken(anyString());
+            filterWithFailingValidator.doFilter(request, response, filterChain);
 
             // Then
             verify(filterChain).doFilter(request, response);
@@ -394,16 +398,25 @@ class Phase2ErrorScenariosTest {
             when(request.getHeader("Authorization")).thenReturn("Bearer " + VALID_TOKEN);
             when(securityContext.getAuthentication()).thenReturn(null);
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
-                .thenReturn(new ResponseEntity<>(createValidTokenResponse(), HttpStatus.OK));
+            // Create a simple TokenAuthenticationFilter that will reach the setAuthentication call
+            GoogleTokenValidator mockValidator = mock(GoogleTokenValidator.class);
+            when(mockValidator.isValidGoogleToken(VALID_TOKEN)).thenReturn(true);
+            GoogleTokenValidator.TokenInfoResponse tokenInfo = new GoogleTokenValidator.TokenInfoResponse();
+            tokenInfo.setEmail("test@example.com");
+            when(mockValidator.getTokenInfo(VALID_TOKEN)).thenReturn(tokenInfo);
 
+            // Mock token reference service
+            TokenReference mockTokenReference = mock(TokenReference.class);
+            when(mockTokenReference.getReferenceId()).thenReturn("ref-123");
+            when(tokenReferenceService.createTokenReference(VALID_TOKEN, "test@example.com")).thenReturn(mockTokenReference);
+
+            // Mock SecurityContext to throw exception when setAuthentication is called
             doThrow(new RuntimeException("SecurityContext corrupted")).when(securityContext).setAuthentication(any());
 
+            TokenAuthenticationFilter filterWithValidation = new TokenAuthenticationFilter(mockValidator, tokenReferenceService);
+
             // When
-            // We can't directly call doFilterInternal (protected method), so we test through integration
-        // This scenario is better tested through the SecurityConfig integration tests
-        // authenticationFilter.doFilter(request, response, filterChain);
-        verify(securityContext, never()).setAuthentication(any());
+            filterWithValidation.doFilter(request, response, filterChain);
 
             // Then
             verify(filterChain).doFilter(request, response);
@@ -414,7 +427,13 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle RequestContextHolder unavailability")
         void shouldHandleRequestContextHolderUnavailability() {
             // Given
-            OAuth2TokenProvider tokenProvider = mock(OAuth2TokenProvider.class);
+            OAuth2AuthorizedClientService mockAuthorizedClientService = mock(OAuth2AuthorizedClientService.class);
+            GmailBuddyProperties mockProperties = mock(GmailBuddyProperties.class);
+            GoogleTokenValidator mockTokenValidator = mock(GoogleTokenValidator.class);
+            TokenReferenceService mockTokenReferenceService = mock(TokenReferenceService.class);
+
+            OAuth2TokenProvider tokenProvider = new OAuth2TokenProvider(
+                mockAuthorizedClientService, mockProperties, mockTokenValidator, mockTokenReferenceService);
 
             try (MockedStatic<RequestContextHolder> mockedRequestContextHolder = mockStatic(RequestContextHolder.class)) {
                 mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes)
@@ -422,7 +441,8 @@ class Phase2ErrorScenariosTest {
 
                 // When & Then
                 assertThatThrownBy(() -> tokenProvider.getBearerToken())
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("RequestContextHolder unavailable");
             }
         }
     }
