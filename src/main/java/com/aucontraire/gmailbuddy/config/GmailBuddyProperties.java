@@ -52,9 +52,25 @@ public record GmailBuddyProperties(
          * Rate limiting configuration for Gmail API calls.
          */
         public record RateLimit(
-            @Positive long defaultRetrySeconds
+            @Positive long defaultRetrySeconds,
+            @Valid @NotNull BatchOperations batchOperations
         ) {
             // Default values are set in application.properties
+
+            /**
+             * Batch operation specific rate limiting configuration.
+             */
+            public record BatchOperations(
+                @Min(100) @Max(5000) long delayBetweenBatchesMs,
+                @Min(1) @Max(5) int maxRetryAttempts,
+                @Min(500) @Max(10000) long initialBackoffMs,
+                @Min(1) @Max(5) double backoffMultiplier,
+                @Min(5000) @Max(60000) long maxBackoffMs,
+                @Min(10) @Max(100) int maxBatchSize,
+                @Min(0) @Max(100) long microDelayBetweenOperationsMs
+            ) {
+                // Default values are set in application.properties
+            }
         }
 
         /**

@@ -212,7 +212,11 @@ class GmailBuddyPropertiesTest {
 
     @Test
     void testInvalidRetrySecondsFailsValidation() {
-        var invalidRateLimit = new GmailBuddyProperties.GmailApi.RateLimit(0L); // Invalid (must be positive)
+        // Create a valid BatchOperations instance for testing
+        var validBatchOperations = new GmailBuddyProperties.GmailApi.RateLimit.BatchOperations(
+            1000L, 3, 1000L, 2.0, 30000L, 50, 10L
+        );
+        var invalidRateLimit = new GmailBuddyProperties.GmailApi.RateLimit(0L, validBatchOperations); // Invalid (must be positive)
         
         var invalidGmailApi = new GmailBuddyProperties.GmailApi(
                 properties.gmailApi().applicationName(),

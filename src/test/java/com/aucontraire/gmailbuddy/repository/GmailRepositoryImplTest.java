@@ -1,25 +1,33 @@
 package com.aucontraire.gmailbuddy.repository;
 
 import com.aucontraire.gmailbuddy.client.GmailClient;
+import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
+import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.ListMessagesResponse;
 import com.google.api.services.gmail.model.Message;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.IntStream;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -33,10 +41,13 @@ class GmailRepositoryImplTest {
 
     @Mock
     private GmailClient gmailClient;
-    
+
+    @Mock
+    private GmailBatchClient gmailBatchClient;
+
     @Mock
     private TokenProvider tokenProvider;
-    
+
     @Mock
     private GmailBuddyProperties properties;
     
@@ -67,7 +78,7 @@ class GmailRepositoryImplTest {
     
     @BeforeEach
     void setUp() {
-        repository = new GmailRepositoryImpl(gmailClient, tokenProvider, properties);
+        repository = new GmailRepositoryImpl(gmailClient, gmailBatchClient, tokenProvider, properties);
     }
     
     @Test
@@ -166,24 +177,21 @@ class GmailRepositoryImplTest {
     @Test
     void deleteMessage_WithValidToken_DeletesMessage() throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
+        BulkOperationResult successResult = new BulkOperationResult("DELETE");
+        successResult.addSuccess(TEST_MESSAGE_ID);
+        successResult.markCompleted();
+
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
-        when(gmail.users()).thenReturn(users);
-        when(users.messages()).thenReturn(messages);
-        when(messages.trash(TEST_USER_ID, TEST_MESSAGE_ID)).thenReturn(messagesTrash);
-        when(messages.delete(TEST_USER_ID, TEST_MESSAGE_ID)).thenReturn(messagesDelete);
-        when(messagesTrash.execute()).thenReturn(new Message());
-        doNothing().when(messagesDelete).execute();
-        
+        when(gmailBatchClient.batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID)))
+            .thenReturn(successResult);
+
         // When
         repository.deleteMessage(TEST_USER_ID, TEST_MESSAGE_ID);
-        
+
         // Then
         verify(tokenProvider).getAccessToken();
-        verify(messages).trash(TEST_USER_ID, TEST_MESSAGE_ID);
-        verify(messages).delete(TEST_USER_ID, TEST_MESSAGE_ID);
-        verify(messagesTrash).execute();
-        verify(messagesDelete).execute();
+        verify(gmailBatchClient).batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID));
     }
     
     @Test
@@ -198,11 +206,35 @@ class GmailRepositoryImplTest {
             IOException.class,
             () -> repository.deleteMessage(TEST_USER_ID, TEST_MESSAGE_ID)
         );
-        
+
         assertTrue(exception.getMessage().contains("Security exception creating Gmail service"));
         verify(tokenProvider).getAccessToken();
     }
-    
+
+    @Test
+    void deleteMessage_WithBatchFailure_ThrowsIOException() throws IOException, GeneralSecurityException, AuthenticationException {
+        // Given
+        BulkOperationResult failureResult = new BulkOperationResult("DELETE");
+        failureResult.addFailure(TEST_MESSAGE_ID, "Message not found");
+        failureResult.markCompleted();
+
+        when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
+        when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
+        when(gmailBatchClient.batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID)))
+            .thenReturn(failureResult);
+
+        // When & Then
+        IOException exception = assertThrows(
+            IOException.class,
+            () -> repository.deleteMessage(TEST_USER_ID, TEST_MESSAGE_ID)
+        );
+
+        assertTrue(exception.getMessage().contains("Failed to delete message"));
+        assertTrue(exception.getMessage().contains(TEST_MESSAGE_ID));
+        verify(tokenProvider).getAccessToken();
+        verify(gmailBatchClient).batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID));
+    }
+
     @Test
     void testTokenProviderIntegration_NoSecurityContextHolderDependency() throws AuthenticationException {
         // This test verifies that the repository doesn't directly use SecurityContextHolder
@@ -227,19 +259,60 @@ class GmailRepositoryImplTest {
     void testTokenProviderMockability() throws AuthenticationException {
         // This test demonstrates how easy it is to mock the TokenProvider
         // which was the main goal of the refactoring
-        
+
         // Given - different token per call to simulate token refresh
         when(tokenProvider.getAccessToken())
             .thenReturn("token-1")
             .thenReturn("token-2");
-        
+
         // When
         String firstToken = tokenProvider.getAccessToken();
         String secondToken = tokenProvider.getAccessToken();
-        
+
         // Then
         assertEquals("token-1", firstToken);
         assertEquals("token-2", secondToken);
         verify(tokenProvider, times(2)).getAccessToken();
+    }
+
+    // ========== Tests for Batch Integration ==========
+
+    @Test
+    @DisplayName("Should verify batch client is injected and available")
+    void batchClient_ShouldBeInjectedCorrectly() {
+        // This test verifies that the GmailBatchClient is properly injected
+        // and available for use in the repository implementation
+
+        // Arrange & Act - Constructor injection happens in @BeforeEach
+        // The repository should have been created with the batch client
+
+        // Assert - We can't directly test injection without reflection,
+        // but we can verify it's used in actual operations
+        assertThat(gmailBatchClient).isNotNull();
+        assertThat(repository).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Should use batch client for single message deletion")
+    void deleteMessage_ShouldUseBatchClientInternally() throws IOException, GeneralSecurityException, AuthenticationException {
+        // This test verifies that the single message delete operation
+        // now uses the batch client internally for consistency
+
+        // Arrange
+        BulkOperationResult successResult = new BulkOperationResult("DELETE");
+        successResult.addSuccess(TEST_MESSAGE_ID);
+        successResult.markCompleted();
+
+        when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
+        when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
+        when(gmailBatchClient.batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID)))
+            .thenReturn(successResult);
+
+        // Act
+        repository.deleteMessage(TEST_USER_ID, TEST_MESSAGE_ID);
+
+        // Assert
+        verify(tokenProvider).getAccessToken();
+        verify(gmailBatchClient).batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID));
     }
 }
