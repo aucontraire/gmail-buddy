@@ -72,40 +72,55 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
         String bearerToken = extractBearerToken(request);
         if (bearerToken != null) {
             try {
-                if (tokenValidator.isValidGoogleToken(bearerToken)) {
-                    // Get token info to extract user details
-                    GoogleTokenValidator.TokenInfoResponse tokenInfo = tokenValidator.getTokenInfo(bearerToken);
+                // PERFORMANCE FIX: Single Google API call - gets token info which includes validation
+                // Previously made 2 calls: isValidGoogleToken() + getTokenInfo()
+                // Now makes 1 call: getTokenInfo() which validates and returns data
+                GoogleTokenValidator.TokenInfoResponse tokenInfo = tokenValidator.getTokenInfo(bearerToken);
 
-                    // Create authentication with user email as principal
-                    String userEmail = tokenInfo.getEmail();
-                    if (userEmail == null || userEmail.trim().isEmpty()) {
-                        userEmail = tokenInfo.getUserId(); // Fallback to user ID
-                    }
-                    if (userEmail == null || userEmail.trim().isEmpty()) {
-                        userEmail = "api-user"; // Final fallback
-                    }
-
-                    // SECURITY FIX: Create encrypted token reference instead of storing raw token
-                    TokenReference tokenReference = tokenReferenceService.createTokenReference(
-                        bearerToken,
-                        userEmail
-                    );
-
-                    // Store only the secure reference ID, not the raw token
-                    Authentication authentication = new UsernamePasswordAuthenticationToken(
-                        userEmail,
-                        tokenReference.getReferenceId(), // SECURE: Store reference ID, not raw token
-                        List.of(new SimpleGrantedAuthority("ROLE_API_USER"))
-                    );
-
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                    logger.debug("Successfully authenticated API request with secure token reference {} for user: {}",
-                               tokenReference.getReferenceId(), userEmail);
-                } else {
-                    logger.debug("Invalid Bearer token provided in API request");
+                // Validate Gmail scopes separately (no additional Google API call)
+                if (!tokenValidator.hasValidGmailScopes(tokenInfo.getScope())) {
+                    logger.debug("Token validation failed: missing required Gmail scopes. Scopes: {}",
+                        tokenInfo.getScope());
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
                 }
-            } catch (Exception e) {
+
+                // Create authentication with user email as principal
+                String userEmail = tokenInfo.getEmail();
+                if (userEmail == null || userEmail.trim().isEmpty()) {
+                    userEmail = tokenInfo.getUserId(); // Fallback to user ID
+                }
+                if (userEmail == null || userEmail.trim().isEmpty()) {
+                    userEmail = "api-user"; // Final fallback
+                }
+
+                // SECURITY FIX: Create encrypted token reference instead of storing raw token
+                TokenReference tokenReference = tokenReferenceService.createTokenReference(
+                    bearerToken,
+                    userEmail
+                );
+
+                // Store only the secure reference ID, not the raw token
+                Authentication authentication = new UsernamePasswordAuthenticationToken(
+                    userEmail,
+                    tokenReference.getReferenceId(), // SECURE: Store reference ID, not raw token
+                    List.of(new SimpleGrantedAuthority("ROLE_API_USER"))
+                );
+
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+                logger.debug("Successfully authenticated API request with secure token reference {} for user: {}",
+                           tokenReference.getReferenceId(), userEmail);
+
+            } catch (com.aucontraire.gmailbuddy.exception.AuthenticationException e) {
+                // Token validation failed (invalid, expired, or Google API error)
                 logger.debug("Bearer token authentication failed: {}", e.getMessage());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            } catch (Exception e) {
+                // Unexpected error during authentication
+                logger.debug("Unexpected error during Bearer token authentication: {}", e.getMessage());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
             }
         }
 
