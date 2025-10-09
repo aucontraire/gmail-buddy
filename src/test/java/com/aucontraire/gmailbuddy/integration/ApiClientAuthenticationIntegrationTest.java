@@ -1,20 +1,25 @@
 package com.aucontraire.gmailbuddy.integration;
 
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
+import com.aucontraire.gmailbuddy.service.GmailService;
+import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.api.services.gmail.model.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -38,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * @since Sprint 2 - Phase 2 OAuth2 Security Context Decoupling
  */
 @SpringBootTest
-@AutoConfigureWebMvc
+@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @DisplayName("API Client Authentication Integration")
 class ApiClientAuthenticationIntegrationTest {
@@ -52,6 +57,12 @@ class ApiClientAuthenticationIntegrationTest {
     @MockitoBean
     private GoogleTokenValidator tokenValidator;
 
+    @MockitoBean
+    private GmailService gmailService;
+
+    @MockitoBean
+    private GmailRepository gmailRepository;
+
     private static final String VALID_GOOGLE_TOKEN = "ya29.a0ARrdaM-valid-google-token";
     private static final String INVALID_TOKEN = "invalid-token-format";
     private static final String EXPIRED_TOKEN = "ya29.a0ARrdaM-expired-token";
@@ -62,7 +73,7 @@ class ApiClientAuthenticationIntegrationTest {
     @BeforeEach
     void setUp() {
         // Reset mocks before each test
-        reset(tokenValidator);
+        reset(tokenValidator, gmailService, gmailRepository);
     }
 
     @Nested
@@ -114,8 +125,8 @@ class ApiClientAuthenticationIntegrationTest {
             mockMvc.perform(get(API_BASE_PATH + "/messages/" + messageId + "/body")
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                .andExpect(status().isOk());
+                // Note: Content-Type varies based on message body content
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -132,8 +143,7 @@ class ApiClientAuthenticationIntegrationTest {
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(deleteRequest))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                .andExpect(status().isNoContent()); // 204 is correct for DELETE operations
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -150,8 +160,7 @@ class ApiClientAuthenticationIntegrationTest {
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(labelModificationRequest))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                .andExpect(status().isNoContent()); // 204 is correct when no response body is returned
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -171,8 +180,8 @@ class ApiClientAuthenticationIntegrationTest {
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON));
             }
 
-            verify(tokenValidator, times(5)).isValidGoogleToken(VALID_GOOGLE_TOKEN);
             verify(tokenValidator, times(5)).getTokenInfo(VALID_GOOGLE_TOKEN);
+            verify(tokenValidator, times(5)).hasValidGmailScopes(anyString());
         }
     }
 
@@ -184,33 +193,32 @@ class ApiClientAuthenticationIntegrationTest {
         @DisplayName("Should reject request with invalid Bearer token")
         void shouldRejectRequestWithInvalidBearerToken() throws Exception {
             // Given
-            when(tokenValidator.isValidGoogleToken(INVALID_TOKEN)).thenReturn(false);
+            when(tokenValidator.getTokenInfo(INVALID_TOKEN))
+                .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token"));
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
                     .header("Authorization", "Bearer " + INVALID_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                .andExpect(status().isUnauthorized());
 
-            verify(tokenValidator).isValidGoogleToken(INVALID_TOKEN);
-            verify(tokenValidator, never()).getTokenInfo(any());
+            verify(tokenValidator).getTokenInfo(INVALID_TOKEN);
         }
 
         @Test
         @DisplayName("Should reject request with expired Bearer token")
         void shouldRejectRequestWithExpiredBearerToken() throws Exception {
             // Given
-            when(tokenValidator.isValidGoogleToken(EXPIRED_TOKEN)).thenReturn(false);
+            when(tokenValidator.getTokenInfo(EXPIRED_TOKEN))
+                .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Token expired"));
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
                     .header("Authorization", "Bearer " + EXPIRED_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                .andExpect(status().isUnauthorized());
 
-            verify(tokenValidator).isValidGoogleToken(EXPIRED_TOKEN);
+            verify(tokenValidator).getTokenInfo(EXPIRED_TOKEN);
         }
 
         @Test
@@ -241,31 +249,33 @@ class ApiClientAuthenticationIntegrationTest {
         @Test
         @DisplayName("Should reject request with empty Bearer token")
         void shouldRejectRequestWithEmptyBearerToken() throws Exception {
+            // Given - empty token will trigger validation which fails
+            when(tokenValidator.getTokenInfo(""))
+                .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Empty token"));
+
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
                     .header("Authorization", "Bearer ")
                     .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                .andExpect(status().isUnauthorized());
 
-            verifyNoInteractions(tokenValidator);
+            verify(tokenValidator).getTokenInfo("");
         }
 
         @Test
         @DisplayName("Should handle token validation service failures gracefully")
         void shouldHandleTokenValidationServiceFailuresGracefully() throws Exception {
             // Given
-            when(tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN))
+            when(tokenValidator.getTokenInfo(VALID_GOOGLE_TOKEN))
                 .thenThrow(new RuntimeException("Google TokenInfo service unavailable"));
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                .andExpect(status().isUnauthorized());
 
-            verify(tokenValidator).isValidGoogleToken(VALID_GOOGLE_TOKEN);
+            verify(tokenValidator).getTokenInfo(VALID_GOOGLE_TOKEN);
         }
     }
 
@@ -302,7 +312,7 @@ class ApiClientAuthenticationIntegrationTest {
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(deleteRequest))
-                .andExpect(status().isOk());
+                .andExpect(status().isNoContent()); // 204 is correct for DELETE operations
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -318,7 +328,7 @@ class ApiClientAuthenticationIntegrationTest {
             mockMvc.perform(put(API_BASE_PATH + "/messages/" + messageId + "/read")
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isNoContent()); // 204 is correct for PUT operations with no response body
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -362,16 +372,19 @@ class ApiClientAuthenticationIntegrationTest {
         @DisplayName("Should handle token with insufficient Gmail scopes")
         void shouldHandleTokenWithInsufficientGmailScopes() throws Exception {
             // Given - Valid token but without Gmail scopes
-            when(tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN)).thenReturn(false);
+            GoogleTokenValidator.TokenInfoResponse tokenInfo = createValidTokenInfo();
+            tokenInfo.setScope("openid email profile"); // No Gmail scopes
+            when(tokenValidator.getTokenInfo(VALID_GOOGLE_TOKEN)).thenReturn(tokenInfo);
+            when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(false);
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                .andExpect(status().isUnauthorized());
 
-            verify(tokenValidator).isValidGoogleToken(VALID_GOOGLE_TOKEN);
+            verify(tokenValidator).getTokenInfo(VALID_GOOGLE_TOKEN);
+            verify(tokenValidator).hasValidGmailScopes(tokenInfo.getScope());
         }
 
         @Test
@@ -379,8 +392,10 @@ class ApiClientAuthenticationIntegrationTest {
         void shouldHandleVeryLongBearerTokens() throws Exception {
             // Given
             String longToken = "ya29.a0ARrdaM-" + "x".repeat(1000); // Very long token
-            when(tokenValidator.isValidGoogleToken(longToken)).thenReturn(true);
-            when(tokenValidator.getTokenInfo(longToken)).thenReturn(createValidTokenInfo());
+            GoogleTokenValidator.TokenInfoResponse tokenInfo = createValidTokenInfo();
+            when(tokenValidator.getTokenInfo(longToken)).thenReturn(tokenInfo);
+            when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
+            when(gmailService.listMessages(anyString())).thenReturn(new ArrayList<>());
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
@@ -388,7 +403,7 @@ class ApiClientAuthenticationIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
-            verify(tokenValidator).isValidGoogleToken(longToken);
+            verify(tokenValidator).getTokenInfo(longToken);
         }
 
         @Test
@@ -396,8 +411,10 @@ class ApiClientAuthenticationIntegrationTest {
         void shouldHandleBearerTokensWithSpecialCharacters() throws Exception {
             // Given
             String tokenWithSpecialChars = "ya29.a0ARrdaM-token_with-special.chars";
-            when(tokenValidator.isValidGoogleToken(tokenWithSpecialChars)).thenReturn(true);
-            when(tokenValidator.getTokenInfo(tokenWithSpecialChars)).thenReturn(createValidTokenInfo());
+            GoogleTokenValidator.TokenInfoResponse tokenInfo = createValidTokenInfo();
+            when(tokenValidator.getTokenInfo(tokenWithSpecialChars)).thenReturn(tokenInfo);
+            when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
+            when(gmailService.listMessages(anyString())).thenReturn(new ArrayList<>());
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
@@ -405,7 +422,7 @@ class ApiClientAuthenticationIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
-            verify(tokenValidator).isValidGoogleToken(tokenWithSpecialChars);
+            verify(tokenValidator).getTokenInfo(tokenWithSpecialChars);
         }
     }
 
@@ -473,7 +490,7 @@ class ApiClientAuthenticationIntegrationTest {
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(labelModRequest))
-                .andExpect(status().isOk());
+                .andExpect(status().isNoContent()); // 204 is correct when no response body is returned
 
             // Step 3: Bulk delete filtered messages
             String deleteRequest = createDeleteFilterRequest();
@@ -481,23 +498,32 @@ class ApiClientAuthenticationIntegrationTest {
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(deleteRequest))
-                .andExpect(status().isOk());
+                .andExpect(status().isNoContent()); // 204 is correct for DELETE operations
 
-            verify(tokenValidator, times(3)).isValidGoogleToken(VALID_GOOGLE_TOKEN);
             verify(tokenValidator, times(3)).getTokenInfo(VALID_GOOGLE_TOKEN);
+            verify(tokenValidator, times(3)).hasValidGmailScopes(anyString());
         }
     }
 
     // Helper methods
 
-    private void mockValidTokenResponse() {
-        when(tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN)).thenReturn(true);
-        when(tokenValidator.getTokenInfo(VALID_GOOGLE_TOKEN)).thenReturn(createValidTokenInfo());
+    private void mockValidTokenResponse() throws Exception {
+        GoogleTokenValidator.TokenInfoResponse tokenInfo = createValidTokenInfo();
+        when(tokenValidator.getTokenInfo(VALID_GOOGLE_TOKEN)).thenReturn(tokenInfo);
+        when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
+
+        // Mock GmailService to return empty list (we're testing auth, not Gmail functionality)
+        when(gmailService.listMessages(anyString())).thenReturn(new ArrayList<>());
+        when(gmailService.listLatestMessages(anyString(), anyInt())).thenReturn(new ArrayList<>());
+        when(gmailService.listMessagesByFilterCriteria(anyString(), any())).thenReturn(new ArrayList<>());
+        when(gmailService.getMessageBody(anyString(), anyString())).thenReturn("");
+        doNothing().when(gmailService).deleteMessage(anyString(), anyString());
+        doNothing().when(gmailService).deleteMessagesByFilterCriteria(anyString(), any());
     }
 
     private void verifyTokenValidation(String token) {
-        verify(tokenValidator).isValidGoogleToken(token);
         verify(tokenValidator).getTokenInfo(token);
+        verify(tokenValidator).hasValidGmailScopes(anyString());
     }
 
     private GoogleTokenValidator.TokenInfoResponse createValidTokenInfo() {

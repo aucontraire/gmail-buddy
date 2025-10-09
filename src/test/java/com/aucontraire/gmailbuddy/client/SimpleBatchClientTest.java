@@ -12,6 +12,9 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Simple unit tests for GmailBatchClient functionality.
@@ -27,6 +30,25 @@ class SimpleBatchClientTest {
 
     @BeforeEach
     void setUp() {
+        // Create nested mock structure for GmailBuddyProperties
+        GmailBuddyProperties.GmailApi gmailApi = mock(GmailBuddyProperties.GmailApi.class);
+        GmailBuddyProperties.GmailApi.RateLimit rateLimit = mock(GmailBuddyProperties.GmailApi.RateLimit.class);
+        GmailBuddyProperties.GmailApi.RateLimit.BatchOperations batchOps = mock(GmailBuddyProperties.GmailApi.RateLimit.BatchOperations.class);
+
+        // Wire up the mock chain
+        lenient().when(properties.gmailApi()).thenReturn(gmailApi);
+        lenient().when(gmailApi.rateLimit()).thenReturn(rateLimit);
+        lenient().when(rateLimit.batchOperations()).thenReturn(batchOps);
+
+        // Configure batch operations properties
+        lenient().when(batchOps.maxBatchSize()).thenReturn(100);
+        lenient().when(batchOps.maxRetryAttempts()).thenReturn(4);
+        lenient().when(batchOps.initialBackoffMs()).thenReturn(2000L);
+        lenient().when(batchOps.backoffMultiplier()).thenReturn(2.5);
+        lenient().when(batchOps.maxBackoffMs()).thenReturn(60000L);
+        lenient().when(batchOps.delayBetweenBatchesMs()).thenReturn(0L);
+        lenient().when(batchOps.microDelayBetweenOperationsMs()).thenReturn(10L);
+
         batchClient = new GmailBatchClient(properties);
     }
 

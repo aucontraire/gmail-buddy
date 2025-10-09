@@ -242,16 +242,18 @@ class SecurityConfigTest {
         void shouldProcessBearerTokenForApiEndpoints() throws Exception {
             // Given
             String validToken = "ya29.a0ARrdaM-valid-token";
-            when(tokenValidator.isValidGoogleToken(validToken)).thenReturn(true);
-            when(tokenValidator.getTokenInfo(validToken)).thenReturn(createTokenInfo("user@example.com"));
+            GoogleTokenValidator.TokenInfoResponse tokenInfo = createTokenInfo("user@example.com");
+            when(tokenValidator.getTokenInfo(validToken)).thenReturn(tokenInfo);
+            when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
+            when(gmailService.listMessages(anyString())).thenReturn(new ArrayList<>());
 
             // When & Then
             mockMvc.perform(get("/api/v1/gmail/messages")
                     .header("Authorization", "Bearer " + validToken))
                 .andExpect(status().isOk()); // Should be allowed with valid token
 
-            verify(tokenValidator).isValidGoogleToken(validToken);
             verify(tokenValidator).getTokenInfo(validToken);
+            verify(tokenValidator).hasValidGmailScopes(anyString());
         }
 
         @Test
@@ -259,16 +261,15 @@ class SecurityConfigTest {
         void shouldRejectInvalidBearerTokenForApiEndpoints() throws Exception {
             // Given
             String invalidToken = "invalid-token";
-            when(tokenValidator.isValidGoogleToken(invalidToken)).thenReturn(false);
+            when(tokenValidator.getTokenInfo(invalidToken))
+                .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token"));
 
             // When & Then
             mockMvc.perform(get("/api/v1/gmail/messages")
                     .header("Authorization", "Bearer " + invalidToken))
-                .andExpect(status().is3xxRedirection()) // Should redirect to login
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                .andExpect(status().isUnauthorized()); // Filter returns 401 for invalid tokens
 
-            verify(tokenValidator).isValidGoogleToken(invalidToken);
-            verify(tokenValidator, never()).getTokenInfo(any());
+            verify(tokenValidator).getTokenInfo(invalidToken);
         }
 
         @Test
@@ -296,8 +297,10 @@ class SecurityConfigTest {
         void shouldDisableCsrfForApiEndpointsWithValidBearerToken() throws Exception {
             // Given
             String validToken = "ya29.a0ARrdaM-valid-token";
-            when(tokenValidator.isValidGoogleToken(validToken)).thenReturn(true);
-            when(tokenValidator.getTokenInfo(validToken)).thenReturn(createTokenInfo("user@example.com"));
+            GoogleTokenValidator.TokenInfoResponse tokenInfo = createTokenInfo("user@example.com");
+            when(tokenValidator.getTokenInfo(validToken)).thenReturn(tokenInfo);
+            when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
+            when(gmailService.listMessagesByFilterCriteria(anyString(), any())).thenReturn(new ArrayList<>());
 
             // When & Then - POST request should work without CSRF token (CSRF disabled for API endpoints)
             mockMvc.perform(post("/api/v1/gmail/messages/filter")
@@ -306,7 +309,7 @@ class SecurityConfigTest {
                     .content("{}"))
                 .andExpect(status().isOk()); // Should work - CSRF is disabled for API endpoints
 
-            verify(tokenValidator).isValidGoogleToken(validToken);
+            verify(tokenValidator).getTokenInfo(validToken);
         }
 
         @Test
@@ -314,15 +317,17 @@ class SecurityConfigTest {
         void shouldDisableCsrfForApiDeleteEndpointsWithValidBearerToken() throws Exception {
             // Given
             String validToken = "ya29.a0ARrdaM-valid-token";
-            when(tokenValidator.isValidGoogleToken(validToken)).thenReturn(true);
-            when(tokenValidator.getTokenInfo(validToken)).thenReturn(createTokenInfo("user@example.com"));
+            GoogleTokenValidator.TokenInfoResponse tokenInfo = createTokenInfo("user@example.com");
+            when(tokenValidator.getTokenInfo(validToken)).thenReturn(tokenInfo);
+            when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
+            doNothing().when(gmailService).deleteMessage(anyString(), anyString());
 
             // When & Then - DELETE request should work without CSRF token (CSRF disabled for API endpoints)
             mockMvc.perform(delete("/api/v1/gmail/messages/123")
                     .header("Authorization", "Bearer " + validToken))
                 .andExpect(status().isNoContent()); // Should work with 204 - CSRF is disabled for API endpoints
 
-            verify(tokenValidator).isValidGoogleToken(validToken);
+            verify(tokenValidator).getTokenInfo(validToken);
         }
 
         @Test
@@ -357,8 +362,10 @@ class SecurityConfigTest {
         void shouldSupportStatelessApiRequestsWithBearerTokens() throws Exception {
             // Given
             String validToken = "ya29.a0ARrdaM-valid-token";
-            when(tokenValidator.isValidGoogleToken(validToken)).thenReturn(true);
-            when(tokenValidator.getTokenInfo(validToken)).thenReturn(createTokenInfo("user@example.com"));
+            GoogleTokenValidator.TokenInfoResponse tokenInfo = createTokenInfo("user@example.com");
+            when(tokenValidator.getTokenInfo(validToken)).thenReturn(tokenInfo);
+            when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
+            when(gmailService.listMessages(anyString())).thenReturn(new ArrayList<>());
 
             // When & Then - Multiple requests with same token should work (stateless)
             for (int i = 0; i < 3; i++) {
@@ -367,7 +374,7 @@ class SecurityConfigTest {
                     .andExpect(status().isOk());
             }
 
-            verify(tokenValidator, times(3)).isValidGoogleToken(validToken);
+            verify(tokenValidator, times(3)).getTokenInfo(validToken);
         }
     }
 
@@ -392,8 +399,9 @@ class SecurityConfigTest {
         void shouldProcessCustomAuthenticationFilterForApiRequests() throws Exception {
             // Given
             String validToken = "ya29.a0ARrdaM-valid-token";
-            when(tokenValidator.isValidGoogleToken(validToken)).thenReturn(true);
-            when(tokenValidator.getTokenInfo(validToken)).thenReturn(createTokenInfo("user@example.com"));
+            GoogleTokenValidator.TokenInfoResponse tokenInfo = createTokenInfo("user@example.com");
+            when(tokenValidator.getTokenInfo(validToken)).thenReturn(tokenInfo);
+            when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
 
             // Mock GmailService to return a list of messages
             List<Message> mockMessages = new ArrayList<>();
@@ -408,8 +416,8 @@ class SecurityConfigTest {
                 .andExpect(status().isOk());
 
             // Verify that our custom filter was invoked
-            verify(tokenValidator).isValidGoogleToken(validToken);
             verify(tokenValidator).getTokenInfo(validToken);
+            verify(tokenValidator).hasValidGmailScopes(anyString());
             verify(gmailService).listMessages("me");
         }
     }
@@ -472,15 +480,14 @@ class SecurityConfigTest {
         void shouldHandleTokenValidationExceptionsGracefully() throws Exception {
             // Given
             String validToken = "ya29.a0ARrdaM-valid-token";
-            when(tokenValidator.isValidGoogleToken(validToken)).thenThrow(new RuntimeException("Token validation failed"));
+            when(tokenValidator.getTokenInfo(validToken)).thenThrow(new RuntimeException("Token validation failed"));
 
             // When & Then
             mockMvc.perform(get("/api/v1/gmail/messages")
                     .header("Authorization", "Bearer " + validToken))
-                .andExpect(status().is3xxRedirection()) // Should redirect to login on validation failure
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                .andExpect(status().isUnauthorized()); // Filter returns 401 on validation failure
 
-            verify(tokenValidator).isValidGoogleToken(validToken);
+            verify(tokenValidator).getTokenInfo(validToken);
         }
     }
 

@@ -119,8 +119,8 @@ class TokenAuthenticationFilterSecurityTest {
         assertThat(auth.isAuthenticated()).isTrue();
         assertThat(auth.getPrincipal()).isEqualTo(TEST_USER_EMAIL);
 
-        verify(tokenValidator).isValidGoogleToken(TEST_TOKEN);
         verify(tokenValidator).getTokenInfo(TEST_TOKEN);
+        verify(tokenValidator).hasValidGmailScopes(anyString());
         verify(tokenReferenceService).createTokenReference(TEST_TOKEN, TEST_USER_EMAIL);
         verify(filterChain).doFilter(request, response);
     }
@@ -204,7 +204,8 @@ class TokenAuthenticationFilterSecurityTest {
     void shouldHandleInvalidGoogleTokenGracefully() throws Exception {
         // Arrange
         setupValidTokenRequest();
-        when(tokenValidator.isValidGoogleToken(TEST_TOKEN)).thenReturn(false);
+        when(tokenValidator.getTokenInfo(TEST_TOKEN))
+            .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token"));
 
         // Act
         tokenAuthenticationFilter.doFilterInternal(request, response, filterChain);
@@ -213,8 +214,8 @@ class TokenAuthenticationFilterSecurityTest {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         assertThat(auth).isNull();
 
-        verify(tokenValidator).isValidGoogleToken(TEST_TOKEN);
-        verify(filterChain).doFilter(request, response);
+        verify(tokenValidator).getTokenInfo(TEST_TOKEN);
+        verify(response).setStatus(401);
         verifyNoInteractions(tokenReferenceService);
     }
 
@@ -223,7 +224,7 @@ class TokenAuthenticationFilterSecurityTest {
     void shouldHandleTokenValidationExceptionsGracefully() throws Exception {
         // Arrange
         setupValidTokenRequest();
-        when(tokenValidator.isValidGoogleToken(TEST_TOKEN))
+        when(tokenValidator.getTokenInfo(TEST_TOKEN))
                 .thenThrow(new RuntimeException("Token validation failed"));
 
         // Act
@@ -233,8 +234,8 @@ class TokenAuthenticationFilterSecurityTest {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         assertThat(auth).isNull();
 
-        verify(tokenValidator).isValidGoogleToken(TEST_TOKEN);
-        verify(filterChain).doFilter(request, response);
+        verify(tokenValidator).getTokenInfo(TEST_TOKEN);
+        verify(response).setStatus(401);
         verifyNoInteractions(tokenReferenceService);
     }
 
@@ -254,10 +255,10 @@ class TokenAuthenticationFilterSecurityTest {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         assertThat(auth).isNull(); // Authentication should fail gracefully
 
-        verify(tokenValidator).isValidGoogleToken(TEST_TOKEN);
         verify(tokenValidator).getTokenInfo(TEST_TOKEN);
+        verify(tokenValidator).hasValidGmailScopes(anyString());
         verify(tokenReferenceService).createTokenReference(TEST_TOKEN, TEST_USER_EMAIL);
-        verify(filterChain).doFilter(request, response);
+        verify(response).setStatus(401);
     }
 
     @Test
@@ -265,12 +266,13 @@ class TokenAuthenticationFilterSecurityTest {
     void shouldHandleVariousUserIdentifierScenarios() throws Exception {
         // Test with null email, should use user ID
         setupValidTokenRequest();
-        when(tokenValidator.isValidGoogleToken(TEST_TOKEN)).thenReturn(true);
 
         GoogleTokenValidator.TokenInfoResponse tokenInfo = mock(GoogleTokenValidator.TokenInfoResponse.class);
         when(tokenInfo.getEmail()).thenReturn(null);
         when(tokenInfo.getUserId()).thenReturn("user123");
+        when(tokenInfo.getScope()).thenReturn("https://www.googleapis.com/auth/gmail.readonly");
         when(tokenValidator.getTokenInfo(TEST_TOKEN)).thenReturn(tokenInfo);
+        when(tokenValidator.hasValidGmailScopes("https://www.googleapis.com/auth/gmail.readonly")).thenReturn(true);
 
         setupTokenReferenceServiceForUser("user123");
 
@@ -289,12 +291,13 @@ class TokenAuthenticationFilterSecurityTest {
     void shouldUseFallbackUserIdWhenBothEmailAndUserIdAreNull() throws Exception {
         // Arrange
         setupValidTokenRequest();
-        when(tokenValidator.isValidGoogleToken(TEST_TOKEN)).thenReturn(true);
 
         GoogleTokenValidator.TokenInfoResponse tokenInfo = mock(GoogleTokenValidator.TokenInfoResponse.class);
         when(tokenInfo.getEmail()).thenReturn(null);
         when(tokenInfo.getUserId()).thenReturn(null);
+        when(tokenInfo.getScope()).thenReturn("https://www.googleapis.com/auth/gmail.readonly");
         when(tokenValidator.getTokenInfo(TEST_TOKEN)).thenReturn(tokenInfo);
+        when(tokenValidator.hasValidGmailScopes("https://www.googleapis.com/auth/gmail.readonly")).thenReturn(true);
 
         setupTokenReferenceServiceForUser("api-user");
 
@@ -343,11 +346,11 @@ class TokenAuthenticationFilterSecurityTest {
     }
 
     private void setupValidTokenValidator() {
-        when(tokenValidator.isValidGoogleToken(TEST_TOKEN)).thenReturn(true);
-
         GoogleTokenValidator.TokenInfoResponse tokenInfo = mock(GoogleTokenValidator.TokenInfoResponse.class);
         when(tokenInfo.getEmail()).thenReturn(TEST_USER_EMAIL);
+        when(tokenInfo.getScope()).thenReturn("https://www.googleapis.com/auth/gmail.readonly");
         when(tokenValidator.getTokenInfo(TEST_TOKEN)).thenReturn(tokenInfo);
+        when(tokenValidator.hasValidGmailScopes("https://www.googleapis.com/auth/gmail.readonly")).thenReturn(true);
     }
 
     private void setupTokenReferenceService() {
