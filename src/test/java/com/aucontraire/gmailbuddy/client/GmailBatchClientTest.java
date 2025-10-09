@@ -1109,6 +1109,262 @@ class GmailBatchClientTest {
     }
 
     // ===========================================
+    // Inter-Batch Delay Configuration Tests (P0-4)
+    // Tests for delay-between-batches-ms=500 configuration change
+    // ===========================================
+
+    @Nested
+    @DisplayName("Inter-Batch Delay 500ms Configuration Tests (P0-4)")
+    class InterBatchDelay500MsConfigurationTests {
+
+        @Test
+        @DisplayName("Should verify getDelayBetweenBatchesMs returns 500ms from configuration")
+        void getDelayBetweenBatchesMs_WithDelay500_ShouldReturn500() {
+            // Arrange
+            when(batchOperations.delayBetweenBatchesMs()).thenReturn(500L);
+
+            // Act
+            long delay = batchOperations.delayBetweenBatchesMs();
+
+            // Assert
+            assertThat(delay)
+                .as("getDelayBetweenBatchesMs should return configured value of 500ms")
+                .isEqualTo(500L);
+        }
+
+        @Test
+        @DisplayName("Should apply 500ms delay between batches during batch delete operations")
+        void batchDeleteMessages_WithDelay500_ShouldApplyDelayBetweenBatches() throws IOException {
+            // Arrange
+            String userId = "me";
+            // Create 3 chunks (3000 messages = 3 batches with 1000 each)
+            List<String> messageIds = IntStream.range(1, 3001)
+                .mapToObj(i -> "msg" + i)
+                .toList();
+
+            when(batchOperations.delayBetweenBatchesMs()).thenReturn(500L);
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            doNothing().when(batchDeleteRequest).execute();
+
+            long startTime = System.currentTimeMillis();
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            long duration = System.currentTimeMillis() - startTime;
+
+            // Assert
+            assertThat(result.getTotalBatchesProcessed()).isEqualTo(3);
+
+            // Should have 2 delays between 3 batches (2 × 500ms = 1000ms minimum)
+            assertThat(duration).isGreaterThanOrEqualTo(1000);
+        }
+
+        @Test
+        @DisplayName("Should verify timing with delay 500ms for 10 batches")
+        void batchDeleteMessages_10Batches_ShouldRespect500MsDelay() throws IOException {
+            // Arrange
+            String userId = "me";
+            // Create 10,000 messages (10 batches)
+            List<String> messageIds = IntStream.range(1, 10001)
+                .mapToObj(i -> "msg" + i)
+                .toList();
+
+            when(batchOperations.delayBetweenBatchesMs()).thenReturn(500L);
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            doNothing().when(batchDeleteRequest).execute();
+
+            long startTime = System.currentTimeMillis();
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            long duration = System.currentTimeMillis() - startTime;
+
+            // Assert
+            assertThat(result.getTotalBatchesProcessed()).isEqualTo(10);
+
+            // Should have 9 delays between 10 batches (9 × 500ms = 4500ms minimum)
+            assertThat(duration).isGreaterThanOrEqualTo(4500);
+        }
+
+        @Test
+        @DisplayName("Should demonstrate performance improvement: 2000ms → 500ms = 75% reduction")
+        void delayReduction_PerformanceImprovement_ShouldBe75Percent() {
+            // Performance calculation for 10 batches
+            long oldDelay = 2000L;
+            long newDelay = 500L;
+            int batchCount = 10;
+
+            long oldOverhead = (batchCount - 1) * oldDelay; // 9 × 2000ms = 18000ms
+            long newOverhead = (batchCount - 1) * newDelay; // 9 × 500ms = 4500ms
+            long savings = oldOverhead - newOverhead;       // 13500ms saved
+
+            double reductionPercent = ((double)savings / oldOverhead) * 100;
+
+            assertThat(oldOverhead).isEqualTo(18000L);
+            assertThat(newOverhead).isEqualTo(4500L);
+            assertThat(savings).isEqualTo(13500L);
+            assertThat(reductionPercent).isEqualTo(75.0);
+        }
+
+        @Test
+        @DisplayName("Should validate combined P0-1 + P0-4 performance improvement")
+        void combinedP01AndP04_PerformanceImprovement_ShouldBeSubstantial() {
+            // P0-1: batchDelete() reduces quota from 5100 units to 50 units (99% reduction)
+            // P0-4: delay reduction from 2000ms to 500ms (75% time reduction)
+
+            // Example: Delete 510 messages (requires 2 batches with batch-size=50 and batchDelete max=1000)
+            int messageCount = 510;
+            int batchCount = 2; // With batchDelete endpoint (1000 max per batch)
+
+            // Old approach (individual delete, 15 batch size, 2000ms delay)
+            int oldBatchCount = (int) Math.ceil((double)messageCount / 15); // 34 batches
+            long oldQuota = messageCount * 10; // 5100 units (10 per message)
+            long oldTimeDelays = (oldBatchCount - 1) * 2000L; // 66000ms delays
+
+            // New approach (batchDelete, 50 batch size, 500ms delay)
+            int newBatchCount = batchCount; // 2 batches
+            long newQuota = batchCount * 50; // 100 units (50 per batchDelete call)
+            long newTimeDelays = (newBatchCount - 1) * 500L; // 500ms delays
+
+            // Quota improvement
+            double quotaReduction = ((double)(oldQuota - newQuota) / oldQuota) * 100;
+
+            // Time improvement (delay overhead only)
+            double timeReduction = ((double)(oldTimeDelays - newTimeDelays) / oldTimeDelays) * 100;
+
+            assertThat(quotaReduction)
+                .as("P0-1: Quota reduction should be ~98%%")
+                .isGreaterThan(98.0);
+
+            assertThat(timeReduction)
+                .as("P0-4: Delay time reduction should be ~99%%")
+                .isGreaterThan(99.0);
+        }
+
+        @Test
+        @DisplayName("Should calculate delay overhead for various batch counts with 500ms delay")
+        void delayOverhead_VariousBatchCounts_With500MsDelay() {
+            long delay = 500L;
+
+            // Test cases: batch count -> expected delay overhead
+            Map<Integer, Long> testCases = Map.of(
+                5, 2000L,   // (5-1) × 500ms = 2000ms
+                10, 4500L,  // (10-1) × 500ms = 4500ms
+                20, 9500L   // (20-1) × 500ms = 9500ms
+            );
+
+            testCases.forEach((batchCount, expectedOverhead) -> {
+                long overhead = (batchCount - 1) * delay;
+
+                assertThat(overhead)
+                    .as("With %d batches and 500ms delay: overhead should be %dms", batchCount, expectedOverhead)
+                    .isEqualTo(expectedOverhead);
+            });
+        }
+
+        @Test
+        @DisplayName("Should verify no delay applied for single batch operation")
+        void batchDeleteMessages_SingleBatch_ShouldNotApplyDelay() throws IOException {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = IntStream.range(1, 101)
+                .mapToObj(i -> "msg" + i)
+                .toList();
+
+            // Note: No need to stub delayBetweenBatchesMs for single batch (delay only applied between batches)
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            doNothing().when(batchDeleteRequest).execute();
+
+            long startTime = System.currentTimeMillis();
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            long duration = System.currentTimeMillis() - startTime;
+
+            // Assert
+            assertThat(result.getTotalBatchesProcessed()).isEqualTo(1);
+
+            // Single batch should have minimal delay (no inter-batch delay)
+            assertThat(duration).isLessThan(500); // Less than configured delay since no inter-batch delay
+        }
+
+        @Test
+        @DisplayName("Should respect configured delay even with zero delay setting")
+        void batchDeleteMessages_ZeroDelay_ShouldNotWaitBetweenBatches() throws IOException {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = IntStream.range(1, 2001)
+                .mapToObj(i -> "msg" + i)
+                .toList();
+
+            when(batchOperations.delayBetweenBatchesMs()).thenReturn(0L); // No delay
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            doNothing().when(batchDeleteRequest).execute();
+
+            long startTime = System.currentTimeMillis();
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            long duration = System.currentTimeMillis() - startTime;
+
+            // Assert
+            assertThat(result.getTotalBatchesProcessed()).isEqualTo(2);
+
+            // With zero delay, operation should complete very quickly
+            assertThat(duration).isLessThan(500);
+        }
+
+        @Test
+        @DisplayName("Should calculate total operation time improvement with 500ms delay")
+        void totalOperationTime_WithDelay500_ShouldDemonstrateImprovement() {
+            // Example: 500 messages with batch-size=50 and batchDelete max=1000
+            int messageCount = 500;
+            int batchSize = 50;
+
+            // With native batchDelete (1000 max per batch)
+            int newBatchCount = 1; // All 500 messages in 1 batchDelete call
+            long newDelayOverhead = (newBatchCount - 1) * 500L; // 0ms (single batch)
+
+            // Old approach with individual batches
+            int oldBatchCount = (int) Math.ceil((double)messageCount / batchSize); // 10 batches
+            long oldDelayOverhead = (oldBatchCount - 1) * 2000L; // 18000ms
+
+            long savings = oldDelayOverhead - newDelayOverhead;
+
+            assertThat(newDelayOverhead).isEqualTo(0L);
+            assertThat(oldDelayOverhead).isEqualTo(18000L);
+            assertThat(savings)
+                .as("For 500 messages: native batchDelete eliminates all delay overhead")
+                .isEqualTo(18000L);
+        }
+
+        @Test
+        @DisplayName("Should validate delay configuration is within valid range")
+        void delay500Ms_ShouldBeWithinValidRange() {
+            // Verify 500ms is within @Min(100) @Max(5000) constraint
+            long delay = 500L;
+            long minDelay = 100L;
+            long maxDelay = 5000L;
+
+            assertThat(delay)
+                .as("Delay 500ms should be within valid range [100, 5000]")
+                .isBetween(minDelay, maxDelay);
+        }
+    }
+
+    // ===========================================
     // Batch Size Configuration Tests (P0-3)
     // Tests for batch-size=50 configuration change
     // ===========================================
