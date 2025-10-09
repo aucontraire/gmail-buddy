@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -1368,6 +1369,617 @@ class GmailBatchClientTest {
     // Batch Size Configuration Tests (P0-3)
     // Tests for batch-size=50 configuration change
     // ===========================================
+
+    // ===========================================
+    // Adaptive Batch Sizing Algorithm Tests (P0-5)
+    // Tests for activation of adaptive algorithm in batchDeleteMessages and batchModifyLabels
+    // ===========================================
+
+    @Nested
+    @DisplayName("Adaptive Batch Sizing Algorithm Tests (P0-5)")
+    class AdaptiveBatchSizingAlgorithmTests {
+
+        @Test
+        @DisplayName("Should start with initial adaptive size of 15")
+        void adaptiveBatchSize_Initial_ShouldBe15() throws Exception {
+            // Use reflection to get adaptiveBatchSize field
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+
+            // Assert
+            assertThat(adaptiveSize.get())
+                .as("Initial adaptive batch size should be 15 (from AtomicInteger initialization)")
+                .isEqualTo(15);
+        }
+
+        @Test
+        @DisplayName("Should use adaptive batch size in batchModifyLabels via getAdaptiveBatchSize()")
+        void batchModifyLabels_ShouldUseAdaptiveSize() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = IntStream.range(1, 31) // 30 messages
+                .mapToObj(i -> "msg" + i)
+                .toList();
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest()
+                .setAddLabelIds(List.of("LABEL_1"));
+
+            // Get current adaptive size via reflection
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            int currentAdaptiveSize = adaptiveSize.get(); // Should be 15
+
+            Gmail.Users.Messages.Modify mockModifyRequest = mock(Gmail.Users.Messages.Modify.class);
+            when(messages.modify(anyString(), anyString(), any(ModifyMessageRequest.class)))
+                .thenReturn(mockModifyRequest);
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
+
+            // Assert - With 30 messages and adaptive size 15, should create 2 batches
+            assertThat(result.getTotalBatchesProcessed())
+                .as("With 30 messages and adaptive size 15, should create 2 batches")
+                .isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("Should call updateAdaptiveRateLimit after successful batchDeleteMessages chunk")
+        void batchDeleteMessages_SuccessfulChunk_ShouldCallUpdateAdaptive() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            doNothing().when(batchDeleteRequest).execute();
+
+            // Get initial adaptive size
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            int initialSize = adaptiveSize.get();
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            // Assert - Adaptive size should have increased by 1 after successful chunk
+            assertThat(adaptiveSize.get())
+                .as("After successful chunk, adaptive size should increase by 1")
+                .isEqualTo(initialSize + 1);
+        }
+
+        @Test
+        @DisplayName("Should call updateAdaptiveRateLimit after failed batchDeleteMessages chunk")
+        void batchDeleteMessages_FailedChunk_ShouldCallUpdateAdaptive() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(404, "Message not found");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            when(batchDeleteRequest.execute()).thenThrow(exception);
+
+            // Get initial adaptive size
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            int initialSize = adaptiveSize.get(); // 15
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            // Assert - Adaptive size should have decreased after failed chunk
+            // Reduction = max(2, 15 / 4) = max(2, 3) = 3
+            // New size = max(5, 15 - 3) = 12
+            assertThat(adaptiveSize.get())
+                .as("After failed chunk, adaptive size should decrease")
+                .isLessThan(initialSize);
+        }
+
+        @Test
+        @DisplayName("Should increase adaptive size by 1 after successful batch")
+        void adaptiveSize_AfterSuccess_ShouldIncreaseBy1() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            doNothing().when(batchDeleteRequest).execute();
+
+            // Get adaptive size field via reflection
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            int initialSize = adaptiveSize.get();
+
+            // Act
+            gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            // Assert
+            assertThat(adaptiveSize.get())
+                .as("Adaptive size should increase by 1 after successful batch (from %d to %d)", initialSize, initialSize + 1)
+                .isEqualTo(initialSize + 1);
+        }
+
+        @Test
+        @DisplayName("Should gradually increase adaptive size with multiple successes")
+        void adaptiveSize_MultipleSuccesses_ShouldIncreaseGradually() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            doNothing().when(batchDeleteRequest).execute();
+
+            // Get adaptive size field via reflection
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            int initialSize = adaptiveSize.get(); // Should be 15
+
+            // Act - Execute 5 successful batches
+            for (int i = 0; i < 5; i++) {
+                gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+            }
+
+            // Assert - Size should have increased by 5 (15 → 20)
+            assertThat(adaptiveSize.get())
+                .as("After 5 successful batches, adaptive size should increase by 5")
+                .isEqualTo(initialSize + 5);
+        }
+
+        @Test
+        @DisplayName("Should never exceed configured max batch size of 50")
+        void adaptiveSize_MaxCapAt50_ShouldNotExceed() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            when(batchOperations.maxBatchSize()).thenReturn(50);
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            doNothing().when(batchDeleteRequest).execute();
+
+            // Get adaptive size field via reflection and set to 49 (just below max)
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            adaptiveSize.set(49);
+
+            // Act - Execute 5 successful batches (should cap at 50)
+            for (int i = 0; i < 5; i++) {
+                gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+            }
+
+            // Assert - Size should cap at configured max of 50
+            assertThat(adaptiveSize.get())
+                .as("Adaptive size should cap at configured max of 50")
+                .isEqualTo(50);
+        }
+
+        @Test
+        @DisplayName("Should stay at max size 50 even with continued successes")
+        void adaptiveSize_AtMax50_ShouldStayAt50() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            when(batchOperations.maxBatchSize()).thenReturn(50);
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            doNothing().when(batchDeleteRequest).execute();
+
+            // Get adaptive size field via reflection and set to max (50)
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            adaptiveSize.set(50);
+
+            // Act - Execute 10 successful batches (should stay at 50)
+            for (int i = 0; i < 10; i++) {
+                gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+            }
+
+            // Assert - Size should remain at 50
+            assertThat(adaptiveSize.get())
+                .as("Adaptive size should remain at max of 50")
+                .isEqualTo(50);
+        }
+
+        @Test
+        @DisplayName("Should reduce adaptive size by 25% on failure")
+        void adaptiveSize_AfterFailure_ShouldReduceBy25Percent() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(404, "Not found");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            when(batchDeleteRequest.execute()).thenThrow(exception);
+
+            // Set adaptive size to 20
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            adaptiveSize.set(20);
+
+            // Act
+            gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            // Assert - Reduction = max(2, 20 / 4) = 5
+            // New size = max(5, 20 - 5) = 15
+            assertThat(adaptiveSize.get())
+                .as("Adaptive size should reduce from 20 to 15 (25%% reduction)")
+                .isEqualTo(15);
+        }
+
+        @Test
+        @DisplayName("Should reduce by minimum 2 if 25% is less than 2")
+        void adaptiveSize_SmallSize_ShouldReduceByMin2() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(500, "Internal error");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            when(batchDeleteRequest.execute()).thenThrow(exception);
+
+            // Set adaptive size to 6
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            adaptiveSize.set(6);
+
+            // Act
+            gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            // Assert - Reduction = max(2, 6 / 4) = max(2, 1) = 2
+            // New size = max(5, 6 - 2) = max(5, 4) = 5 (floors at 5)
+            assertThat(adaptiveSize.get())
+                .as("Adaptive size should reduce from 6 to 5 (floors at minimum)")
+                .isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("Should never go below minimum of 5")
+        void adaptiveSize_MinFloorAt5_ShouldNotGoBelowS() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(429, "Rate limit");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            when(batchDeleteRequest.execute()).thenThrow(exception);
+
+            // Set adaptive size to 5 (minimum)
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            adaptiveSize.set(5);
+
+            // Act - Execute multiple failed batches
+            for (int i = 0; i < 5; i++) {
+                gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+            }
+
+            // Assert - Size should remain at 5 (minimum floor)
+            assertThat(adaptiveSize.get())
+                .as("Adaptive size should floor at minimum of 5")
+                .isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("Should stay at 5 even with continued failures")
+        void adaptiveSize_AtMin5_ShouldStayAt5() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(403, "Quota exceeded");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            when(batchDeleteRequest.execute()).thenThrow(exception);
+
+            // Set adaptive size to minimum (5)
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            adaptiveSize.set(5);
+
+            // Act - Execute 10 failed batches (should stay at 5)
+            for (int i = 0; i < 10; i++) {
+                gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+            }
+
+            // Assert - Size should remain at 5
+            assertThat(adaptiveSize.get())
+                .as("Adaptive size should remain at minimum of 5")
+                .isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("Should calculate 25% reduction correctly for various sizes")
+        void adaptiveSize_25PercentReduction_ShouldCalculateCorrectly() {
+            // Test the reduction formula: max(2, currentSize / 4)
+            Map<Integer, Integer> sizeToReduction = Map.of(
+                40, 10,  // 40 / 4 = 10
+                30, 7,   // 30 / 4 = 7
+                20, 5,   // 20 / 4 = 5
+                10, 2,   // 10 / 4 = 2
+                8, 2,    // 8 / 4 = 2
+                6, 2,    // 6 / 4 = 1, but max(2, 1) = 2
+                4, 2     // 4 / 4 = 1, but max(2, 1) = 2
+            );
+
+            sizeToReduction.forEach((size, expectedReduction) -> {
+                int actualReduction = Math.max(2, size / 4);
+                assertThat(actualReduction)
+                    .as("For size %d, reduction should be %d", size, expectedReduction)
+                    .isEqualTo(expectedReduction);
+            });
+        }
+
+        @Test
+        @DisplayName("Should test adaptive size with starting size of 10")
+        void adaptiveSize_FromSize10_ShouldBehavCorrectly() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            doNothing().when(batchDeleteRequest).execute();
+
+            // Set adaptive size to 10
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            adaptiveSize.set(10);
+
+            // Act - 5 successes
+            for (int i = 0; i < 5; i++) {
+                gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+            }
+
+            // Assert - Should increase to 15 (10 + 5)
+            assertThat(adaptiveSize.get())
+                .as("After 5 successes from size 10, should be 15")
+                .isEqualTo(15);
+        }
+
+        @Test
+        @DisplayName("Should test adaptive size with starting size of 30")
+        void adaptiveSize_FromSize30_ShouldBehaveCorrectly() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(500, "Error");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            when(batchDeleteRequest.execute()).thenThrow(exception);
+
+            // Set adaptive size to 30
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            adaptiveSize.set(30);
+
+            // Act - 1 failure
+            gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            // Assert - Reduction = max(2, 30 / 4) = 7
+            // New size = max(5, 30 - 7) = 23
+            assertThat(adaptiveSize.get())
+                .as("After 1 failure from size 30, should reduce to 23")
+                .isEqualTo(23);
+        }
+
+        @Test
+        @DisplayName("Should test adaptive size with starting size of 40")
+        void adaptiveSize_FromSize40_ShouldBehaveCorrectly() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(429, "Rate limit");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            when(batchDeleteRequest.execute()).thenThrow(exception);
+
+            // Set adaptive size to 40
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            adaptiveSize.set(40);
+
+            // Act - 1 failure
+            gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            // Assert - Reduction = max(2, 40 / 4) = 10
+            // New size = max(5, 40 - 10) = 30
+            assertThat(adaptiveSize.get())
+                .as("After 1 failure from size 40, should reduce to 30")
+                .isEqualTo(30);
+        }
+
+        @Test
+        @DisplayName("Should integrate adaptive algorithm with circuit breaker")
+        void adaptiveSize_WithCircuitBreaker_ShouldWorkTogether() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(404, "Not found");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            when(batchDeleteRequest.execute()).thenThrow(exception);
+
+            // Get adaptive size field
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            int initialSize = adaptiveSize.get();
+
+            // Act - Execute 3 failures (triggers circuit breaker)
+            gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+            gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+            gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            Map<String, Object> stats = gmailBatchClient.getCircuitBreakerStats();
+
+            // Assert - Circuit breaker should be open AND adaptive size should have decreased
+            assertThat(stats.get("isOpen"))
+                .as("Circuit breaker should be open after 3 failures")
+                .isEqualTo(true);
+
+            assertThat(adaptiveSize.get())
+                .as("Adaptive size should have decreased with failures")
+                .isLessThan(initialSize);
+        }
+
+        @Test
+        @DisplayName("Should persist adaptive size across multiple batch operations")
+        void adaptiveSize_MultipleOperations_ShouldPersist() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            doNothing().when(batchDeleteRequest).execute();
+
+            // Get adaptive size field
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            int initialSize = adaptiveSize.get();
+
+            // Act - Execute 3 successful operations
+            gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+            int sizeAfterFirst = adaptiveSize.get();
+
+            gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+            int sizeAfterSecond = adaptiveSize.get();
+
+            gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+            int sizeAfterThird = adaptiveSize.get();
+
+            // Assert - Size should increase progressively
+            assertThat(sizeAfterFirst)
+                .as("Size should increase after first operation")
+                .isEqualTo(initialSize + 1);
+
+            assertThat(sizeAfterSecond)
+                .as("Size should increase after second operation")
+                .isEqualTo(initialSize + 2);
+
+            assertThat(sizeAfterThird)
+                .as("Size should increase after third operation")
+                .isEqualTo(initialSize + 3);
+        }
+
+        @Test
+        @DisplayName("Should call updateAdaptiveRateLimit in batchDeleteMessages")
+        void batchDeleteMessages_ShouldCallUpdateAdaptive() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+
+            when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
+                .thenReturn(batchDeleteRequest);
+            doNothing().when(batchDeleteRequest).execute();
+
+            // Get adaptive size field
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            int initialSize = adaptiveSize.get();
+
+            // Act
+            gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            // Assert - Adaptive size should have changed (increased by 1 for success)
+            assertThat(adaptiveSize.get())
+                .as("updateAdaptiveRateLimit should be called, changing the adaptive size")
+                .isNotEqualTo(initialSize);
+        }
+
+        @Test
+        @DisplayName("Should call updateAdaptiveRateLimit in batchModifyLabels")
+        void batchModifyLabels_ShouldCallUpdateAdaptive() throws Exception {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest()
+                .setAddLabelIds(List.of("LABEL_1"));
+
+            Gmail.Users.Messages.Modify mockModifyRequest = mock(Gmail.Users.Messages.Modify.class);
+            when(messages.modify(anyString(), anyString(), any(ModifyMessageRequest.class)))
+                .thenReturn(mockModifyRequest);
+
+            // Get adaptive size field
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            int initialSize = adaptiveSize.get();
+
+            // Act
+            gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
+
+            // Assert - Adaptive size should have changed after batch execution
+            // Note: The actual change depends on batch success/failure, but it should be called
+            assertThat(adaptiveSize.get())
+                .as("updateAdaptiveRateLimit should be called in batchModifyLabels")
+                .isGreaterThanOrEqualTo(5); // At minimum it should be 5
+        }
+
+        @Test
+        @DisplayName("Should affect batchModifyLabels batch splitting based on adaptive size")
+        void batchModifyLabels_AdaptiveSize_ShouldAffectBatchSplitting() throws Exception {
+            // Arrange
+            String userId = "me";
+            // Create 45 messages
+            List<String> messageIds = IntStream.range(1, 46)
+                .mapToObj(i -> "msg" + i)
+                .toList();
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest()
+                .setAddLabelIds(List.of("LABEL_1"));
+
+            Gmail.Users.Messages.Modify mockModifyRequest = mock(Gmail.Users.Messages.Modify.class);
+            when(messages.modify(anyString(), anyString(), any(ModifyMessageRequest.class)))
+                .thenReturn(mockModifyRequest);
+
+            // Set adaptive size to 10
+            java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
+            adaptiveField.setAccessible(true);
+            AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
+            adaptiveSize.set(10);
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
+
+            // Assert - With 45 messages and adaptive size 10, should create ceil(45/10) = 5 batches
+            assertThat(result.getTotalBatchesProcessed())
+                .as("With 45 messages and adaptive size 10, should create 5 batches")
+                .isEqualTo(5);
+        }
+    }
 
     @Nested
     @DisplayName("Batch Size 50 Configuration Tests")

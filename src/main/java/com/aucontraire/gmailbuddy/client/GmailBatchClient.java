@@ -135,8 +135,18 @@ public class GmailBatchClient {
             List<String> chunk = chunks.get(i);
             logger.debug("Processing chunk {} of {} with {} messages", i + 1, chunks.size(), chunk.size());
 
+            // Track success count before this chunk
+            int previousSuccessCount = result.getSuccessCount();
+
             // Execute batchDelete with retry logic
             executeBatchDeleteWithRetry(gmail, userId, chunk, result);
+
+            // Determine if this chunk succeeded (all messages in chunk were successfully deleted)
+            int successfulInChunk = result.getSuccessCount() - previousSuccessCount;
+            boolean chunkSuccess = (successfulInChunk == chunk.size());
+
+            // Update adaptive rate limiting based on chunk result
+            updateAdaptiveRateLimit(chunkSuccess, chunk.size());
 
             // Increment batch counter
             result.incrementBatchesProcessed();
@@ -196,9 +206,19 @@ public class GmailBatchClient {
             List<String> batch = batches.get(i);
             logger.debug("Processing batch {} of {} with {} messages", i + 1, batches.size(), batch.size());
 
+            // Track success count before this batch
+            int previousSuccessCount = result.getSuccessCount();
+
             // Execute batch with retry logic
             executeBatchWithRetry(gmail, userId, batch, result,
                 (g, u, b, r) -> executeBatchModifyLabels(g, u, b, modifyRequest, r));
+
+            // Determine if this batch succeeded (all messages in batch were successfully modified)
+            int successfulInBatch = result.getSuccessCount() - previousSuccessCount;
+            boolean batchSuccess = (successfulInBatch == batch.size());
+
+            // Update adaptive rate limiting based on batch result
+            updateAdaptiveRateLimit(batchSuccess, batch.size());
 
             // Increment batch counter
             result.incrementBatchesProcessed();
