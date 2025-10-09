@@ -1,5 +1,6 @@
 package com.aucontraire.gmailbuddy.config;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +12,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import java.util.Set;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -47,6 +49,21 @@ class GmailBuddyPropertiesTest {
     void testDefaultRateLimitValues() {
         assertNotNull(properties.gmailApi().rateLimit());
         assertEquals(60L, properties.gmailApi().rateLimit().defaultRetrySeconds());
+    }
+
+    @Test
+    void testDefaultBatchOperationsValues() {
+        var batchOperations = properties.gmailApi().rateLimit().batchOperations();
+        assertNotNull(batchOperations);
+
+        // Test the updated batch size configuration (changed from 15 to 50)
+        assertEquals(50, batchOperations.maxBatchSize());
+        assertEquals(2000L, batchOperations.delayBetweenBatchesMs());
+        assertEquals(4, batchOperations.maxRetryAttempts());
+        assertEquals(2000L, batchOperations.initialBackoffMs());
+        assertEquals(2.5, batchOperations.backoffMultiplier());
+        assertEquals(60000L, batchOperations.maxBackoffMs());
+        assertEquals(10L, batchOperations.microDelayBetweenOperationsMs());
     }
 
     @Test
@@ -341,6 +358,167 @@ class GmailBuddyPropertiesTest {
         void testCustomValidationAndSecurityProperties() {
             assertEquals("^[a-z]+@[a-z]+\\.[a-z]{2,4}$", properties.validation().email().pattern());
             assertEquals("/home", properties.security().oauth2Security().defaultSuccessUrl());
+        }
+    }
+
+    // ===========================================
+    // Batch Size Configuration Tests (P0-3)
+    // ===========================================
+
+    @Nested
+    @SpringBootTest(classes = {ConfigurationPropertiesConfig.class})
+    @EnableConfigurationProperties(GmailBuddyProperties.class)
+    @DisplayName("Batch Size Configuration Tests")
+    class BatchSizeConfigurationTest {
+
+        @Autowired
+        private GmailBuddyProperties properties;
+
+        @Autowired
+        private Validator validator;
+
+        @Test
+        @DisplayName("Should load batch size 50 from configuration")
+        void shouldLoadBatchSize50FromConfiguration() {
+            // Verify that max-batch-size=50 is loaded correctly from application.properties
+            int batchSize = properties.gmailApi()
+                .rateLimit()
+                .batchOperations()
+                .maxBatchSize();
+
+            assertThat(batchSize).isEqualTo(50);
+        }
+
+        @Test
+        @DisplayName("Batch size 50 should be within valid range @Min(10) @Max(100)")
+        void batchSize50_ShouldBeWithinValidRange() {
+            int batchSize = properties.gmailApi()
+                .rateLimit()
+                .batchOperations()
+                .maxBatchSize();
+
+            // Verify 50 is within the validation constraints
+            assertThat(batchSize).isGreaterThanOrEqualTo(10);
+            assertThat(batchSize).isLessThanOrEqualTo(100);
+            assertThat(batchSize).isBetween(10, 100);
+        }
+
+        @Test
+        @DisplayName("Should validate batch size configuration passes validation")
+        void batchSizeConfiguration_ShouldPassValidation() {
+            // Verify the entire configuration is valid
+            Set<ConstraintViolation<GmailBuddyProperties>> violations = validator.validate(properties);
+            assertTrue(violations.isEmpty(), "Configuration with batch-size=50 should be valid");
+        }
+
+        @Test
+        @DisplayName("Should handle minimum boundary condition (batch-size=10)")
+        void batchSizeValidation_MinimumBoundary_ShouldBeValid() {
+            // Create configuration with minimum valid batch size
+            var batchOperations = new GmailBuddyProperties.GmailApi.RateLimit.BatchOperations(
+                2000L, 4, 2000L, 2.5, 60000L, 10, 10L // min batch size
+            );
+
+            Set<ConstraintViolation<GmailBuddyProperties.GmailApi.RateLimit.BatchOperations>> violations =
+                validator.validate(batchOperations);
+
+            assertTrue(violations.isEmpty(), "Batch size 10 should be valid (minimum)");
+        }
+
+        @Test
+        @DisplayName("Should handle maximum boundary condition (batch-size=100)")
+        void batchSizeValidation_MaximumBoundary_ShouldBeValid() {
+            // Create configuration with maximum valid batch size
+            var batchOperations = new GmailBuddyProperties.GmailApi.RateLimit.BatchOperations(
+                2000L, 4, 2000L, 2.5, 60000L, 100, 10L // max batch size
+            );
+
+            Set<ConstraintViolation<GmailBuddyProperties.GmailApi.RateLimit.BatchOperations>> violations =
+                validator.validate(batchOperations);
+
+            assertTrue(violations.isEmpty(), "Batch size 100 should be valid (maximum)");
+        }
+
+        @Test
+        @DisplayName("Should reject batch size below minimum (batch-size=9)")
+        void batchSizeValidation_BelowMinimum_ShouldFailValidation() {
+            // Create configuration with batch size below minimum
+            var batchOperations = new GmailBuddyProperties.GmailApi.RateLimit.BatchOperations(
+                2000L, 4, 2000L, 2.5, 60000L, 9, 10L // below min
+            );
+
+            Set<ConstraintViolation<GmailBuddyProperties.GmailApi.RateLimit.BatchOperations>> violations =
+                validator.validate(batchOperations);
+
+            assertFalse(violations.isEmpty(), "Batch size 9 should fail validation (below minimum)");
+            assertTrue(violations.stream()
+                .anyMatch(v -> v.getPropertyPath().toString().contains("maxBatchSize")));
+        }
+
+        @Test
+        @DisplayName("Should reject batch size above maximum (batch-size=101)")
+        void batchSizeValidation_AboveMaximum_ShouldFailValidation() {
+            // Create configuration with batch size above maximum
+            var batchOperations = new GmailBuddyProperties.GmailApi.RateLimit.BatchOperations(
+                2000L, 4, 2000L, 2.5, 60000L, 101, 10L // above max
+            );
+
+            Set<ConstraintViolation<GmailBuddyProperties.GmailApi.RateLimit.BatchOperations>> violations =
+                validator.validate(batchOperations);
+
+            assertFalse(violations.isEmpty(), "Batch size 101 should fail validation (above maximum)");
+            assertTrue(violations.stream()
+                .anyMatch(v -> v.getPropertyPath().toString().contains("maxBatchSize")));
+        }
+
+        @Test
+        @DisplayName("Should verify all batch operation configuration values are loaded correctly")
+        void batchOperationsConfiguration_AllValues_ShouldLoadCorrectly() {
+            var batchOperations = properties.gmailApi()
+                .rateLimit()
+                .batchOperations();
+
+            // Verify all configuration values from application.properties
+            assertAll("Batch Operations Configuration",
+                () -> assertEquals(50, batchOperations.maxBatchSize(),
+                    "Max batch size should be 50 (updated from 15)"),
+                () -> assertEquals(2000L, batchOperations.delayBetweenBatchesMs(),
+                    "Delay between batches should be 2000ms"),
+                () -> assertEquals(4, batchOperations.maxRetryAttempts(),
+                    "Max retry attempts should be 4"),
+                () -> assertEquals(2000L, batchOperations.initialBackoffMs(),
+                    "Initial backoff should be 2000ms"),
+                () -> assertEquals(2.5, batchOperations.backoffMultiplier(),
+                    "Backoff multiplier should be 2.5"),
+                () -> assertEquals(60000L, batchOperations.maxBackoffMs(),
+                    "Max backoff should be 60000ms"),
+                () -> assertEquals(10L, batchOperations.microDelayBetweenOperationsMs(),
+                    "Micro delay should be 10ms")
+            );
+        }
+    }
+
+    @Nested
+    @SpringBootTest(classes = {ConfigurationPropertiesConfig.class})
+    @EnableConfigurationProperties(GmailBuddyProperties.class)
+    @TestPropertySource(properties = {
+        "gmail-buddy.gmail-api.rate-limit.batch-operations.max-batch-size=75"
+    })
+    @DisplayName("Custom Batch Size Override Tests")
+    class CustomBatchSizeOverrideTest {
+
+        @Autowired
+        private GmailBuddyProperties properties;
+
+        @Test
+        @DisplayName("Should allow overriding batch size with custom value")
+        void customBatchSize_ShouldOverrideDefault() {
+            int batchSize = properties.gmailApi()
+                .rateLimit()
+                .batchOperations()
+                .maxBatchSize();
+
+            assertEquals(75, batchSize, "Custom batch size should override default");
         }
     }
 }
