@@ -2,7 +2,9 @@ package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
+import com.aucontraire.gmailbuddy.security.TokenReferenceService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -26,10 +28,12 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 /**
  * Comprehensive test suite for OAuth2TokenProvider Phase 2 integration.
@@ -79,7 +83,12 @@ class OAuth2TokenProviderPhase2Test {
     @Mock
     private ServletRequestAttributes requestAttributes;
 
+    @Mock
+    private TokenReferenceService tokenReferenceService;
+
     private OAuth2TokenProvider tokenProvider;
+    private MockedStatic<RequestContextHolder> mockedRequestContextHolder;
+    private MockedStatic<SecurityContextHolder> mockedSecurityContextHolder;
 
     private static final String VALID_BEARER_TOKEN = "ya29.a0ARrdaM-valid-bearer-token";
     private static final String INVALID_BEARER_TOKEN = "invalid-bearer-token";
@@ -89,12 +98,31 @@ class OAuth2TokenProviderPhase2Test {
 
     @BeforeEach
     void setUp() {
-        tokenProvider = new OAuth2TokenProvider(authorizedClientService, properties, tokenValidator);
-        SecurityContextHolder.setContext(securityContext);
+        tokenProvider = new OAuth2TokenProvider(authorizedClientService, properties, tokenValidator, tokenReferenceService);
 
-        // Setup default property mocks
-        when(properties.oauth2()).thenReturn(oauth2Config);
-        when(oauth2Config.clientRegistrationId()).thenReturn(CLIENT_REGISTRATION_ID);
+        // Setup static mocks
+        mockedRequestContextHolder = mockStatic(RequestContextHolder.class);
+        mockedSecurityContextHolder = mockStatic(SecurityContextHolder.class);
+
+        SecurityContextHolder.setContext(securityContext);
+        mockedSecurityContextHolder.when(SecurityContextHolder::getContext).thenReturn(securityContext);
+
+        // Setup default property mocks (lenient to handle tests that don't use them)
+        lenient().when(properties.oauth2()).thenReturn(oauth2Config);
+        lenient().when(oauth2Config.clientRegistrationId()).thenReturn(CLIENT_REGISTRATION_ID);
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+
+        // Close static mocks
+        if (mockedRequestContextHolder != null) {
+            mockedRequestContextHolder.close();
+        }
+        if (mockedSecurityContextHolder != null) {
+            mockedSecurityContextHolder.close();
+        }
     }
 
     @Nested
@@ -106,7 +134,7 @@ class OAuth2TokenProviderPhase2Test {
         void shouldExtractAndValidateBearerTokenFromHttpRequest() {
             // Given
             mockHttpRequestContext(VALID_BEARER_TOKEN);
-            when(tokenValidator.isValidGoogleToken(VALID_BEARER_TOKEN)).thenReturn(true);
+            lenient().when(tokenValidator.isValidGoogleToken(VALID_BEARER_TOKEN)).thenReturn(true);
 
             // When
             String result = tokenProvider.getBearerToken();
@@ -184,14 +212,12 @@ class OAuth2TokenProviderPhase2Test {
         @DisplayName("Should throw exception when no HTTP request context available")
         void shouldThrowExceptionWhenNoHttpRequestContextAvailable() {
             // Given
-            try (MockedStatic<RequestContextHolder> mockedRequestContextHolder = mockStatic(RequestContextHolder.class)) {
-                mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes).thenReturn(null);
+            mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes).thenReturn(null);
 
-                // When & Then
-                assertThatThrownBy(() -> tokenProvider.getBearerToken())
-                    .isInstanceOf(AuthenticationException.class)
-                    .hasMessage("No HTTP request context available");
-            }
+            // When & Then
+            assertThatThrownBy(() -> tokenProvider.getBearerToken())
+                .isInstanceOf(AuthenticationException.class)
+                .hasMessage("No HTTP request context available");
         }
     }
 
@@ -415,18 +441,16 @@ class OAuth2TokenProviderPhase2Test {
         @DisplayName("Should handle HTTP request context exceptions gracefully")
         void shouldHandleHttpRequestContextExceptionsGracefully() {
             // Given
-            try (MockedStatic<RequestContextHolder> mockedRequestContextHolder = mockStatic(RequestContextHolder.class)) {
-                mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes)
-                    .thenThrow(new RuntimeException("Request context error"));
-                mockApiClientAuthentication();
+            mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes)
+                .thenThrow(new RuntimeException("Request context error"));
+            mockApiClientAuthentication();
 
-                // When
-                String result = tokenProvider.getTokenFromContext();
+            // When
+            String result = tokenProvider.getTokenFromContext();
 
-                // Then
-                assertThat(result).isEqualTo(VALID_BEARER_TOKEN);
-                verify(authentication).getCredentials();
-            }
+            // Then
+            assertThat(result).isEqualTo(VALID_BEARER_TOKEN);
+            verify(authentication).getCredentials();
         }
 
         @Test
@@ -505,17 +529,15 @@ class OAuth2TokenProviderPhase2Test {
         @DisplayName("Should use OAuth2 methods when no HTTP context is available")
         void shouldUseOAuth2MethodsWhenNoHttpContextIsAvailable() {
             // Given
-            try (MockedStatic<RequestContextHolder> mockedRequestContextHolder = mockStatic(RequestContextHolder.class)) {
-                mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes).thenReturn(null);
-                mockOAuth2Fallback();
+            mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes).thenReturn(null);
+            mockOAuth2Fallback();
 
-                // When
-                String result = tokenProvider.getTokenFromContext();
+            // When
+            String result = tokenProvider.getTokenFromContext();
 
-                // Then
-                assertThat(result).isEqualTo(OAUTH2_TOKEN);
-                verify(authorizedClientService).loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL);
-            }
+            // Then
+            assertThat(result).isEqualTo(OAUTH2_TOKEN);
+            verify(authorizedClientService).loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL);
         }
 
         @Test
@@ -547,26 +569,33 @@ class OAuth2TokenProviderPhase2Test {
     }
 
     private void mockHttpRequestContextWithHeader(String authHeader) {
-        try (MockedStatic<RequestContextHolder> mockedRequestContextHolder = mockStatic(RequestContextHolder.class)) {
-            mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes).thenReturn(requestAttributes);
-            when(requestAttributes.getRequest()).thenReturn(httpRequest);
-            when(httpRequest.getHeader("Authorization")).thenReturn(authHeader);
-        }
+        mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes).thenReturn(requestAttributes);
+        lenient().when(requestAttributes.getRequest()).thenReturn(httpRequest);
+        lenient().when(httpRequest.getHeader("Authorization")).thenReturn(authHeader);
     }
 
     private void mockApiClientAuthentication() {
-        when(securityContext.getAuthentication()).thenReturn(authentication);
-        when(authentication.isAuthenticated()).thenReturn(true);
-        when(authentication.getAuthorities()).thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_API_USER")));
-        when(authentication.getCredentials()).thenReturn(VALID_BEARER_TOKEN);
+        String tokenReferenceId = "ref_" + VALID_BEARER_TOKEN.hashCode();
+
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
+        lenient().when(authentication.isAuthenticated()).thenReturn(true);
+        lenient().when(authentication.getAuthorities()).thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_API_USER")));
+        lenient().when(authentication.getCredentials()).thenReturn(tokenReferenceId);
+
+        // Mock the token reference service to return the actual token
+        lenient().when(tokenReferenceService.getToken(tokenReferenceId)).thenReturn(Optional.of(VALID_BEARER_TOKEN));
     }
 
     private void mockOAuth2Fallback() {
-        when(authentication.getName()).thenReturn(USER_EMAIL);
-        when(authorizedClientService.loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL))
+        // Setup authentication for OAuth2 fallback
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
+        lenient().when(authentication.getName()).thenReturn(USER_EMAIL);
+        lenient().when(authentication.isAuthenticated()).thenReturn(true);
+
+        lenient().when(authorizedClientService.loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL))
             .thenReturn(authorizedClient);
-        when(authorizedClient.getAccessToken()).thenReturn(accessToken);
-        when(accessToken.getTokenValue()).thenReturn(OAUTH2_TOKEN);
-        when(accessToken.getExpiresAt()).thenReturn(Instant.now().plusSeconds(3600));
+        lenient().when(authorizedClient.getAccessToken()).thenReturn(accessToken);
+        lenient().when(accessToken.getTokenValue()).thenReturn(OAUTH2_TOKEN);
+        lenient().when(accessToken.getExpiresAt()).thenReturn(Instant.now().plusSeconds(3600));
     }
 }

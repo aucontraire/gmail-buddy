@@ -1,9 +1,12 @@
 package com.aucontraire.gmailbuddy.security;
 
 import com.aucontraire.gmailbuddy.config.TokenAuthenticationFilter;
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import com.aucontraire.gmailbuddy.service.OAuth2TokenProvider;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
+import com.aucontraire.gmailbuddy.security.TokenReference;
+import com.aucontraire.gmailbuddy.security.TokenReferenceService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -17,11 +20,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -73,6 +78,9 @@ class Phase2ErrorScenariosTest {
     @Mock
     private SecurityContext securityContext;
 
+    @Mock
+    private TokenReferenceService tokenReferenceService;
+
     private GoogleTokenValidator tokenValidator;
     private TokenAuthenticationFilter authenticationFilter;
 
@@ -82,7 +90,7 @@ class Phase2ErrorScenariosTest {
     @BeforeEach
     void setUp() {
         tokenValidator = new GoogleTokenValidator(restTemplate);
-        authenticationFilter = new TokenAuthenticationFilter(tokenValidator);
+        authenticationFilter = new TokenAuthenticationFilter(tokenValidator, tokenReferenceService);
         SecurityContextHolder.setContext(securityContext);
     }
 
@@ -95,7 +103,7 @@ class Phase2ErrorScenariosTest {
         void shouldHandleGoogleTokenInfoApiTimeoutGracefully() throws Exception {
             // Given
             String timeoutToken = "ya29.a0ARrdaM-timeout-token";
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new ResourceAccessException("Read timed out", new SocketTimeoutException("Read timed out")));
 
             // When
@@ -103,14 +111,14 @@ class Phase2ErrorScenariosTest {
 
             // Then
             assertThat(result).isFalse();
-            verify(restTemplate).exchange(contains(timeoutToken), eq(HttpMethod.GET), isNull(), eq(Map.class));
+            verify(restTemplate).exchange(eq("https://www.googleapis.com/oauth2/v1/tokeninfo"), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class));
         }
 
         @Test
         @DisplayName("Should handle Google TokenInfo API connection refused")
         void shouldHandleGoogleTokenInfoApiConnectionRefused() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new ResourceAccessException("Connection refused"));
 
             // When
@@ -118,14 +126,14 @@ class Phase2ErrorScenariosTest {
 
             // Then
             assertThat(result).isFalse();
-            verify(restTemplate).exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class));
+            verify(restTemplate).exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class));
         }
 
         @Test
         @DisplayName("Should handle Google TokenInfo API DNS resolution failure")
         void shouldHandleGoogleTokenInfoApiDnsResolutionFailure() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new ResourceAccessException("Name resolution failed"));
 
             // When
@@ -139,7 +147,7 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle Google TokenInfo API SSL handshake failure")
         void shouldHandleGoogleTokenInfoApiSslHandshakeFailure() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new ResourceAccessException("SSL handshake failed"));
 
             // When
@@ -157,7 +165,7 @@ class Phase2ErrorScenariosTest {
             rateLimitResponse.put("error", "rate_limit_exceeded");
             rateLimitResponse.put("error_description", "Rate limit exceeded");
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(rateLimitResponse, HttpStatus.TOO_MANY_REQUESTS));
 
             // When
@@ -171,7 +179,7 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle Google API returning HTTP 500 Internal Server Error")
         void shouldHandleGoogleApiReturningHttp500InternalServerError() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(new HashMap<>(), HttpStatus.INTERNAL_SERVER_ERROR));
 
             // When
@@ -185,7 +193,7 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle Google API returning HTTP 503 Service Unavailable")
         void shouldHandleGoogleApiReturningHttp503ServiceUnavailable() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(new HashMap<>(), HttpStatus.SERVICE_UNAVAILABLE));
 
             // When
@@ -216,7 +224,7 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle various malformed token formats")
         void shouldHandleVariousMalformedTokenFormats(String malformedToken) throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createErrorResponse("invalid_token"), HttpStatus.BAD_REQUEST));
 
             // When
@@ -231,7 +239,7 @@ class Phase2ErrorScenariosTest {
         void shouldHandleExtremelyLongTokens() throws Exception {
             // Given
             String extremelyLongToken = "ya29.a0ARrdaM-" + "x".repeat(10000);
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createErrorResponse("invalid_token"), HttpStatus.BAD_REQUEST));
 
             // When
@@ -246,7 +254,7 @@ class Phase2ErrorScenariosTest {
         void shouldHandleTokensWithUnicodeCharacters() throws Exception {
             // Given
             String unicodeToken = "ya29.a0ARrdaM-tökèñ-wïth-üñïçödé";
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createErrorResponse("invalid_token"), HttpStatus.BAD_REQUEST));
 
             // When
@@ -261,7 +269,7 @@ class Phase2ErrorScenariosTest {
         void shouldHandleBinaryDataAsToken() throws Exception {
             // Given
             String binaryToken = new String(new byte[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            lenient().when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createErrorResponse("invalid_token"), HttpStatus.BAD_REQUEST));
 
             // When
@@ -284,7 +292,7 @@ class Phase2ErrorScenariosTest {
             CountDownLatch startLatch = new CountDownLatch(1);
             CountDownLatch finishLatch = new CountDownLatch(numberOfThreads);
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createValidTokenResponse(), HttpStatus.OK));
 
             // When
@@ -311,7 +319,7 @@ class Phase2ErrorScenariosTest {
             for (CompletableFuture<Boolean> future : futures) {
                 assertThat(future.get()).isTrue();
             }
-            verify(restTemplate, times(numberOfThreads)).exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class));
+            verify(restTemplate, times(numberOfThreads)).exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class));
         }
 
         @Test
@@ -323,7 +331,7 @@ class Phase2ErrorScenariosTest {
             CountDownLatch finishLatch = new CountDownLatch(numberOfThreads);
 
             // Mock some success and some failures
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(createValidTokenResponse(), HttpStatus.OK))
                 .thenThrow(new RestClientException("Network error"))
                 .thenReturn(new ResponseEntity<>(createValidTokenResponse(), HttpStatus.OK))
@@ -372,13 +380,10 @@ class Phase2ErrorScenariosTest {
             when(failingValidator.isValidGoogleToken(VALID_TOKEN))
                 .thenThrow(new RuntimeException("Validator internal error"));
 
-            TokenAuthenticationFilter filterWithFailingValidator = new TokenAuthenticationFilter(failingValidator);
+            TokenAuthenticationFilter filterWithFailingValidator = new TokenAuthenticationFilter(failingValidator, tokenReferenceService);
 
             // When
-            // We can't directly call doFilterInternal (protected method), so we test through the public doFilter method
-        // filterWithFailingValidator.doFilter(request, response, filterChain);
-        // For this test, we'll verify behavior through integration testing instead
-        verify(failingValidator, never()).isValidGoogleToken(anyString());
+            filterWithFailingValidator.doFilter(request, response, filterChain);
 
             // Then
             verify(filterChain).doFilter(request, response);
@@ -393,16 +398,25 @@ class Phase2ErrorScenariosTest {
             when(request.getHeader("Authorization")).thenReturn("Bearer " + VALID_TOKEN);
             when(securityContext.getAuthentication()).thenReturn(null);
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
-                .thenReturn(new ResponseEntity<>(createValidTokenResponse(), HttpStatus.OK));
+            // Create a simple TokenAuthenticationFilter that will reach the setAuthentication call
+            GoogleTokenValidator mockValidator = mock(GoogleTokenValidator.class);
+            when(mockValidator.isValidGoogleToken(VALID_TOKEN)).thenReturn(true);
+            GoogleTokenValidator.TokenInfoResponse tokenInfo = new GoogleTokenValidator.TokenInfoResponse();
+            tokenInfo.setEmail("test@example.com");
+            when(mockValidator.getTokenInfo(VALID_TOKEN)).thenReturn(tokenInfo);
 
+            // Mock token reference service
+            TokenReference mockTokenReference = mock(TokenReference.class);
+            when(mockTokenReference.getReferenceId()).thenReturn("ref-123");
+            when(tokenReferenceService.createTokenReference(VALID_TOKEN, "test@example.com")).thenReturn(mockTokenReference);
+
+            // Mock SecurityContext to throw exception when setAuthentication is called
             doThrow(new RuntimeException("SecurityContext corrupted")).when(securityContext).setAuthentication(any());
 
+            TokenAuthenticationFilter filterWithValidation = new TokenAuthenticationFilter(mockValidator, tokenReferenceService);
+
             // When
-            // We can't directly call doFilterInternal (protected method), so we test through integration
-        // This scenario is better tested through the SecurityConfig integration tests
-        // authenticationFilter.doFilter(request, response, filterChain);
-        verify(securityContext, never()).setAuthentication(any());
+            filterWithValidation.doFilter(request, response, filterChain);
 
             // Then
             verify(filterChain).doFilter(request, response);
@@ -413,7 +427,13 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle RequestContextHolder unavailability")
         void shouldHandleRequestContextHolderUnavailability() {
             // Given
-            OAuth2TokenProvider tokenProvider = mock(OAuth2TokenProvider.class);
+            OAuth2AuthorizedClientService mockAuthorizedClientService = mock(OAuth2AuthorizedClientService.class);
+            GmailBuddyProperties mockProperties = mock(GmailBuddyProperties.class);
+            GoogleTokenValidator mockTokenValidator = mock(GoogleTokenValidator.class);
+            TokenReferenceService mockTokenReferenceService = mock(TokenReferenceService.class);
+
+            OAuth2TokenProvider tokenProvider = new OAuth2TokenProvider(
+                mockAuthorizedClientService, mockProperties, mockTokenValidator, mockTokenReferenceService);
 
             try (MockedStatic<RequestContextHolder> mockedRequestContextHolder = mockStatic(RequestContextHolder.class)) {
                 mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes)
@@ -421,7 +441,8 @@ class Phase2ErrorScenariosTest {
 
                 // When & Then
                 assertThatThrownBy(() -> tokenProvider.getBearerToken())
-                    .isInstanceOf(RuntimeException.class);
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("RequestContextHolder unavailable");
             }
         }
     }
@@ -434,7 +455,7 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle memory pressure during token validation")
         void shouldHandleMemoryPressureDuringTokenValidation() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new OutOfMemoryError("Java heap space"));
 
             // When & Then
@@ -446,7 +467,7 @@ class Phase2ErrorScenariosTest {
         @DisplayName("Should handle thread interruption during token validation")
         void shouldHandleThreadInterruptionDuringTokenValidation() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenAnswer(invocation -> {
                     Thread.currentThread().interrupt();
                     throw new InterruptedException("Thread interrupted");
@@ -467,7 +488,7 @@ class Phase2ErrorScenariosTest {
             Map<String, Object> largeResponse = createValidTokenResponse();
             largeResponse.put("large_field", "x".repeat(1000000)); // 1MB string
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(largeResponse, HttpStatus.OK));
 
             // When
@@ -490,7 +511,7 @@ class Phase2ErrorScenariosTest {
             unexpectedResponse.put("unexpected_field", "unexpected_value");
             unexpectedResponse.put("nested", Map.of("deep", Map.of("structure", "value")));
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(unexpectedResponse, HttpStatus.OK));
 
             // When
@@ -507,7 +528,7 @@ class Phase2ErrorScenariosTest {
             Map<String, Object> malformedResponse = createValidTokenResponse();
             malformedResponse.put("expires_in", "not-a-number");
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(malformedResponse, HttpStatus.OK));
 
             // When
@@ -526,7 +547,7 @@ class Phase2ErrorScenariosTest {
             nullResponse.put("email", null);
             nullResponse.put("expires_in", null);
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(nullResponse, HttpStatus.OK));
 
             // When
@@ -549,7 +570,7 @@ class Phase2ErrorScenariosTest {
             mixedResponse.put("expires_in", true); // Boolean instead of string/number
             mixedResponse.put("email", new String[]{"array", "instead", "of", "string"});
 
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(mixedResponse, HttpStatus.OK));
 
             // When & Then

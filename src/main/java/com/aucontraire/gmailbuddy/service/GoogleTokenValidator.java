@@ -3,9 +3,10 @@ package com.aucontraire.gmailbuddy.service;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
@@ -52,7 +53,10 @@ public class GoogleTokenValidator {
      *
      * @param accessToken the Google OAuth2 access token to validate
      * @return true if the token is valid and has required Gmail scopes
+     * @deprecated Use {@link #getTokenInfo(String)} and {@link #hasValidGmailScopes(String)} instead
+     * to avoid redundant Google API calls. This method will be removed in future versions.
      */
+    @Deprecated
     public boolean isValidGoogleToken(String accessToken) {
         if (accessToken == null || accessToken.trim().isEmpty()) {
             logger.debug("Token validation failed: token is null or empty");
@@ -106,15 +110,25 @@ public class GoogleTokenValidator {
     /**
      * Internal method to call Google's TokenInfo endpoint.
      *
+     * SECURITY: Uses POST with token in request body to prevent token exposure in URL parameters,
+     * logs, browser history, and HTTP referrer headers.
+     *
      * @param accessToken the access token to validate
      * @return TokenInfoResponse containing token details
      * @throws Exception if the HTTP call fails or returns invalid response
      */
     private TokenInfoResponse validateTokenWithGoogle(String accessToken) throws Exception {
-        String url = GOOGLE_TOKEN_INFO_URL + "?access_token=" + accessToken;
+        // Create POST request with token in body to prevent URL exposure
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-        logger.debug("Validating token with Google TokenInfo endpoint");
-        ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, null, Map.class);
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("access_token", accessToken);
+
+        HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity<>(body, headers);
+
+        logger.debug("Validating token with Google TokenInfo endpoint using secure POST method");
+        ResponseEntity<Map> response = restTemplate.exchange(GOOGLE_TOKEN_INFO_URL, HttpMethod.POST, requestEntity, Map.class);
 
         if (!response.getStatusCode().is2xxSuccessful()) {
             logger.debug("Google TokenInfo returned non-success status: {}", response.getStatusCode());
@@ -165,7 +179,19 @@ public class GoogleTokenValidator {
     }
 
     /**
-     * Validates that the token has at least one required Gmail scope.
+     * Validates that the token has required Gmail API scopes.
+     * This method is the public API for scope validation and is used by authentication filters
+     * to validate scopes after retrieving token information.
+     *
+     * @param scope The scope string from token info (space-separated scopes)
+     * @return true if token has valid Gmail scopes, false otherwise
+     */
+    public boolean hasValidGmailScopes(String scope) {
+        return validateGmailScopes(scope);
+    }
+
+    /**
+     * Internal method to validate that the token has at least one required Gmail scope.
      *
      * @param scope space-separated list of scopes from the token
      * @return true if at least one required Gmail scope is present

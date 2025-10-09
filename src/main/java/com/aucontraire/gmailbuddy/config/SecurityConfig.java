@@ -14,7 +14,9 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
@@ -39,6 +41,9 @@ public class SecurityConfig {
                                 authorization.authorizationRequestResolver(customAuthorizationRequestResolver))
                         .defaultSuccessUrl("/dashboard", true)
                 )
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/oauth2/authorization/google"))
+                )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED) // Allow sessions for browser, stateless for API
                 )
@@ -54,10 +59,20 @@ public class SecurityConfig {
 
     /**
      * RestTemplate bean for making HTTP requests, specifically for token validation.
+     * Configured with proper timeouts to prevent 21-second hangs during Google API calls.
      */
     @Bean
     public RestTemplate restTemplate() {
-        return new RestTemplate();
+        RestTemplate restTemplate = new RestTemplate();
+
+        // Configure timeout to prevent 21-second hangs
+        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
+        factory.setConnectTimeout(5000);  // 5 seconds connection timeout
+        factory.setReadTimeout(10000);    // 10 seconds read timeout
+        restTemplate.setRequestFactory(factory);
+
+        logger.info("RestTemplate configured with connect timeout: 5s, read timeout: 10s");
+        return restTemplate;
     }
 
     @Bean

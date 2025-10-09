@@ -17,7 +17,10 @@ public class TestGmailBuddyPropertiesConfiguration {
                 "me",
                 50,
                 100L,
-                new GmailBuddyProperties.GmailApi.RateLimit(60L),
+                new GmailBuddyProperties.GmailApi.RateLimit(60L,
+                    new GmailBuddyProperties.GmailApi.RateLimit.BatchOperations(
+                        1000L, 3, 1000L, 2.0, 30000L, 50, 0L
+                    )),
                 new GmailBuddyProperties.GmailApi.ServiceUnavailable(60L),
                 new GmailBuddyProperties.GmailApi.MessageProcessing(
                     new GmailBuddyProperties.GmailApi.MessageProcessing.MimeTypes("text/html", "text/plain"),

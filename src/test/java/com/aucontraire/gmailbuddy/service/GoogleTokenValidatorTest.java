@@ -8,11 +8,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -212,7 +212,7 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should return false when Google returns empty response body")
         void shouldReturnFalseWhenGoogleReturnsEmptyResponseBody() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenReturn(new ResponseEntity<>(null, HttpStatus.OK));
 
             // When
@@ -232,7 +232,7 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should return false when RestTemplate throws RestClientException")
         void shouldReturnFalseWhenRestTemplateThrowsException() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new RestClientException("Connection timeout"));
 
             // When
@@ -247,7 +247,7 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should return false when network error occurs")
         void shouldReturnFalseWhenNetworkErrorOccurs() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new RuntimeException("Network unreachable"));
 
             // When
@@ -313,7 +313,7 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should throw AuthenticationException when Google API call fails")
         void shouldThrowAuthenticationExceptionWhenGoogleApiCallFails() throws Exception {
             // Given
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
                 .thenThrow(new RestClientException("API unavailable"));
 
             // When & Then
@@ -521,6 +521,251 @@ class GoogleTokenValidatorTest {
         }
     }
 
+    @Nested
+    @DisplayName("Security Tests - Token Exposure Prevention")
+    class SecurityTests {
+
+        @Test
+        @DisplayName("Should use POST method instead of GET to prevent token exposure in URL")
+        void shouldUsePOSTMethodInsteadOfGET() throws Exception {
+            // Given
+            Map<String, Object> validResponse = createValidTokenResponse(
+                "https://www.googleapis.com/auth/gmail.readonly",
+                "3600"
+            );
+            mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
+
+            // When
+            tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
+
+            // Then
+            ArgumentCaptor<HttpMethod> methodCaptor = ArgumentCaptor.forClass(HttpMethod.class);
+            verify(restTemplate).exchange(anyString(), methodCaptor.capture(), any(HttpEntity.class), eq(Map.class));
+
+            assertThat(methodCaptor.getValue()).isEqualTo(HttpMethod.POST);
+        }
+
+        @Test
+        @DisplayName("Should send token in request body with application/x-www-form-urlencoded content type")
+        void shouldSendTokenInRequestBodyWithCorrectContentType() throws Exception {
+            // Given
+            Map<String, Object> validResponse = createValidTokenResponse(
+                "https://www.googleapis.com/auth/gmail.readonly",
+                "3600"
+            );
+            mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
+
+            // When
+            tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
+
+            // Then
+            ArgumentCaptor<HttpEntity> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
+            verify(restTemplate).exchange(anyString(), any(HttpMethod.class), entityCaptor.capture(), eq(Map.class));
+
+            HttpEntity<?> capturedEntity = entityCaptor.getValue();
+
+            // Verify Content-Type header
+            assertThat(capturedEntity.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_FORM_URLENCODED);
+
+            // Verify token is in body, not URL
+            MultiValueMap<String, String> body = (MultiValueMap<String, String>) capturedEntity.getBody();
+            assertThat(body).isNotNull();
+            assertThat(body.getFirst("access_token")).isEqualTo(VALID_GOOGLE_TOKEN);
+        }
+
+        @Test
+        @DisplayName("Should not include token in URL parameters")
+        void shouldNotIncludeTokenInURLParameters() throws Exception {
+            // Given
+            Map<String, Object> validResponse = createValidTokenResponse(
+                "https://www.googleapis.com/auth/gmail.readonly",
+                "3600"
+            );
+            mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
+
+            // When
+            tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
+
+            // Then
+            ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+            verify(restTemplate).exchange(urlCaptor.capture(), any(HttpMethod.class), any(HttpEntity.class), eq(Map.class));
+
+            String capturedUrl = urlCaptor.getValue();
+
+            // Verify URL does not contain token or query parameters
+            assertThat(capturedUrl).isEqualTo(GOOGLE_TOKEN_INFO_URL);
+            assertThat(capturedUrl).doesNotContain("access_token");
+            assertThat(capturedUrl).doesNotContain(VALID_GOOGLE_TOKEN);
+            assertThat(capturedUrl).doesNotContain("?");
+        }
+
+        @Test
+        @DisplayName("Should handle different token formats securely in POST body")
+        void shouldHandleDifferentTokenFormatsSecurelyInPOSTBody() throws Exception {
+            // Given - Test with realistic Google OAuth2 token format
+            String realisticToken = "ya29.a0ARrdaM-AbCdEfGhIjKlMnOpQrStUvWxYz123456789_abcdefghijklmnopqrstuvwxyz";
+            Map<String, Object> validResponse = createValidTokenResponse(
+                "https://www.googleapis.com/auth/gmail.readonly",
+                "3600"
+            );
+            mockSuccessfulTokenInfoResponse(realisticToken, validResponse);
+
+            // When
+            tokenValidator.isValidGoogleToken(realisticToken);
+
+            // Then
+            ArgumentCaptor<HttpEntity> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
+            verify(restTemplate).exchange(anyString(), any(HttpMethod.class), entityCaptor.capture(), eq(Map.class));
+
+            HttpEntity<?> capturedEntity = entityCaptor.getValue();
+            MultiValueMap<String, String> body = (MultiValueMap<String, String>) capturedEntity.getBody();
+
+            assertThat(body.getFirst("access_token")).isEqualTo(realisticToken);
+        }
+
+        @Test
+        @DisplayName("Should prevent token logging by using debug messages without token content")
+        void shouldPreventTokenLoggingInDebugMessages() throws Exception {
+            // Given
+            Map<String, Object> validResponse = createValidTokenResponse(
+                "https://www.googleapis.com/auth/gmail.readonly",
+                "3600"
+            );
+            mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
+
+            // When
+            tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
+
+            // Then - This test ensures the debug log doesn't contain sensitive token data
+            // The actual logging verification would require a logging framework test,
+            // but we can verify that the method completes without exposing tokens in the call signature
+            ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
+            verify(restTemplate).exchange(urlCaptor.capture(), any(HttpMethod.class), any(HttpEntity.class), eq(Map.class));
+
+            // Verify the URL passed to RestTemplate doesn't contain token
+            assertThat(urlCaptor.getValue()).doesNotContain(VALID_GOOGLE_TOKEN);
+        }
+
+        @Test
+        @DisplayName("Should maintain security even with malformed tokens")
+        void shouldMaintainSecurityEvenWithMalformedTokens() throws Exception {
+            // Given - Token with special characters that could cause URL encoding issues
+            String malformedToken = "invalid+token&with=special?chars#fragment";
+            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenThrow(new RestClientException("Invalid token format"));
+
+            // When
+            boolean result = tokenValidator.isValidGoogleToken(malformedToken);
+
+            // Then
+            assertThat(result).isFalse();
+
+            // Verify token was still sent in POST body, not URL
+            ArgumentCaptor<HttpEntity> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
+            verify(restTemplate).exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), entityCaptor.capture(), eq(Map.class));
+
+            HttpEntity<?> capturedEntity = entityCaptor.getValue();
+            MultiValueMap<String, String> body = (MultiValueMap<String, String>) capturedEntity.getBody();
+            assertThat(body.getFirst("access_token")).isEqualTo(malformedToken);
+        }
+
+        @Test
+        @DisplayName("Should use secure POST method in getTokenInfo as well")
+        void shouldUseSecurePOSTMethodInGetTokenInfo() throws Exception {
+            // Given
+            Map<String, Object> validResponse = createValidTokenResponse(
+                "https://www.googleapis.com/auth/gmail.readonly",
+                "3600"
+            );
+            mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
+
+            // When
+            tokenValidator.getTokenInfo(VALID_GOOGLE_TOKEN);
+
+            // Then
+            ArgumentCaptor<HttpMethod> methodCaptor = ArgumentCaptor.forClass(HttpMethod.class);
+            ArgumentCaptor<HttpEntity> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
+            verify(restTemplate).exchange(anyString(), methodCaptor.capture(), entityCaptor.capture(), eq(Map.class));
+
+            // Verify POST method is used
+            assertThat(methodCaptor.getValue()).isEqualTo(HttpMethod.POST);
+
+            // Verify token is in body
+            HttpEntity<?> capturedEntity = entityCaptor.getValue();
+            MultiValueMap<String, String> body = (MultiValueMap<String, String>) capturedEntity.getBody();
+            assertThat(body.getFirst("access_token")).isEqualTo(VALID_GOOGLE_TOKEN);
+        }
+    }
+
+    @Nested
+    @DisplayName("Enhanced Error Handling and Timeout Tests")
+    class EnhancedErrorHandlingTests {
+
+        @Test
+        @DisplayName("Should handle connection timeout with POST request gracefully")
+        void shouldHandleConnectionTimeoutWithPOSTRequestGracefully() throws Exception {
+            // Given
+            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenThrow(new RestClientException("Read timed out"));
+
+            // When
+            boolean result = tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
+
+            // Then
+            assertThat(result).isFalse();
+
+            // Verify the request was made with POST and proper headers
+            ArgumentCaptor<HttpEntity> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
+            verify(restTemplate).exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), entityCaptor.capture(), eq(Map.class));
+
+            HttpEntity<?> capturedEntity = entityCaptor.getValue();
+            assertThat(capturedEntity.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_FORM_URLENCODED);
+        }
+
+        @Test
+        @DisplayName("Should handle SSL/TLS errors with POST request")
+        void shouldHandleSSLTLSErrorsWithPOSTRequest() throws Exception {
+            // Given
+            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenThrow(new RestClientException("SSL handshake failed"));
+
+            // When
+            boolean result = tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
+
+            // Then
+            assertThat(result).isFalse();
+            verifyTokenInfoRequest(VALID_GOOGLE_TOKEN);
+        }
+
+        @Test
+        @DisplayName("Should handle HTTP 500 server errors with POST request")
+        void shouldHandleHTTP500ServerErrorsWithPOSTRequest() throws Exception {
+            // Given
+            mockErrorResponse(VALID_GOOGLE_TOKEN, HttpStatus.INTERNAL_SERVER_ERROR);
+
+            // When
+            boolean result = tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
+
+            // Then
+            assertThat(result).isFalse();
+            verifyTokenInfoRequest(VALID_GOOGLE_TOKEN);
+        }
+
+        @Test
+        @DisplayName("Should handle HTTP 503 service unavailable with POST request")
+        void shouldHandleHTTP503ServiceUnavailableWithPOSTRequest() throws Exception {
+            // Given
+            mockErrorResponse(VALID_GOOGLE_TOKEN, HttpStatus.SERVICE_UNAVAILABLE);
+
+            // When
+            boolean result = tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
+
+            // Then
+            assertThat(result).isFalse();
+            verifyTokenInfoRequest(VALID_GOOGLE_TOKEN);
+        }
+    }
+
     // Helper methods
 
     private Map<String, Object> createValidTokenResponse(String scope, String expiresIn) {
@@ -537,23 +782,20 @@ class GoogleTokenValidatorTest {
     }
 
     private void mockSuccessfulTokenInfoResponse(String token, Map<String, Object> responseBody) throws Exception {
-        String expectedUrl = GOOGLE_TOKEN_INFO_URL + "?access_token=" + token;
         ResponseEntity<Map> responseEntity = new ResponseEntity<>(responseBody, HttpStatus.OK);
 
-        when(restTemplate.exchange(eq(expectedUrl), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+        when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
             .thenReturn(responseEntity);
     }
 
     private void mockErrorResponse(String token, HttpStatus status) throws Exception {
-        String expectedUrl = GOOGLE_TOKEN_INFO_URL + "?access_token=" + token;
         ResponseEntity<Map> errorResponse = new ResponseEntity<>(new HashMap<>(), status);
 
-        when(restTemplate.exchange(eq(expectedUrl), eq(HttpMethod.GET), isNull(), eq(Map.class)))
+        when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
             .thenReturn(errorResponse);
     }
 
     private void verifyTokenInfoRequest(String token) {
-        String expectedUrl = GOOGLE_TOKEN_INFO_URL + "?access_token=" + token;
-        verify(restTemplate).exchange(eq(expectedUrl), eq(HttpMethod.GET), isNull(), eq(Map.class));
+        verify(restTemplate).exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class));
     }
 }

@@ -1,9 +1,11 @@
 package com.aucontraire.gmailbuddy.repository;
 
 import com.aucontraire.gmailbuddy.client.GmailClient;
+import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
+import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.*;
 import org.slf4j.Logger;
@@ -19,14 +21,16 @@ import java.util.*;
 public class GmailRepositoryImpl implements GmailRepository {
 
     private final GmailClient gmailClient;
+    private final GmailBatchClient gmailBatchClient;
     private final TokenProvider tokenProvider;
     private final GmailBuddyProperties properties;
     private final Logger logger = LoggerFactory.getLogger(GmailRepositoryImpl.class);
 
     @Autowired
-    public GmailRepositoryImpl(GmailClient gmailClient, TokenProvider tokenProvider,
-                              GmailBuddyProperties properties) {
+    public GmailRepositoryImpl(GmailClient gmailClient, GmailBatchClient gmailBatchClient,
+                              TokenProvider tokenProvider, GmailBuddyProperties properties) {
         this.gmailClient = gmailClient;
+        this.gmailBatchClient = gmailBatchClient;
         this.tokenProvider = tokenProvider;
         this.properties = properties;
     }
@@ -83,9 +87,15 @@ public class GmailRepositoryImpl implements GmailRepository {
     public void deleteMessage(String userId, String messageId) throws IOException {
         try {
             var gmail = getGmailService();
-            // Move message to trash and then delete permanently
-            gmail.users().messages().trash(userId, messageId).execute();
-            gmail.users().messages().delete(userId, messageId).execute();
+            // Use batch client for consistency, even for single message
+            BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, List.of(messageId));
+
+            if (result.hasFailures()) {
+                String errorMessage = result.getFailedOperations().get(messageId);
+                throw new IOException("Failed to delete message " + messageId + ": " + errorMessage);
+            }
+
+            logger.debug("Successfully deleted message: {}", messageId);
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
@@ -96,7 +106,7 @@ public class GmailRepositoryImpl implements GmailRepository {
         try {
             var gmail = getGmailService();
 
-            // 1. Find all messages from the given sender
+            // 1. Find all messages matching the query
             var messages = gmail.users().messages()
                     .list(userId)
                     .setQ(query)
@@ -110,17 +120,25 @@ public class GmailRepositoryImpl implements GmailRepository {
             }
             logger.info("Found {} matching messages", messages.size());
 
-            // 2. For each message, first move it to Trash, then permanently delete it
-            logger.info("Moving messages to trash");
-            for (var message : messages) {
-                // Move the message to Trash
-                gmail.users().messages().trash(userId, message.getId()).execute();
-            }
+            // 2. Extract message IDs for batch deletion
+            List<String> messageIds = messages.stream()
+                    .map(com.google.api.services.gmail.model.Message::getId)
+                    .toList();
 
-            logger.info("Deleting messages");
-            for (var message : messages) {
-                // Now permanently delete it
-                gmail.users().messages().delete(userId, message.getId()).execute();
+            // 3. Use batch delete - this eliminates the two-phase trash+delete approach
+            // and reduces API calls from 2N to approximately N/100 batch requests
+            logger.info("Executing batch delete operation for {} messages", messageIds.size());
+            BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
+
+            // 4. Log the results
+            logger.info("Batch delete completed: {} successful, {} failed out of {} total",
+                       result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations());
+
+            if (result.hasFailures()) {
+                logger.warn("Some deletions failed. Failed message IDs: {}",
+                           String.join(", ", result.getFailedOperations().keySet()));
+                // For bulk operations, we don't throw an exception for partial failures
+                // The caller can check the result if needed
             }
 
         } catch (GeneralSecurityException e) {
@@ -170,10 +188,30 @@ public class GmailRepositoryImpl implements GmailRepository {
                     .setQ(query)
                     .execute()
                     .getMessages();
-            logger.info("Found {} matching messages", messages.size());
-            for (var message : messages) {
-                gmail.users().messages().modify(userId, message.getId(), mods).execute();
+
+            if (messages == null || messages.isEmpty()) {
+                logger.info("Found 0 matching messages for label modification");
+                return;
             }
+
+            logger.info("Found {} matching messages for label modification", messages.size());
+
+            // Extract message IDs for batch operation
+            List<String> messageIds = messages.stream()
+                    .map(Message::getId)
+                    .toList();
+
+            // Use batch modify labels operation
+            BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, mods);
+
+            logger.info("Batch label modification completed: {} successful, {} failed out of {} total",
+                       result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations());
+
+            if (result.hasFailures()) {
+                logger.warn("Some label modifications failed. Failed message IDs: {}",
+                           String.join(", ", result.getFailedOperations().keySet()));
+            }
+
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
