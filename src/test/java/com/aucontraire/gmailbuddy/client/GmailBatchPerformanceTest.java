@@ -183,7 +183,8 @@ class GmailBatchPerformanceTest {
         double minTime = executionTimes.stream().mapToLong(Long::longValue).min().orElse(0);
 
         // Performance shouldn't vary dramatically between executions (be more generous for mock timing variance)
-        assertThat(maxTime - minTime).isLessThan(averageTime * 2); // Variance should be less than 2x average
+        // Use Math.max to handle near-zero timing where variance check would be too strict
+        assertThat(maxTime - minTime).isLessThan(Math.max(averageTime * 2, 10)); // Variance should be reasonable, min 10ms threshold
         assertThat(averageTime).isLessThan(5000); // Average should be under 5 seconds for mocked operations
 
         System.out.printf("Performance consistency: avg=%.2fms, min=%.2fms, max=%.2fms%n",

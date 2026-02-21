@@ -3,7 +3,14 @@ package com.aucontraire.gmailbuddy.validation;
 import com.aucontraire.gmailbuddy.controller.GmailController;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
+import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
+import com.aucontraire.gmailbuddy.ratelimit.GmailQuotaEstimator;
+import com.aucontraire.gmailbuddy.ratelimit.RateLimitService;
+import com.aucontraire.gmailbuddy.security.TokenReferenceService;
+import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.aucontraire.gmailbuddy.service.GmailService;
+import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
+import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,8 +22,11 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.Collections;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -37,6 +47,21 @@ class ControllerValidationTest {
     @MockitoBean
     private OAuth2AuthorizedClientService authorizedClientService;
 
+    @MockitoBean
+    private GoogleTokenValidator tokenValidator;
+
+    @MockitoBean
+    private TokenReferenceService tokenReferenceService;
+
+    @MockitoBean
+    private ResponseMapper responseMapper;
+
+    @MockitoBean
+    private RateLimitService rateLimitService;
+
+    @MockitoBean
+    private GmailQuotaEstimator gmailQuotaEstimator;
+
     @Test
     @WithMockUser
     void testValidFilterCriteria() throws Exception {
@@ -45,6 +70,11 @@ class ControllerValidationTest {
         dto.setTo("recipient@example.com");
         dto.setSubject("Test Subject");
         dto.setQuery("in:inbox");
+
+        // Mock the paginated service method
+        MessageListResult mockResult = new MessageListResult(Collections.emptyList(), null, 0);
+        when(gmailService.listMessagesByFilterCriteriaWithPagination(eq("me"), any(FilterCriteriaDTO.class), any(), anyInt()))
+                .thenReturn(mockResult);
 
         mockMvc.perform(post("/api/v1/gmail/messages/filter")
                 .with(csrf())
@@ -65,9 +95,10 @@ class ControllerValidationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.details.from").exists())
-                .andExpect(jsonPath("$.details.to").exists());
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.title").value("Validation Error"))
+                .andExpect(jsonPath("$.extensions['field:from']").exists())
+                .andExpect(jsonPath("$.extensions['field:to']").exists());
     }
 
     @Test
@@ -81,8 +112,9 @@ class ControllerValidationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.details.subject").exists());
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.title").value("Validation Error"))
+                .andExpect(jsonPath("$.extensions['field:subject']").exists());
     }
 
     @Test
@@ -96,8 +128,9 @@ class ControllerValidationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.details.query").exists());
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.title").value("Validation Error"))
+                .andExpect(jsonPath("$.extensions['field:query']").exists());
     }
 
     @Test
@@ -114,8 +147,9 @@ class ControllerValidationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.details").exists());
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.title").value("Validation Error"))
+                .andExpect(jsonPath("$.extensions").exists());
     }
 
     @Test
@@ -126,10 +160,17 @@ class ControllerValidationTest {
         dto.setLabelsToAdd(List.of("important", "work"));
         dto.setLabelsToRemove(List.of("spam"));
 
+        // Mock the service method to return a BulkOperationResult
+        BulkOperationResult mockResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+        mockResult.markCompleted();
+        when(gmailService.modifyMessagesLabelsByFilterCriteria(eq("me"), any(FilterCriteriaWithLabelsDTO.class)))
+                .thenReturn(mockResult);
+
+        // The endpoint now returns 200 OK with a LabelModificationResponse instead of 204 No Content
         mockMvc.perform(post("/api/v1/gmail/messages/filter/modifyLabels")
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk());
     }
 }

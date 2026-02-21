@@ -48,7 +48,7 @@ public class GmailClient {
         return new Gmail.Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),
                 GsonFactory.getDefaultInstance(),
-                request -> request.getHeaders().setAuthorization(tokenPrefix + accessToken)
+                request -> request.getHeaders().setAuthorization(tokenPrefix + " " + accessToken)
         ).setApplicationName(applicationName).build();
     }
 }

@@ -2,6 +2,7 @@ package com.aucontraire.gmailbuddy.integration;
 
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import com.aucontraire.gmailbuddy.service.GmailService;
+import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.google.api.services.gmail.model.Message;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +23,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 /**
@@ -64,7 +67,8 @@ public class PostmanAuthenticationTest {
 
         // Mock Gmail service to return empty list
         List<Message> mockMessages = new ArrayList<>();
-        when(gmailService.listMessages(anyString())).thenReturn(mockMessages);
+        MessageListResult mockResult = new MessageListResult(mockMessages, null, mockMessages.size());
+        when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
 
         // When - Make API call with Bearer token (like Postman would)
         HttpHeaders headers = new HttpHeaders();

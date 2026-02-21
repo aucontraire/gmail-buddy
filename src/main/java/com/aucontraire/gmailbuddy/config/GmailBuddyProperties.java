@@ -27,7 +27,8 @@ public record GmailBuddyProperties(
     @Valid @NotNull ErrorHandling errorHandling,
     @Valid @NotNull Validation validation,
     @Valid @NotNull Security security,
-    @Valid @NotNull Environment environment
+    @Valid @NotNull Environment environment,
+    @Valid @NotNull ApplicationRateLimit applicationRateLimit
 ) {
 
     /**
@@ -236,5 +237,15 @@ public record GmailBuddyProperties(
         ) {
             // Default values are set in application.properties
         }
+    }
+
+    /**
+     * Application-level rate limiting configuration.
+     */
+    public record ApplicationRateLimit(
+        @Min(1) @Max(10000) int requestsPerWindow,
+        @Min(1) @Max(3600) long windowSizeSeconds
+    ) {
+        // Default values are set in application.properties
     }
 }

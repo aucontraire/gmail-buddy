@@ -377,7 +377,7 @@ class Phase2ErrorScenariosTest {
             when(securityContext.getAuthentication()).thenReturn(null);
 
             GoogleTokenValidator failingValidator = mock(GoogleTokenValidator.class);
-            when(failingValidator.isValidGoogleToken(VALID_TOKEN))
+            when(failingValidator.getTokenInfo(VALID_TOKEN))
                 .thenThrow(new RuntimeException("Validator internal error"));
 
             TokenAuthenticationFilter filterWithFailingValidator = new TokenAuthenticationFilter(failingValidator, tokenReferenceService);
@@ -385,8 +385,9 @@ class Phase2ErrorScenariosTest {
             // When
             filterWithFailingValidator.doFilter(request, response, filterChain);
 
-            // Then
-            verify(filterChain).doFilter(request, response);
+            // Then - Filter should return 401 and NOT proceed down the chain when authentication fails
+            verify(response).setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            verify(filterChain, never()).doFilter(request, response);
             verify(securityContext, never()).setAuthentication(any());
         }
 
@@ -400,10 +401,11 @@ class Phase2ErrorScenariosTest {
 
             // Create a simple TokenAuthenticationFilter that will reach the setAuthentication call
             GoogleTokenValidator mockValidator = mock(GoogleTokenValidator.class);
-            when(mockValidator.isValidGoogleToken(VALID_TOKEN)).thenReturn(true);
             GoogleTokenValidator.TokenInfoResponse tokenInfo = new GoogleTokenValidator.TokenInfoResponse();
             tokenInfo.setEmail("test@example.com");
+            tokenInfo.setScope("https://www.googleapis.com/auth/gmail.readonly");
             when(mockValidator.getTokenInfo(VALID_TOKEN)).thenReturn(tokenInfo);
+            when(mockValidator.hasValidGmailScopes(anyString())).thenReturn(true);
 
             // Mock token reference service
             TokenReference mockTokenReference = mock(TokenReference.class);
@@ -418,8 +420,9 @@ class Phase2ErrorScenariosTest {
             // When
             filterWithValidation.doFilter(request, response, filterChain);
 
-            // Then
-            verify(filterChain).doFilter(request, response);
+            // Then - Filter should catch the exception and return 401 without proceeding down chain
+            verify(response).setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            verify(filterChain, never()).doFilter(request, response);
             verify(securityContext).setAuthentication(any());
         }
 

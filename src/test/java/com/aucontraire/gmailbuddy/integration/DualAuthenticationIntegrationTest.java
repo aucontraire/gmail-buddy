@@ -5,6 +5,7 @@ import com.aucontraire.gmailbuddy.service.TestTokenProvider;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
+import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.gmail.model.Message;
@@ -49,10 +50,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(TestTokenProviderConfiguration.class)
-@TestExecutionListeners({
-    DependencyInjectionTestExecutionListener.class,
-    WithSecurityContextTestExecutionListener.class
-})
 class DualAuthenticationIntegrationTest {
 
     @Autowired
@@ -82,22 +79,42 @@ class DualAuthenticationIntegrationTest {
         testTokenProvider = (TestTokenProvider) tokenProvider;
         testTokenProvider.reset(); // Reset to default state
 
-        // Reset mocks before each test (only if they're not null)
-        if (gmailService != null && gmailRepository != null && tokenValidator != null) {
-            reset(gmailService, gmailRepository, tokenValidator);
-
+        // Setup mocks if they are injected (they may be null in some nested test contexts)
+        if (gmailService != null) {
+            reset(gmailService);
             // Setup default mock behavior for Gmail service
             List<Message> mockMessages = new ArrayList<>();
-            when(gmailService.listLatestMessages(anyString(), anyInt())).thenReturn(mockMessages);
-            when(gmailService.listMessages(anyString())).thenReturn(mockMessages);
+            MessageListResult mockResult = new MessageListResult(mockMessages, null, mockMessages.size());
+            when(gmailService.listLatestMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
+            when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
+            when(gmailService.listMessagesByFilterCriteriaWithPagination(anyString(), any(), any(), anyInt())).thenReturn(mockResult);
+        }
 
-            // Setup default mock behavior for GoogleTokenValidator
+        if (gmailRepository != null) {
+            reset(gmailRepository);
+        }
+
+        if (tokenValidator != null) {
+            reset(tokenValidator);
+            // DO NOT set up default success mocks here - this would make ALL tokens appear valid
+            // Each test that needs valid token responses must configure its own specific mocks
+            // Default behavior: getTokenInfo returns null, hasValidGmailScopes returns false
+        }
+    }
+
+    /**
+     * Helper method to configure tokenValidator mock for valid token responses.
+     * Call this from tests that need successful token validation.
+     */
+    private void setupValidTokenMock(String token) {
+        if (tokenValidator != null) {
             GoogleTokenValidator.TokenInfoResponse tokenInfo = new GoogleTokenValidator.TokenInfoResponse();
             tokenInfo.setEmail("test-user@example.com");
             tokenInfo.setScope("https://www.googleapis.com/auth/gmail.readonly https://mail.google.com");
             tokenInfo.setExpiresIn("3600");
-            when(tokenValidator.getTokenInfo(anyString())).thenReturn(tokenInfo);
-            when(tokenValidator.hasValidGmailScopes(anyString())).thenReturn(true);
+            when(tokenValidator.getTokenInfo(token)).thenReturn(tokenInfo);
+            // hasValidGmailScopes takes the scope STRING, not the token
+            when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
         }
     }
 
@@ -163,29 +180,15 @@ class DualAuthenticationIntegrationTest {
             testTokenProvider.setBearerToken("ya29.valid-bearer-token");
             testTokenProvider.setAccessToken("ya29.valid-bearer-token");
 
-            // Setup GoogleTokenValidator mock in nested class context
-            if (tokenValidator != null) {
-                GoogleTokenValidator.TokenInfoResponse tokenInfo = new GoogleTokenValidator.TokenInfoResponse();
-                tokenInfo.setEmail("test-user@example.com");
-                tokenInfo.setScope("https://www.googleapis.com/auth/gmail.readonly https://mail.google.com");
-                tokenInfo.setExpiresIn("3600");
-                when(tokenValidator.getTokenInfo("ya29.valid-bearer-token")).thenReturn(tokenInfo);
-                when(tokenValidator.hasValidGmailScopes(anyString())).thenReturn(true);
+            // Setup valid token mock for this specific token
+            setupValidTokenMock("ya29.valid-bearer-token");
 
-                // When & Then: API request with Bearer token should succeed
-                mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                        .header("Authorization", "Bearer ya29.valid-bearer-token")
-                        .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(content().contentType(MediaType.APPLICATION_JSON));
-            } else {
-                // tokenValidator is null in nested test classes (JUnit 5 limitation with @MockitoBean and @Nested)
-                // Without proper token validation, the request will be unauthorized
-                mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                        .header("Authorization", "Bearer ya29.valid-bearer-token")
-                        .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isUnauthorized());
-            }
+            // When & Then: API request with Bearer token should succeed
+            mockMvc.perform(get("/api/v1/gmail/messages/latest")
+                    .header("Authorization", "Bearer ya29.valid-bearer-token")
+                    .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
         }
 
         @Test
@@ -249,10 +252,10 @@ class DualAuthenticationIntegrationTest {
         @DisplayName("Should allow access to public endpoints without authentication")
         void testPublicEndpointAccess() throws Exception {
             // When & Then: Public endpoints should be accessible without authentication
-            // /login pattern is permitted but no controller exists, returns 500
+            // /login pattern is permitted but no controller exists, returns 404
             // The key test is that it's NOT redirected to OAuth2 (not 302)
             mockMvc.perform(get("/login"))
-                .andExpect(status().is5xxServerError()); // No controller exists, Spring returns 500
+                .andExpect(status().isNotFound()); // No controller exists, Spring returns 404
         }
     }
 
@@ -318,34 +321,18 @@ class DualAuthenticationIntegrationTest {
         void testCSRFDisabledForAPI() throws Exception {
             // Given: Configure Bearer token authentication
             testTokenProvider.configureForBearerTokenAuthentication();
-            testTokenProvider.setBearerToken("valid-token");
-            testTokenProvider.setAccessToken("valid-token");
+            testTokenProvider.setBearerToken("valid-csrf-token");
+            testTokenProvider.setAccessToken("valid-csrf-token");
 
-            // Setup GoogleTokenValidator mock in nested class context
-            if (tokenValidator != null) {
-                GoogleTokenValidator.TokenInfoResponse tokenInfo = new GoogleTokenValidator.TokenInfoResponse();
-                tokenInfo.setEmail("test-user@example.com");
-                tokenInfo.setScope("https://www.googleapis.com/auth/gmail.readonly https://mail.google.com");
-                tokenInfo.setExpiresIn("3600");
-                when(tokenValidator.getTokenInfo("valid-token")).thenReturn(tokenInfo);
-                when(tokenValidator.hasValidGmailScopes(anyString())).thenReturn(true);
+            // Setup valid token mock for this specific token
+            setupValidTokenMock("valid-csrf-token");
 
-                // When & Then: POST request to API endpoint should work without CSRF token
-                mockMvc.perform(post("/api/v1/gmail/messages/filter")
-                        .header("Authorization", "Bearer valid-token")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"query\":\"from:example@test.com\"}"))
-                    .andExpect(status().isOk());
-            } else {
-                // tokenValidator is null in nested test classes (JUnit 5 limitation with @MockitoBean and @Nested)
-                // Without proper token validation, the request will be unauthorized
-                // The key test is that CSRF is disabled (no 403 Forbidden)
-                mockMvc.perform(post("/api/v1/gmail/messages/filter")
-                        .header("Authorization", "Bearer valid-token")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"query\":\"from:example@test.com\"}"))
-                    .andExpect(status().isUnauthorized()); // 401, not 403 (CSRF would return 403)
-            }
+            // When & Then: POST request to API endpoint should work without CSRF token
+            mockMvc.perform(post("/api/v1/gmail/messages/filter")
+                    .header("Authorization", "Bearer valid-csrf-token")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"query\":\"from:example@test.com\"}"))
+                .andExpect(status().isOk());
         }
 
         @Test
@@ -361,11 +348,11 @@ class DualAuthenticationIntegrationTest {
         @DisplayName("Should configure proper security headers")
         void testSecurityHeaders() throws Exception {
             // When & Then: Response should include security headers
-            // /login is permitted but no controller exists, returns 500
-            // Spring Boot's default error handling may not include security headers on 500 errors
+            // /login is permitted but no controller exists, returns 404
+            // Spring Boot's default error handling may not include security headers on 404 errors
             mockMvc.perform(get("/login"))
-                .andExpect(status().is5xxServerError()); // No controller exists, Spring returns 500
-            // Note: Security headers may not be present on 500 error responses
+                .andExpect(status().isNotFound()); // No controller exists, Spring returns 404
+            // Note: Security headers may not be present on 404 error responses
         }
 
         @Test
@@ -385,11 +372,8 @@ class DualAuthenticationIntegrationTest {
         @Test
         @DisplayName("Should return appropriate error response for authentication failures")
         void testAuthenticationErrorResponse() throws Exception {
-            // Setup GoogleTokenValidator mock in nested class context
-            if (tokenValidator != null) {
-                // Given: Configure token validator to return null (invalid token)
-                when(tokenValidator.getTokenInfo(anyString())).thenReturn(null);
-            }
+            // Given: Do NOT configure token validator mock - let it return null for invalid token
+            // This ensures the token "expired-token" is treated as invalid
 
             // When & Then: Authentication failure returns 401 Unauthorized
             mockMvc.perform(get("/api/v1/gmail/messages/latest")
