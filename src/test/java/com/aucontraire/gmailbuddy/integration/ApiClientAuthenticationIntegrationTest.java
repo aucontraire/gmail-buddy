@@ -2,6 +2,7 @@ package com.aucontraire.gmailbuddy.integration;
 
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import com.aucontraire.gmailbuddy.service.GmailService;
+import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.gmail.model.Message;
@@ -143,7 +144,8 @@ class ApiClientAuthenticationIntegrationTest {
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(deleteRequest))
-                .andExpect(status().isNoContent()); // 204 is correct for DELETE operations
+                .andExpect(status().isOk()) // 200 OK with BulkOperationResult in body
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -160,7 +162,7 @@ class ApiClientAuthenticationIntegrationTest {
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(labelModificationRequest))
-                .andExpect(status().isNoContent()); // 204 is correct when no response body is returned
+                .andExpect(status().isOk()); // 200 OK with LabelModificationResponse body
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -312,7 +314,8 @@ class ApiClientAuthenticationIntegrationTest {
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(deleteRequest))
-                .andExpect(status().isNoContent()); // 204 is correct for DELETE operations
+                .andExpect(status().isOk()) // 200 OK with BulkOperationResult in body
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -328,7 +331,7 @@ class ApiClientAuthenticationIntegrationTest {
             mockMvc.perform(put(API_BASE_PATH + "/messages/" + messageId + "/read")
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNoContent()); // 204 is correct for PUT operations with no response body
+                .andExpect(status().isOk()); // 200 OK with LabelModificationResponse body
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -395,7 +398,8 @@ class ApiClientAuthenticationIntegrationTest {
             GoogleTokenValidator.TokenInfoResponse tokenInfo = createValidTokenInfo();
             when(tokenValidator.getTokenInfo(longToken)).thenReturn(tokenInfo);
             when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
-            when(gmailService.listMessages(anyString())).thenReturn(new ArrayList<>());
+            MessageListResult mockResult = new MessageListResult(new ArrayList<>(), null, 0);
+        when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
@@ -414,7 +418,8 @@ class ApiClientAuthenticationIntegrationTest {
             GoogleTokenValidator.TokenInfoResponse tokenInfo = createValidTokenInfo();
             when(tokenValidator.getTokenInfo(tokenWithSpecialChars)).thenReturn(tokenInfo);
             when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
-            when(gmailService.listMessages(anyString())).thenReturn(new ArrayList<>());
+            MessageListResult mockResult = new MessageListResult(new ArrayList<>(), null, 0);
+        when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
@@ -490,7 +495,7 @@ class ApiClientAuthenticationIntegrationTest {
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(labelModRequest))
-                .andExpect(status().isNoContent()); // 204 is correct when no response body is returned
+                .andExpect(status().isOk()); // 200 OK with LabelModificationResponse body
 
             // Step 3: Bulk delete filtered messages
             String deleteRequest = createDeleteFilterRequest();
@@ -498,7 +503,8 @@ class ApiClientAuthenticationIntegrationTest {
                     .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(deleteRequest))
-                .andExpect(status().isNoContent()); // 204 is correct for DELETE operations
+                .andExpect(status().isOk()) // 200 OK with BulkOperationResult in body
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
 
             verify(tokenValidator, times(3)).getTokenInfo(VALID_GOOGLE_TOKEN);
             verify(tokenValidator, times(3)).hasValidGmailScopes(anyString());
@@ -513,12 +519,30 @@ class ApiClientAuthenticationIntegrationTest {
         when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
 
         // Mock GmailService to return empty list (we're testing auth, not Gmail functionality)
-        when(gmailService.listMessages(anyString())).thenReturn(new ArrayList<>());
-        when(gmailService.listLatestMessages(anyString(), anyInt())).thenReturn(new ArrayList<>());
-        when(gmailService.listMessagesByFilterCriteria(anyString(), any())).thenReturn(new ArrayList<>());
+        MessageListResult mockResult = new MessageListResult(new ArrayList<>(), null, 0);
+        when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
+        MessageListResult mockLatestResult = new MessageListResult(new ArrayList<>(), null, 0);
+        when(gmailService.listLatestMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockLatestResult);
+        MessageListResult mockFilterResult = new MessageListResult(new ArrayList<>(), null, 0);
+        when(gmailService.listMessagesByFilterCriteriaWithPagination(anyString(), any(), any(), anyInt())).thenReturn(mockFilterResult);
         when(gmailService.getMessageBody(anyString(), anyString())).thenReturn("");
-        doNothing().when(gmailService).deleteMessage(anyString(), anyString());
-        doNothing().when(gmailService).deleteMessagesByFilterCriteria(anyString(), any());
+
+        // Mock delete operations to return successful results
+        com.aucontraire.gmailbuddy.dto.DeleteResult successDeleteResult =
+            new com.aucontraire.gmailbuddy.dto.DeleteResult("test-id", true, null);
+        when(gmailService.deleteMessage(anyString(), anyString())).thenReturn(successDeleteResult);
+
+        com.aucontraire.gmailbuddy.service.BulkOperationResult successBulkResult =
+            new com.aucontraire.gmailbuddy.service.BulkOperationResult("DELETE");
+        successBulkResult.markCompleted();
+        when(gmailService.deleteMessagesByFilterCriteria(anyString(), any())).thenReturn(successBulkResult);
+
+        // Mock label modification operations
+        com.aucontraire.gmailbuddy.service.BulkOperationResult successLabelResult =
+            new com.aucontraire.gmailbuddy.service.BulkOperationResult("LABEL_MODIFY");
+        successLabelResult.markCompleted();
+        when(gmailService.modifyMessagesLabelsByFilterCriteria(anyString(), any())).thenReturn(successLabelResult);
+        when(gmailService.markMessageAsRead(anyString(), anyString())).thenReturn(successLabelResult);
     }
 
     private void verifyTokenValidation(String token) {

@@ -9,6 +9,17 @@ Gmail Buddy supports **dual authentication modes**:
 - **Browser Users**: OAuth2 flow with automatic redirect to Google
 - **API Clients**: Bearer token authentication for programmatic access
 
+## 🎯 Interactive API Documentation
+
+**Swagger UI** provides an interactive interface for exploring and testing Gmail Buddy's API:
+
+- **Access**: Navigate to `http://localhost:8020/swagger-ui/index.html` while the application is running
+- **Interactive Testing**: Try out endpoints directly from your browser without external tools
+- **Complete Schema**: View all available endpoints, request/response schemas, and authentication requirements
+- **Real-time Exploration**: Test API calls and see responses immediately in the browser interface
+
+This is ideal for quick API exploration and learning the available endpoints before integrating with external tools like Postman or curl.
+
 ## 🚀 Getting Bearer Tokens
 
 ### Method 1: Google OAuth2 Playground (Recommended)

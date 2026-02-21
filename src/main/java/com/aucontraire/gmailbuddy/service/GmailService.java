@@ -1,5 +1,6 @@
 package com.aucontraire.gmailbuddy.service;
 
+import com.aucontraire.gmailbuddy.dto.DeleteResult;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
@@ -119,9 +120,84 @@ public class GmailService {
         }
     }
 
-    public void deleteMessage(String userId, String messageId) throws GmailApiException {
+    /**
+     * Lists messages with pagination support.
+     *
+     * @param userId the user ID (typically "me")
+     * @param pageToken the page token from a previous request (null for first page)
+     * @param limit the maximum number of messages to return per page
+     * @return MessageListResult containing messages, next page token, and result size estimate
+     * @throws GmailApiException if the Gmail API call fails
+     */
+    public MessageListResult listMessagesWithPagination(String userId, String pageToken, int limit) throws GmailApiException {
         try {
-            gmailRepository.deleteMessage(userId, messageId);
+            logger.debug("Listing messages with pagination - userId: {}, pageToken: {}, limit: {}", userId, pageToken, limit);
+            return gmailRepository.getMessagesWithPagination(userId, pageToken, limit);
+        } catch (IOException e) {
+            logger.error("Failed to list messages with pagination for user: {}", userId, e);
+            throw new GmailApiException("Failed to list messages for user: " + userId, e);
+        }
+    }
+
+    /**
+     * Lists latest messages with pagination support.
+     *
+     * @param userId the user ID (typically "me")
+     * @param pageToken the page token from a previous request (null for first page)
+     * @param maxResults the maximum number of messages to return per page
+     * @return MessageListResult containing messages, next page token, and result size estimate
+     * @throws GmailApiException if the Gmail API call fails
+     */
+    public MessageListResult listLatestMessagesWithPagination(String userId, String pageToken, int maxResults) throws GmailApiException {
+        try {
+            logger.debug("Listing latest messages with pagination - userId: {}, pageToken: {}, maxResults: {}", userId, pageToken, maxResults);
+            return gmailRepository.getLatestMessagesWithPagination(userId, pageToken, maxResults);
+        } catch (IOException e) {
+            logger.error("Failed to list latest {} messages with pagination for user: {}", maxResults, userId, e);
+            throw new GmailApiException(String.format("Failed to list latest %d messages for user: %s", maxResults, userId), e);
+        }
+    }
+
+    /**
+     * Lists messages by filter criteria with pagination support.
+     *
+     * @param userId the user ID (typically "me")
+     * @param filterCriteriaDTO the filter criteria for message search
+     * @param pageToken the page token from a previous request (null for first page)
+     * @param limit the maximum number of messages to return per page
+     * @return MessageListResult containing messages, next page token, and result size estimate
+     * @throws GmailApiException if the Gmail API call fails
+     */
+    public MessageListResult listMessagesByFilterCriteriaWithPagination(String userId, FilterCriteriaDTO filterCriteriaDTO, String pageToken, int limit) throws GmailApiException {
+        FilterCriteria criteria = filterCriteriaMapper.toFilterCriteria(filterCriteriaDTO);
+        String query = buildQuery(criteria);
+
+        try {
+            logger.info("Fetching messages with pagination - query: {}, pageToken: {}, limit: {}", query, pageToken, limit);
+            return gmailRepository.getMessagesByFilterCriteriaWithPagination(userId, query, pageToken, limit);
+        } catch (IOException e) {
+            logger.error("Failed to list messages with pagination for user: {}. Query: {}", userId, query, e);
+            throw new GmailApiException("Failed to list messages", e);
+        }
+    }
+
+    public DeleteResult deleteMessage(String userId, String messageId) throws GmailApiException {
+        try {
+            BulkOperationResult bulkResult = gmailRepository.deleteMessage(userId, messageId);
+
+            // Convert BulkOperationResult to DeleteResult for single message operations
+            if (bulkResult.hasSuccesses() && bulkResult.getSuccessfulOperations().contains(messageId)) {
+                logger.info("Successfully deleted message: {}", messageId);
+                return DeleteResult.success(messageId);
+            } else if (bulkResult.hasFailures()) {
+                String errorMessage = bulkResult.getFailedOperations().get(messageId);
+                logger.error("Failed to delete message {}: {}", messageId, errorMessage);
+                return DeleteResult.failure(messageId, errorMessage);
+            } else {
+                // Edge case: no success and no failure recorded
+                logger.warn("Delete operation completed but no result recorded for message: {}", messageId);
+                return DeleteResult.failure(messageId, "Unknown error - no result recorded");
+            }
         } catch (IOException e) {
             logger.error("Failed to delete message for messageId: {} for user: {}", messageId, userId, e);
             throw new GmailApiException(
@@ -130,13 +206,18 @@ public class GmailService {
         }
     }
 
-    public void deleteMessagesByFilterCriteria(String userId, FilterCriteriaDTO filterCriteriaDTO) throws GmailApiException {
+    public BulkOperationResult deleteMessagesByFilterCriteria(String userId, FilterCriteriaDTO filterCriteriaDTO) throws GmailApiException {
         try {
             FilterCriteria criteria = filterCriteriaMapper.toFilterCriteria(filterCriteriaDTO);
             String query = buildQuery(criteria);
 
             // Use the constructed query to delete messages
-            gmailRepository.deleteMessagesByFilterCriteria(userId, query);
+            BulkOperationResult result = gmailRepository.deleteMessagesByFilterCriteria(userId, query);
+
+            logger.info("Bulk delete operation completed for user {}: {} successful, {} failed out of {} total",
+                       userId, result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations());
+
+            return result;
         } catch (IOException e) {
             logger.error("Failed to delete messages for user: {}. Query: {}", userId, null, e);
             throw new GmailApiException(
@@ -145,14 +226,14 @@ public class GmailService {
         }
     }
 
-    public void modifyMessagesLabelsByFilterCriteria(String userId, FilterCriteriaWithLabelsDTO dto) throws GmailApiException {
+    public BulkOperationResult modifyMessagesLabelsByFilterCriteria(String userId, FilterCriteriaWithLabelsDTO dto) throws GmailApiException {
         try {
             // Use the existing mapper to map filter criteria portion if needed
             // Otherwise build a FilterCriteria manually here
             FilterCriteriaMapper criteriaMapper = new FilterCriteriaMapper();
             var filterCriteria = criteriaMapper.toFilterCriteria(dto);
             String query = buildQuery(dto);
-            gmailRepository.modifyMessagesLabels(userId, dto.getLabelsToAdd(), dto.getLabelsToRemove(), query);
+            return gmailRepository.modifyMessagesLabels(userId, dto.getLabelsToAdd(), dto.getLabelsToRemove(), query);
         } catch (IOException e) {
             throw new GmailApiException(
                     String.format("Failed to modify labels for messages for user: %s", userId), e
@@ -172,9 +253,9 @@ public class GmailService {
         }
     }
 
-    public void markMessageAsRead(String userId, String messageId) throws GmailApiException {
+    public BulkOperationResult markMessageAsRead(String userId, String messageId) throws GmailApiException {
         try {
-            gmailRepository.markMessageAsRead(userId, messageId);
+            return gmailRepository.markMessageAsRead(userId, messageId);
         } catch (IOException e) {
             logger.error("Failed to mark message as read for messageId: {} for user: {}", messageId, userId, e);
             throw new GmailApiException(

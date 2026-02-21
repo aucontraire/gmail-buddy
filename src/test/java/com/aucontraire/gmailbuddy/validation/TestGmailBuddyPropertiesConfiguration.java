@@ -61,7 +61,8 @@ public class TestGmailBuddyPropertiesConfiguration {
             ),
             new GmailBuddyProperties.Environment(
                 new GmailBuddyProperties.Environment.EnvFile("src/main/resources", ".env")
-            )
+            ),
+            new GmailBuddyProperties.ApplicationRateLimit(1000, 60)
         );
     }
 }

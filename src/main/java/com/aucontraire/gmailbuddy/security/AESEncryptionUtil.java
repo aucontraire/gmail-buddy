@@ -150,9 +150,15 @@ public class AESEncryptionUtil {
         try {
             if (configuredKey != null && !configuredKey.trim().isEmpty()) {
                 // Use configured key
-                byte[] keyBytes = Base64.getDecoder().decode(configuredKey.trim());
+                byte[] keyBytes;
+                try {
+                    keyBytes = Base64.getDecoder().decode(configuredKey.trim());
+                } catch (IllegalArgumentException e) {
+                    throw new RuntimeException("Failed to initialize encryption key", e);
+                }
+
                 if (keyBytes.length != 32) { // 256 bits
-                    throw new IllegalArgumentException("Encryption key must be 256 bits (32 bytes)");
+                    throw new RuntimeException("Encryption key must be 256 bits (32 bytes)");
                 }
                 logger.info("Using configured encryption key");
                 return new SecretKeySpec(keyBytes, ALGORITHM);
@@ -166,6 +172,9 @@ public class AESEncryptionUtil {
             }
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("AES algorithm not available", e);
+        } catch (RuntimeException e) {
+            // Re-throw RuntimeException to preserve message
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to initialize encryption key", e);
         }

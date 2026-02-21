@@ -1,5 +1,6 @@
 package com.aucontraire.gmailbuddy.service;
 
+import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -338,10 +339,16 @@ class BulkOperationResultTest {
 
         long endTime = System.currentTimeMillis();
 
+        // Calculate expected counts based on loop logic
+        // Even indices (0, 2, 4, ...) go to success
+        // Odd indices (1, 3, 5, ...) go to failure
+        int expectedSuccessCount = (operationCount + 1) / 2; // Ceiling division
+        int expectedFailureCount = operationCount / 2;        // Floor division
+
         // Assert
         assertThat(result.getTotalOperations()).isEqualTo(operationCount);
-        assertThat(result.getSuccessCount()).isEqualTo(operationCount / 2);
-        assertThat(result.getFailureCount()).isEqualTo(operationCount - operationCount / 2);
+        assertThat(result.getSuccessCount()).isEqualTo(expectedSuccessCount);
+        assertThat(result.getFailureCount()).isEqualTo(expectedFailureCount);
         assertThat(endTime - startTime).isLessThan(1000); // Should complete within 1 second
     }
 
@@ -357,7 +364,7 @@ class BulkOperationResultTest {
 
         // Assert
         assertThat(result.getFailureCount()).isEqualTo(2);
-        assertThat(result.getFailedOperations().get("msg1")).isNull();
+        assertThat(result.getFailedOperations().get("msg1")).isEqualTo("Unknown error");
         assertThat(result.getFailedOperations().get("msg2")).isEmpty();
     }
 
@@ -447,5 +454,241 @@ class BulkOperationResultTest {
                 .contains("success=0")
                 .contains("failed=1")
                 .contains("successRate=0.0%");
+    }
+
+    // ========================================
+    // Tests for getStatus() Method
+    // ========================================
+
+    @Test
+    @DisplayName("getStatus() should return NO_RESULTS when totalOperations is 0")
+    void getStatus_NoOperations_ReturnsNoResults() {
+        // Arrange
+        BulkOperationResult result = new BulkOperationResult("DELETE");
+
+        // Act
+        OperationStatus status = result.getStatus();
+
+        // Assert
+        assertThat(status).isEqualTo(OperationStatus.NO_RESULTS);
+        assertThat(result.getTotalOperations()).isEqualTo(0);
+        assertThat(result.getSuccessCount()).isEqualTo(0);
+        assertThat(result.getFailureCount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("getStatus() should return SUCCESS when all operations succeeded")
+    void getStatus_AllSuccesses_ReturnsSuccess() {
+        // Arrange
+        BulkOperationResult result = new BulkOperationResult("DELETE");
+        result.addSuccess("msg1");
+        result.addSuccess("msg2");
+        result.addSuccess("msg3");
+
+        // Act
+        OperationStatus status = result.getStatus();
+
+        // Assert
+        assertThat(status).isEqualTo(OperationStatus.SUCCESS);
+        assertThat(result.getTotalOperations()).isEqualTo(3);
+        assertThat(result.getSuccessCount()).isEqualTo(3);
+        assertThat(result.getFailureCount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("getStatus() should return FAILURE when all operations failed")
+    void getStatus_AllFailures_ReturnsFailure() {
+        // Arrange
+        BulkOperationResult result = new BulkOperationResult("DELETE");
+        result.addFailure("msg1", "Error 1");
+        result.addFailure("msg2", "Error 2");
+        result.addFailure("msg3", "Error 3");
+
+        // Act
+        OperationStatus status = result.getStatus();
+
+        // Assert
+        assertThat(status).isEqualTo(OperationStatus.FAILURE);
+        assertThat(result.getTotalOperations()).isEqualTo(3);
+        assertThat(result.getSuccessCount()).isEqualTo(0);
+        assertThat(result.getFailureCount()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("getStatus() should return PARTIAL_SUCCESS when there are both successes and failures")
+    void getStatus_MixedResults_ReturnsPartialSuccess() {
+        // Arrange
+        BulkOperationResult result = new BulkOperationResult("MODIFY_LABELS");
+        result.addSuccess("msg1");
+        result.addSuccess("msg2");
+        result.addFailure("msg3", "Permission denied");
+        result.addFailure("msg4", "Not found");
+
+        // Act
+        OperationStatus status = result.getStatus();
+
+        // Assert
+        assertThat(status).isEqualTo(OperationStatus.PARTIAL_SUCCESS);
+        assertThat(result.getTotalOperations()).isEqualTo(4);
+        assertThat(result.getSuccessCount()).isEqualTo(2);
+        assertThat(result.getFailureCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("getStatus() should return PARTIAL_SUCCESS with single success and single failure")
+    void getStatus_SingleSuccessAndFailure_ReturnsPartialSuccess() {
+        // Arrange
+        BulkOperationResult result = new BulkOperationResult("DELETE");
+        result.addSuccess("msg1");
+        result.addFailure("msg2", "Rate limit exceeded");
+
+        // Act
+        OperationStatus status = result.getStatus();
+
+        // Assert
+        assertThat(status).isEqualTo(OperationStatus.PARTIAL_SUCCESS);
+        assertThat(result.getTotalOperations()).isEqualTo(2);
+        assertThat(result.getSuccessCount()).isEqualTo(1);
+        assertThat(result.getFailureCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("getStatus() should return SUCCESS with single successful operation")
+    void getStatus_SingleSuccess_ReturnsSuccess() {
+        // Arrange
+        BulkOperationResult result = new BulkOperationResult("MODIFY_LABELS");
+        result.addSuccess("msg1");
+
+        // Act
+        OperationStatus status = result.getStatus();
+
+        // Assert
+        assertThat(status).isEqualTo(OperationStatus.SUCCESS);
+        assertThat(result.getTotalOperations()).isEqualTo(1);
+        assertThat(result.getSuccessCount()).isEqualTo(1);
+        assertThat(result.getFailureCount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("getStatus() should return FAILURE with single failed operation")
+    void getStatus_SingleFailure_ReturnsFailure() {
+        // Arrange
+        BulkOperationResult result = new BulkOperationResult("DELETE");
+        result.addFailure("msg1", "Message not found");
+
+        // Act
+        OperationStatus status = result.getStatus();
+
+        // Assert
+        assertThat(status).isEqualTo(OperationStatus.FAILURE);
+        assertThat(result.getTotalOperations()).isEqualTo(1);
+        assertThat(result.getSuccessCount()).isEqualTo(0);
+        assertThat(result.getFailureCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("getStatus() should handle large volumes correctly")
+    void getStatus_LargeVolumes_ReturnsCorrectStatus() {
+        // Test with many successes
+        BulkOperationResult manySuccesses = new BulkOperationResult("DELETE");
+        for (int i = 0; i < 1000; i++) {
+            manySuccesses.addSuccess("msg" + i);
+        }
+        assertThat(manySuccesses.getStatus()).isEqualTo(OperationStatus.SUCCESS);
+
+        // Test with many failures
+        BulkOperationResult manyFailures = new BulkOperationResult("DELETE");
+        for (int i = 0; i < 1000; i++) {
+            manyFailures.addFailure("msg" + i, "Error " + i);
+        }
+        assertThat(manyFailures.getStatus()).isEqualTo(OperationStatus.FAILURE);
+
+        // Test with mixed results
+        BulkOperationResult mixedResults = new BulkOperationResult("MODIFY_LABELS");
+        for (int i = 0; i < 500; i++) {
+            mixedResults.addSuccess("success" + i);
+        }
+        for (int i = 0; i < 500; i++) {
+            mixedResults.addFailure("failure" + i, "Error " + i);
+        }
+        assertThat(mixedResults.getStatus()).isEqualTo(OperationStatus.PARTIAL_SUCCESS);
+    }
+
+    @Test
+    @DisplayName("getStatus() should be consistent with isCompleteSuccess()")
+    void getStatus_ShouldBeConsistentWithIsCompleteSuccess() {
+        // Success case
+        BulkOperationResult successResult = new BulkOperationResult("DELETE");
+        successResult.addSuccess("msg1");
+        assertThat(successResult.getStatus()).isEqualTo(OperationStatus.SUCCESS);
+        assertThat(successResult.isCompleteSuccess()).isTrue();
+
+        // Partial success case
+        BulkOperationResult partialResult = new BulkOperationResult("DELETE");
+        partialResult.addSuccess("msg1");
+        partialResult.addFailure("msg2", "Error");
+        assertThat(partialResult.getStatus()).isEqualTo(OperationStatus.PARTIAL_SUCCESS);
+        assertThat(partialResult.isCompleteSuccess()).isFalse();
+
+        // No results case
+        BulkOperationResult noResultsResult = new BulkOperationResult("DELETE");
+        assertThat(noResultsResult.getStatus()).isEqualTo(OperationStatus.NO_RESULTS);
+        assertThat(noResultsResult.isCompleteSuccess()).isFalse();
+
+        // Failure case
+        BulkOperationResult failureResult = new BulkOperationResult("DELETE");
+        failureResult.addFailure("msg1", "Error");
+        assertThat(failureResult.getStatus()).isEqualTo(OperationStatus.FAILURE);
+        assertThat(failureResult.isCompleteSuccess()).isFalse();
+    }
+
+    // ========================================
+    // Tests for Operation Type Constants
+    // ========================================
+
+    @Test
+    @DisplayName("OPERATION_TYPE_BATCH_DELETE constant should equal BATCH_DELETE")
+    void operationTypeBatchDelete_ShouldEqualBatchDelete() {
+        // Assert
+        assertThat(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE).isEqualTo("BATCH_DELETE");
+    }
+
+    @Test
+    @DisplayName("OPERATION_TYPE_BATCH_MODIFY constant should equal BATCH_MODIFY")
+    void operationTypeBatchModify_ShouldEqualBatchModify() {
+        // Assert
+        assertThat(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY).isEqualTo("BATCH_MODIFY");
+    }
+
+    @Test
+    @DisplayName("Operation type constants should be used in BulkOperationResult instances")
+    void operationTypeConstants_ShouldBeUsableInConstructor() {
+        // Arrange & Act
+        BulkOperationResult deleteResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+        BulkOperationResult modifyResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+
+        // Assert
+        assertThat(deleteResult.getOperationType()).isEqualTo("BATCH_DELETE");
+        assertThat(modifyResult.getOperationType()).isEqualTo("BATCH_MODIFY");
+    }
+
+    @Test
+    @DisplayName("Operation type constants should provide consistency across the application")
+    void operationTypeConstants_ShouldProvideConsistency() {
+        // Arrange
+        BulkOperationResult result1 = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+        BulkOperationResult result2 = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+
+        // Assert - Both should have the same operation type
+        assertThat(result1.getOperationType()).isEqualTo(result2.getOperationType());
+        assertThat(result1.getOperationType()).isEqualTo(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+    }
+
+    @Test
+    @DisplayName("Operation type constants should be distinguishable from each other")
+    void operationTypeConstants_ShouldBeDistinguishable() {
+        // Assert
+        assertThat(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE)
+                .isNotEqualTo(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
     }
 }

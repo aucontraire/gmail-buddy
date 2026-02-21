@@ -87,19 +87,20 @@ class GmailRepositoryImplTest {
         Message message1 = new Message().setId("msg1");
         Message message2 = new Message().setId("msg2");
         List<Message> expectedMessages = Arrays.asList(message1, message2);
-        
+
         ListMessagesResponse response = new ListMessagesResponse().setMessages(expectedMessages);
-        
+
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
         when(gmail.users()).thenReturn(users);
         when(users.messages()).thenReturn(messages);
         when(messages.list(TEST_USER_ID)).thenReturn(messagesList);
+        when(messagesList.setMaxResults(50L)).thenReturn(messagesList);
         when(messagesList.execute()).thenReturn(response);
-        
+
         // When
         List<Message> result = repository.getMessages(TEST_USER_ID);
-        
+
         // Then
         assertEquals(expectedMessages, result);
         verify(tokenProvider).getAccessToken();
@@ -212,7 +213,7 @@ class GmailRepositoryImplTest {
     }
 
     @Test
-    void deleteMessage_WithBatchFailure_ThrowsIOException() throws IOException, GeneralSecurityException, AuthenticationException {
+    void deleteMessage_WithBatchFailure_ReturnsBulkOperationResultWithFailures() throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
         BulkOperationResult failureResult = new BulkOperationResult("DELETE");
         failureResult.addFailure(TEST_MESSAGE_ID, "Message not found");
@@ -223,14 +224,14 @@ class GmailRepositoryImplTest {
         when(gmailBatchClient.batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID)))
             .thenReturn(failureResult);
 
-        // When & Then
-        IOException exception = assertThrows(
-            IOException.class,
-            () -> repository.deleteMessage(TEST_USER_ID, TEST_MESSAGE_ID)
-        );
+        // When
+        BulkOperationResult result = repository.deleteMessage(TEST_USER_ID, TEST_MESSAGE_ID);
 
-        assertTrue(exception.getMessage().contains("Failed to delete message"));
-        assertTrue(exception.getMessage().contains(TEST_MESSAGE_ID));
+        // Then
+        assertTrue(result.hasFailures());
+        assertEquals(1, result.getFailureCount());
+        assertTrue(result.getFailedOperations().containsKey(TEST_MESSAGE_ID));
+        assertEquals("Message not found", result.getFailedOperations().get(TEST_MESSAGE_ID));
         verify(tokenProvider).getAccessToken();
         verify(gmailBatchClient).batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID));
     }

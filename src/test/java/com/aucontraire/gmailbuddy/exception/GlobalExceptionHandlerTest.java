@@ -1,454 +1,284 @@
 package com.aucontraire.gmailbuddy.exception;
 
+import com.aucontraire.gmailbuddy.constants.ProblemTypes;
+import com.aucontraire.gmailbuddy.dto.error.ProblemDetail;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Path;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
-import jakarta.validation.Path;
-import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
- * Comprehensive tests for the GlobalExceptionHandler.
- * Tests all exception handlers, HTTP status mapping, error response structure,
- * retry headers, correlation ID propagation, and logging behavior.
- * 
- * @author Gmail Buddy Team
+ * Tests for GlobalExceptionHandler with RFC 7807 ProblemDetail responses.
+ *
  * @since 1.0
  */
+@DisplayName("GlobalExceptionHandler RFC 7807 Tests")
 class GlobalExceptionHandlerTest {
 
-    private GlobalExceptionHandler globalExceptionHandler;
+    private GlobalExceptionHandler handler;
+
+    @Mock
+    private HttpServletRequest request;
 
     @BeforeEach
     void setUp() {
-        globalExceptionHandler = new GlobalExceptionHandler();
-    }
+        MockitoAnnotations.openMocks(this);
+        handler = new GlobalExceptionHandler();
 
-    // ===========================================
-    // GmailBuddyException Handler Tests
-    // ===========================================
+        // Inject the mocked request using reflection
+        try {
+            var field = GlobalExceptionHandler.class.getDeclaredField("request");
+            field.setAccessible(true);
+            field.set(handler, request);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to inject mock request", e);
+        }
 
-    @Test
-    void testHandleGmailBuddyException_ValidationException() {
-        ValidationException exception = new ValidationException("Invalid input data");
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("VALIDATION_ERROR", errorResponse.getCode());
-        assertEquals("Invalid input data", errorResponse.getMessage());
-        assertEquals(exception.getCorrelationId(), errorResponse.getCorrelationId());
-        assertEquals("CLIENT_ERROR", errorResponse.getCategory());
-        assertNull(errorResponse.getRetryable());
-        assertNull(errorResponse.getRetryAfterSeconds());
-        assertNotNull(errorResponse.getTimestamp());
+        // Mock common request URI
+        when(request.getRequestURI()).thenReturn("/api/v1/gmail/messages");
     }
 
     @Test
-    void testHandleGmailBuddyException_AuthenticationException() {
-        AuthenticationException exception = new AuthenticationException("Authentication failed");
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("AUTHENTICATION_ERROR", errorResponse.getCode());
-        assertEquals("Authentication failed", errorResponse.getMessage());
-        assertEquals(exception.getCorrelationId(), errorResponse.getCorrelationId());
-        assertEquals("CLIENT_ERROR", errorResponse.getCategory());
+    @DisplayName("ResourceNotFoundException returns RFC 7807 problem detail with 404")
+    void testResourceNotFoundException() {
+        ResourceNotFoundException ex = new ResourceNotFoundException("Message not found");
+
+        ResponseEntity<ProblemDetail> response = handler.handleResourceNotFoundException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.parseMediaType("application/problem+json"));
+
+        ProblemDetail problem = response.getBody();
+        assertThat(problem).isNotNull();
+        assertThat(problem.getType().toString()).isEqualTo(ProblemTypes.RESOURCE_NOT_FOUND);
+        assertThat(problem.getTitle()).isEqualTo("Resource Not Found");
+        assertThat(problem.getStatus()).isEqualTo(404);
+        assertThat(problem.getDetail()).isEqualTo("Message not found");
+        assertThat(problem.getInstance().toString()).isEqualTo("/api/v1/gmail/messages");
+        assertThat(problem.getRequestId()).isNotNull();
+        assertThat(problem.getRetryable()).isFalse();
+        assertThat(problem.getCategory()).isEqualTo("CLIENT_ERROR");
+        assertThat(problem.getTimestamp()).isNotNull();
     }
 
     @Test
-    void testHandleGmailBuddyException_AuthorizationException() {
-        AuthorizationException exception = new AuthorizationException("Access denied");
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("AUTHORIZATION_ERROR", errorResponse.getCode());
-        assertEquals("Access denied", errorResponse.getMessage());
-        assertEquals("CLIENT_ERROR", errorResponse.getCategory());
+    @DisplayName("GmailApiException returns RFC 7807 problem detail with 502")
+    void testGmailApiException() {
+        GmailApiException ex = new GmailApiException("Gmail API unavailable");
+
+        ResponseEntity<ProblemDetail> response = handler.handleGmailApiException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+
+        ProblemDetail problem = response.getBody();
+        assertThat(problem).isNotNull();
+        assertThat(problem.getType().toString()).isEqualTo(ProblemTypes.GMAIL_API_ERROR);
+        assertThat(problem.getTitle()).isEqualTo("Gmail API Error");
+        assertThat(problem.getStatus()).isEqualTo(502);
+        assertThat(problem.getDetail()).isEqualTo("Gmail API unavailable");
+        assertThat(problem.getCategory()).isEqualTo("SERVER_ERROR");
     }
 
     @Test
-    void testHandleGmailBuddyException_ResourceNotFoundException() {
-        ResourceNotFoundException exception = new ResourceNotFoundException("Resource not found");
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("RESOURCE_NOT_FOUND", errorResponse.getCode());
-        assertEquals("Resource not found", errorResponse.getMessage());
-        assertEquals("CLIENT_ERROR", errorResponse.getCategory());
+    @DisplayName("AuthenticationException returns RFC 7807 problem detail with 401")
+    void testAuthenticationException() {
+        com.aucontraire.gmailbuddy.exception.AuthenticationException ex =
+            new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token");
+
+        ResponseEntity<ProblemDetail> response = handler.handleAuthenticationException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+
+        ProblemDetail problem = response.getBody();
+        assertThat(problem).isNotNull();
+        assertThat(problem.getType().toString()).isEqualTo(ProblemTypes.AUTHENTICATION_FAILED);
+        assertThat(problem.getTitle()).isEqualTo("Authentication Failed");
+        assertThat(problem.getStatus()).isEqualTo(401);
+        assertThat(problem.getDetail()).isEqualTo("Invalid token");
     }
 
     @Test
-    void testHandleGmailBuddyException_RateLimitException() {
-        long retryAfter = 120L;
-        RateLimitException exception = new RateLimitException("Rate limit exceeded", retryAfter);
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals(HttpStatus.TOO_MANY_REQUESTS, response.getStatusCode());
-        
-        // Check Retry-After header
-        assertNotNull(response.getHeaders().get("Retry-After"));
-        assertEquals("120", response.getHeaders().getFirst("Retry-After"));
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("RATE_LIMIT_EXCEEDED", errorResponse.getCode());
-        assertEquals("Rate limit exceeded", errorResponse.getMessage());
-        assertEquals("CLIENT_ERROR", errorResponse.getCategory());
-        assertEquals(true, errorResponse.getRetryable());
-        assertEquals(retryAfter, errorResponse.getRetryAfterSeconds());
+    @DisplayName("AuthorizationException returns RFC 7807 problem detail with 403")
+    void testAuthorizationException() {
+        AuthorizationException ex = new AuthorizationException("Insufficient permissions");
+
+        ResponseEntity<ProblemDetail> response = handler.handleAuthorizationException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+
+        ProblemDetail problem = response.getBody();
+        assertThat(problem).isNotNull();
+        assertThat(problem.getType().toString()).isEqualTo(ProblemTypes.AUTHORIZATION_FAILED);
+        assertThat(problem.getTitle()).isEqualTo("Authorization Failed");
+        assertThat(problem.getStatus()).isEqualTo(403);
     }
 
     @Test
-    void testHandleGmailBuddyException_GmailApiException_Retryable() {
-        IOException cause = new IOException("Network timeout");
-        GmailApiException exception = new GmailApiException("Gmail API error", cause);
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals(HttpStatus.BAD_GATEWAY, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("GMAIL_API_ERROR", errorResponse.getCode());
-        assertEquals("Gmail API error", errorResponse.getMessage());
-        assertEquals("SERVER_ERROR", errorResponse.getCategory());
-        assertEquals(true, errorResponse.getRetryable());
-        assertNull(errorResponse.getRetryAfterSeconds());
+    @DisplayName("RateLimitException returns RFC 7807 with Retry-After header")
+    void testRateLimitException() {
+        RateLimitException ex = new RateLimitException("Too many requests", 120);
+
+        ResponseEntity<ProblemDetail> response = handler.handleRateLimitException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("120");
+
+        ProblemDetail problem = response.getBody();
+        assertThat(problem).isNotNull();
+        assertThat(problem.getType().toString()).isEqualTo(ProblemTypes.RATE_LIMIT_EXCEEDED);
+        assertThat(problem.getTitle()).isEqualTo("Rate Limit Exceeded");
+        assertThat(problem.getStatus()).isEqualTo(429);
+        assertThat(problem.getRetryable()).isTrue();
+        assertThat(problem.getExtensions()).containsEntry("retryAfterSeconds", 120L);
     }
 
     @Test
-    void testHandleGmailBuddyException_GmailApiException_NonRetryable() {
-        GmailApiException exception = new GmailApiException("Gmail API configuration error", false);
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals(HttpStatus.BAD_GATEWAY, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("GMAIL_API_ERROR", errorResponse.getCode());
-        assertEquals("Gmail API configuration error", errorResponse.getMessage());
-        assertEquals("SERVER_ERROR", errorResponse.getCategory());
-        assertEquals(false, errorResponse.getRetryable());
+    @DisplayName("ServiceUnavailableException returns RFC 7807 with Retry-After header")
+    void testServiceUnavailableException() {
+        ServiceUnavailableException ex = new ServiceUnavailableException("Maintenance mode", 300);
+
+        ResponseEntity<ProblemDetail> response = handler.handleServiceUnavailableException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("300");
+
+        ProblemDetail problem = response.getBody();
+        assertThat(problem).isNotNull();
+        assertThat(problem.getType().toString()).isEqualTo(ProblemTypes.SERVICE_UNAVAILABLE);
+        assertThat(problem.getRetryable()).isTrue();
     }
 
     @Test
-    void testHandleGmailBuddyException_ServiceUnavailableException() {
-        long retryAfter = 300L;
-        ServiceUnavailableException exception = new ServiceUnavailableException("Service temporarily unavailable", retryAfter);
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
-        
-        // Check Retry-After header
-        assertNotNull(response.getHeaders().get("Retry-After"));
-        assertEquals("300", response.getHeaders().getFirst("Retry-After"));
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("SERVICE_UNAVAILABLE", errorResponse.getCode());
-        assertEquals("Service temporarily unavailable", errorResponse.getMessage());
-        assertEquals("SERVER_ERROR", errorResponse.getCategory());
-        assertEquals(true, errorResponse.getRetryable());
-        assertEquals(retryAfter, errorResponse.getRetryAfterSeconds());
+    @DisplayName("ValidationException returns RFC 7807 problem detail with 400")
+    void testValidationException() {
+        ValidationException ex = new ValidationException("Invalid email format");
+
+        ResponseEntity<ProblemDetail> response = handler.handleValidationException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+        ProblemDetail problem = response.getBody();
+        assertThat(problem).isNotNull();
+        assertThat(problem.getType().toString()).isEqualTo(ProblemTypes.VALIDATION_ERROR);
+        assertThat(problem.getTitle()).isEqualTo("Validation Error");
+        assertThat(problem.getStatus()).isEqualTo(400);
+        assertThat(problem.getRetryable()).isFalse();
     }
 
     @Test
-    void testHandleGmailBuddyException_InternalServerException() {
-        InternalServerException exception = new InternalServerException("Critical system error", "test-correlation-123");
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("INTERNAL_SERVER_ERROR", errorResponse.getCode());
-        assertEquals("Critical system error", errorResponse.getMessage());
-        assertEquals("test-correlation-123", errorResponse.getCorrelationId());
-        assertEquals("SERVER_ERROR", errorResponse.getCategory());
-        assertNull(errorResponse.getRetryable());
-    }
-
-    // ===========================================
-    // Validation Exception Handler Tests
-    // ===========================================
-
-    @Test
-    void testHandleValidationExceptions_MethodArgumentNotValidException() {
-        // Create mock MethodArgumentNotValidException
-        MethodArgumentNotValidException exception = mock(MethodArgumentNotValidException.class);
+    @DisplayName("MethodArgumentNotValidException returns RFC 7807 with field errors")
+    void testMethodArgumentNotValidException() {
+        MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
         BindingResult bindingResult = mock(BindingResult.class);
-        
-        // Create mock field errors
-        FieldError fieldError1 = new FieldError("filterCriteria", "from", "Must be a valid email address");
-        FieldError fieldError2 = new FieldError("filterCriteria", "subject", "Subject must not exceed 255 characters");
-        
-        when(exception.getBindingResult()).thenReturn(bindingResult);
-        when(bindingResult.getAllErrors()).thenReturn(java.util.List.of(fieldError1, fieldError2));
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleValidationExceptions(exception);
-        
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("VALIDATION_ERROR", errorResponse.getCode());
-        assertEquals("Input validation failed", errorResponse.getMessage());
-        assertEquals("CLIENT_ERROR", errorResponse.getCategory());
-        
-        // Check field errors in details
-        assertNotNull(errorResponse.getDetails());
-        assertEquals("Must be a valid email address", errorResponse.getDetails().get("from"));
-        assertEquals("Subject must not exceed 255 characters", errorResponse.getDetails().get("subject"));
+
+        FieldError fieldError1 = new FieldError("filterCriteria", "from", "Must be valid email");
+        FieldError fieldError2 = new FieldError("filterCriteria", "subject", "Too long");
+
+        when(ex.getBindingResult()).thenReturn(bindingResult);
+        when(bindingResult.getAllErrors()).thenReturn(List.of(fieldError1, fieldError2));
+
+        ResponseEntity<ProblemDetail> response = handler.handleMethodArgumentNotValidException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+        ProblemDetail problem = response.getBody();
+        assertThat(problem).isNotNull();
+        assertThat(problem.getType().toString()).isEqualTo(ProblemTypes.VALIDATION_ERROR);
+        assertThat(problem.getDetail()).contains("2 field(s)");
+        assertThat(problem.getExtensions())
+            .containsEntry("field:from", "Must be valid email")
+            .containsEntry("field:subject", "Too long");
     }
 
     @Test
-    void testHandleConstraintViolationException() {
-        // Create mock ConstraintViolationException
-        ConstraintViolationException exception = mock(ConstraintViolationException.class);
-        
-        // Create mock constraint violations
+    @DisplayName("ConstraintViolationException returns RFC 7807 with constraint details")
+    void testConstraintViolationException() {
         ConstraintViolation<?> violation1 = mock(ConstraintViolation.class);
         ConstraintViolation<?> violation2 = mock(ConstraintViolation.class);
         Path path1 = mock(Path.class);
         Path path2 = mock(Path.class);
-        
+
         when(violation1.getPropertyPath()).thenReturn(path1);
-        when(violation1.getMessage()).thenReturn("Query contains invalid characters");
-        when(path1.toString()).thenReturn("query");
-        
+        when(violation1.getMessage()).thenReturn("Invalid format");
+        when(path1.toString()).thenReturn("email");
+
         when(violation2.getPropertyPath()).thenReturn(path2);
-        when(violation2.getMessage()).thenReturn("Email format is invalid");
-        when(path2.toString()).thenReturn("from");
-        
-        when(exception.getConstraintViolations()).thenReturn(Set.of(violation1, violation2));
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleConstraintViolationException(exception);
-        
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("CONSTRAINT_VIOLATION", errorResponse.getCode());
-        assertEquals("Constraint validation failed", errorResponse.getMessage());
-        assertEquals("CLIENT_ERROR", errorResponse.getCategory());
-        
-        // Check constraint violations in details
-        assertNotNull(errorResponse.getDetails());
-        assertEquals("Query contains invalid characters", errorResponse.getDetails().get("query"));
-        assertEquals("Email format is invalid", errorResponse.getDetails().get("from"));
-    }
+        when(violation2.getMessage()).thenReturn("Too short");
+        when(path2.toString()).thenReturn("password");
 
-    // ===========================================
-    // Legacy Exception Handler Tests
-    // ===========================================
+        ConstraintViolationException ex = new ConstraintViolationException(Set.of(violation1, violation2));
 
-    @Test
-    void testHandleGmailApiException() {
-        GmailApiException exception = new GmailApiException("Gmail API error");
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals(HttpStatus.BAD_GATEWAY, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("GMAIL_API_ERROR", errorResponse.getCode());
-        assertEquals("Gmail API error", errorResponse.getMessage());
-        assertEquals("SERVER_ERROR", errorResponse.getCategory());
-        assertNotNull(errorResponse.getCorrelationId()); // Modern handler extracts correlation ID
+        ResponseEntity<ProblemDetail> response = handler.handleConstraintViolationException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+        ProblemDetail problem = response.getBody();
+        assertThat(problem).isNotNull();
+        assertThat(problem.getType().toString()).isEqualTo(ProblemTypes.CONSTRAINT_VIOLATION);
+        assertThat(problem.getDetail()).contains("2 parameter(s)");
+        assertThat(problem.getExtensions())
+            .containsEntry("constraint:email", "Invalid format")
+            .containsEntry("constraint:password", "Too short");
     }
 
     @Test
-    void testHandleResourceNotFoundException() {
-        ResourceNotFoundException exception = new ResourceNotFoundException("Resource not found");
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("RESOURCE_NOT_FOUND", errorResponse.getCode());
-        assertEquals("Resource not found", errorResponse.getMessage());
-        assertEquals("CLIENT_ERROR", errorResponse.getCategory());
-        assertNotNull(errorResponse.getCorrelationId()); // Modern handler extracts correlation ID
-    }
+    @DisplayName("Generic Exception returns RFC 7807 problem detail with 500")
+    void testGenericException() {
+        RuntimeException ex = new RuntimeException("Unexpected error");
 
-    // ===========================================
-    // Generic Exception Handler Tests
-    // ===========================================
+        ResponseEntity<ProblemDetail> response = handler.handleGenericException(ex);
 
-    @Test
-    void testHandleGenericException() {
-        RuntimeException exception = new RuntimeException("Unexpected runtime error");
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGenericException(exception);
-        
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("INTERNAL_SERVER_ERROR", errorResponse.getCode());
-        assertEquals("An unexpected error occurred", errorResponse.getMessage());
-        assertEquals("SERVER_ERROR", errorResponse.getCategory());
-        assertNotNull(errorResponse.getCorrelationId()); // Should generate correlation ID
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+
+        ProblemDetail problem = response.getBody();
+        assertThat(problem).isNotNull();
+        assertThat(problem.getType().toString()).isEqualTo(ProblemTypes.INTERNAL_ERROR);
+        assertThat(problem.getTitle()).isEqualTo("Internal Server Error");
+        assertThat(problem.getStatus()).isEqualTo(500);
+        assertThat(problem.getDetail()).contains("unexpected error");
+        assertThat(problem.getRequestId()).isNotNull();
+        assertThat(problem.getCategory()).isEqualTo("SERVER_ERROR");
     }
 
     @Test
-    void testHandleGenericException_WithNullPointerException() {
-        NullPointerException exception = new NullPointerException("Null pointer access");
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGenericException(exception);
-        
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals("INTERNAL_SERVER_ERROR", errorResponse.getCode());
-        assertEquals("An unexpected error occurred", errorResponse.getMessage());
-        assertEquals("SERVER_ERROR", errorResponse.getCategory());
-        assertNotNull(errorResponse.getCorrelationId());
-    }
+    @DisplayName("All responses include X-Request-ID header")
+    void testRequestIdHeaderPresent() {
+        ValidationException ex = new ValidationException("Test");
 
-    // ===========================================
-    // Retry Header Tests
-    // ===========================================
+        ResponseEntity<ProblemDetail> response = handler.handleValidationException(ex);
 
-    @Test
-    void testRetryAfterHeaders_RateLimitException() {
-        RateLimitException exception = new RateLimitException("Rate limited", 180L);
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals("180", response.getHeaders().getFirst("Retry-After"));
+        assertThat(response.getHeaders().getFirst("X-Request-ID")).isNotNull();
+        assertThat(response.getBody().getRequestId()).isNotNull();
+        assertThat(response.getHeaders().getFirst("X-Request-ID"))
+            .isEqualTo(response.getBody().getRequestId());
     }
 
     @Test
-    void testRetryAfterHeaders_ServiceUnavailableException() {
-        ServiceUnavailableException exception = new ServiceUnavailableException("Service down", 600L);
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertEquals("600", response.getHeaders().getFirst("Retry-After"));
-    }
+    @DisplayName("Content-Type is application/problem+json for all responses")
+    void testContentTypeIsProblemJson() {
+        ValidationException ex = new ValidationException("Test");
 
-    @Test
-    void testNoRetryAfterHeaders_OtherExceptions() {
-        ValidationException exception = new ValidationException("Validation error");
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        assertNull(response.getHeaders().getFirst("Retry-After"));
-    }
+        ResponseEntity<ProblemDetail> response = handler.handleValidationException(ex);
 
-    // ===========================================
-    // Error Response Structure Tests
-    // ===========================================
-
-    @Test
-    void testErrorResponseStructure_AllFields() {
-        RateLimitException exception = new RateLimitException("Rate limit test", 90L);
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        
-        // Verify all expected fields are present
-        assertNotNull(errorResponse.getCode());
-        assertNotNull(errorResponse.getMessage());
-        assertNotNull(errorResponse.getCorrelationId());
-        assertNotNull(errorResponse.getCategory());
-        assertNotNull(errorResponse.getTimestamp());
-        assertNotNull(errorResponse.getRetryable());
-        assertNotNull(errorResponse.getRetryAfterSeconds());
-        
-        // Verify field values
-        assertEquals("RATE_LIMIT_EXCEEDED", errorResponse.getCode());
-        assertEquals("Rate limit test", errorResponse.getMessage());
-        assertEquals("CLIENT_ERROR", errorResponse.getCategory());
-        assertEquals(true, errorResponse.getRetryable());
-        assertEquals(90L, errorResponse.getRetryAfterSeconds());
-    }
-
-    @Test
-    void testErrorResponseStructure_MinimalFields() {
-        ValidationException exception = new ValidationException("Simple validation error");
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        
-        // Verify required fields are present
-        assertNotNull(errorResponse.getCode());
-        assertNotNull(errorResponse.getMessage());
-        assertNotNull(errorResponse.getCorrelationId());
-        assertNotNull(errorResponse.getCategory());
-        assertNotNull(errorResponse.getTimestamp());
-        
-        // Verify optional fields are null (due to @JsonInclude(NON_NULL))
-        assertNull(errorResponse.getRetryable());
-        assertNull(errorResponse.getRetryAfterSeconds());
-        assertNull(errorResponse.getDetails());
-    }
-
-    // ===========================================
-    // Correlation ID Propagation Tests
-    // ===========================================
-
-    @Test
-    void testCorrelationIdPropagation() {
-        String expectedCorrelationId = "test-correlation-456";
-        ValidationException exception = new ValidationException("Test message", expectedCorrelationId);
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGmailBuddyException(exception);
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertEquals(expectedCorrelationId, errorResponse.getCorrelationId());
-    }
-
-    @Test
-    void testCorrelationIdGeneration_GenericException() {
-        RuntimeException exception = new RuntimeException("Generic error");
-        
-        ResponseEntity<ErrorResponse> response = globalExceptionHandler.handleGenericException(exception);
-        
-        ErrorResponse errorResponse = response.getBody();
-        assertNotNull(errorResponse);
-        assertNotNull(errorResponse.getCorrelationId());
-        // Should be UUID format
-        assertTrue(errorResponse.getCorrelationId().matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"));
+        assertThat(response.getHeaders().getContentType())
+            .isEqualTo(MediaType.parseMediaType("application/problem+json"));
     }
 }

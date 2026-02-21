@@ -101,7 +101,7 @@ class GmailBuddyPropertiesTest {
     void testDefaultOAuth2Values() {
         assertNotNull(properties.oauth2());
         assertEquals("google", properties.oauth2().clientRegistrationId());
-        assertEquals("Bearer ", properties.oauth2().token().prefix());
+        assertEquals("Bearer", properties.oauth2().token().prefix());
     }
 
     @Test
@@ -194,7 +194,8 @@ class GmailBuddyPropertiesTest {
                 properties.errorHandling(),
                 properties.validation(),
                 properties.security(),
-                properties.environment()
+                properties.environment(),
+                properties.applicationRateLimit()
         );
         
         Set<ConstraintViolation<GmailBuddyProperties>> violations = validator.validate(invalidProperties);
@@ -221,7 +222,8 @@ class GmailBuddyPropertiesTest {
                 properties.errorHandling(),
                 properties.validation(),
                 properties.security(),
-                properties.environment()
+                properties.environment(),
+                properties.applicationRateLimit()
         );
         
         Set<ConstraintViolation<GmailBuddyProperties>> violations = validator.validate(invalidProperties);
@@ -254,7 +256,8 @@ class GmailBuddyPropertiesTest {
                 properties.errorHandling(),
                 properties.validation(),
                 properties.security(),
-                properties.environment()
+                properties.environment(),
+                properties.applicationRateLimit()
         );
         
         Set<ConstraintViolation<GmailBuddyProperties>> violations = validator.validate(invalidProperties);

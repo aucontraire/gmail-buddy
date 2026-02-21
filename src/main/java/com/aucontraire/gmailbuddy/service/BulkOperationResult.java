@@ -1,5 +1,7 @@
 package com.aucontraire.gmailbuddy.service;
 
+import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +18,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * @since 1.0
  */
 public class BulkOperationResult {
+
+    /** Operation type constant for batch delete operations */
+    public static final String OPERATION_TYPE_BATCH_DELETE = "BATCH_DELETE";
+
+    /** Operation type constant for batch modify label operations */
+    public static final String OPERATION_TYPE_BATCH_MODIFY = "BATCH_MODIFY";
 
     private final List<String> successfulOperations = new ArrayList<>();
     private final Map<String, String> failedOperations = new ConcurrentHashMap<>();
@@ -52,7 +60,9 @@ public class BulkOperationResult {
      * @param errorMessage the error message describing why the operation failed
      */
     public void addFailure(String identifier, String errorMessage) {
-        failedOperations.put(identifier, errorMessage);
+        // ConcurrentHashMap doesn't allow null values, use a default message if null
+        String message = errorMessage != null ? errorMessage : "Unknown error";
+        failedOperations.put(identifier, message);
     }
 
     /**
@@ -166,6 +176,29 @@ public class BulkOperationResult {
             return 0.0;
         }
         return (double) getSuccessCount() / total * 100.0;
+    }
+
+    /**
+     * Gets the operation status based on the results.
+     * Determines the overall status by evaluating success and failure counts.
+     *
+     * @return the operation status enum value
+     */
+    public OperationStatus getStatus() {
+        int total = getTotalOperations();
+        int failures = getFailureCount();
+        int successes = getSuccessCount();
+
+        if (total == 0) {
+            return OperationStatus.NO_RESULTS;
+        }
+        if (failures == 0) {
+            return OperationStatus.SUCCESS;
+        }
+        if (successes == 0) {
+            return OperationStatus.FAILURE;
+        }
+        return OperationStatus.PARTIAL_SUCCESS;
     }
 
     /**

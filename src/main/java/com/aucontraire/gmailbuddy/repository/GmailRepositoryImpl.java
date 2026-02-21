@@ -6,6 +6,7 @@ import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
+import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.*;
 import org.slf4j.Logger;
@@ -49,7 +50,7 @@ public class GmailRepositoryImpl implements GmailRepository {
     public List<Message> getMessages(String userId) throws IOException {
         try {
             var gmail = getGmailService();
-            return gmail.users().messages().list(userId).execute().getMessages();
+            return gmail.users().messages().list(userId).setMaxResults(50L).execute().getMessages();
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
@@ -84,7 +85,74 @@ public class GmailRepositoryImpl implements GmailRepository {
     }
 
     @Override
-    public void deleteMessage(String userId, String messageId) throws IOException {
+    public MessageListResult getMessagesWithPagination(String userId, String pageToken, int limit) throws IOException {
+        try {
+            var gmail = getGmailService();
+            Gmail.Users.Messages.List request = gmail.users().messages().list(userId)
+                    .setMaxResults((long) limit);
+
+            if (pageToken != null && !pageToken.isEmpty()) {
+                request.setPageToken(pageToken);
+            }
+
+            ListMessagesResponse response = request.execute();
+            return new MessageListResult(
+                    response.getMessages(),
+                    response.getNextPageToken(),
+                    response.getResultSizeEstimate() != null ? response.getResultSizeEstimate().intValue() : null
+            );
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    @Override
+    public MessageListResult getLatestMessagesWithPagination(String userId, String pageToken, int maxResults) throws IOException {
+        try {
+            var gmail = getGmailService();
+            Gmail.Users.Messages.List request = gmail.users().messages().list(userId)
+                    .setMaxResults((long) maxResults);
+
+            if (pageToken != null && !pageToken.isEmpty()) {
+                request.setPageToken(pageToken);
+            }
+
+            ListMessagesResponse response = request.execute();
+            return new MessageListResult(
+                    response.getMessages(),
+                    response.getNextPageToken(),
+                    response.getResultSizeEstimate() != null ? response.getResultSizeEstimate().intValue() : null
+            );
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    @Override
+    public MessageListResult getMessagesByFilterCriteriaWithPagination(String userId, String query, String pageToken, int limit) throws IOException {
+        try {
+            var gmail = getGmailService();
+            Gmail.Users.Messages.List request = gmail.users().messages().list(userId)
+                    .setQ(query)
+                    .setMaxResults((long) limit);
+
+            if (pageToken != null && !pageToken.isEmpty()) {
+                request.setPageToken(pageToken);
+            }
+
+            ListMessagesResponse response = request.execute();
+            return new MessageListResult(
+                    response.getMessages(),
+                    response.getNextPageToken(),
+                    response.getResultSizeEstimate() != null ? response.getResultSizeEstimate().intValue() : null
+            );
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    @Override
+    public BulkOperationResult deleteMessage(String userId, String messageId) throws IOException {
         try {
             var gmail = getGmailService();
             // Use batch client for consistency, even for single message
@@ -92,17 +160,19 @@ public class GmailRepositoryImpl implements GmailRepository {
 
             if (result.hasFailures()) {
                 String errorMessage = result.getFailedOperations().get(messageId);
-                throw new IOException("Failed to delete message " + messageId + ": " + errorMessage);
+                logger.error("Failed to delete message {}: {}", messageId, errorMessage);
+            } else {
+                logger.debug("Successfully deleted message: {}", messageId);
             }
 
-            logger.debug("Successfully deleted message: {}", messageId);
+            return result;
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
     }
 
     @Override
-    public void deleteMessagesByFilterCriteria(String userId, String query) throws IOException {
+    public BulkOperationResult deleteMessagesByFilterCriteria(String userId, String query) throws IOException {
         try {
             var gmail = getGmailService();
 
@@ -116,7 +186,10 @@ public class GmailRepositoryImpl implements GmailRepository {
 
             if (messages == null || messages.isEmpty()) {
                 logger.info("Found 0 matching messages");
-                return; // No messages to delete
+                // Return empty result with no operations
+                BulkOperationResult emptyResult = new BulkOperationResult("DELETE");
+                emptyResult.markCompleted();
+                return emptyResult;
             }
             logger.info("Found {} matching messages", messages.size());
 
@@ -141,6 +214,7 @@ public class GmailRepositoryImpl implements GmailRepository {
                 // The caller can check the result if needed
             }
 
+            return result;
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
@@ -173,7 +247,7 @@ public class GmailRepositoryImpl implements GmailRepository {
     }
 
     @Override
-    public void modifyMessagesLabels(String userId, List<String> labelsToAdd, List<String> labelsToRemove, String query) throws IOException {
+    public BulkOperationResult modifyMessagesLabels(String userId, List<String> labelsToAdd, List<String> labelsToRemove, String query) throws IOException {
         try {
             var gmail = getGmailService();
 
@@ -191,7 +265,9 @@ public class GmailRepositoryImpl implements GmailRepository {
 
             if (messages == null || messages.isEmpty()) {
                 logger.info("Found 0 matching messages for label modification");
-                return;
+                BulkOperationResult emptyResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+                emptyResult.markCompleted();
+                return emptyResult;
             }
 
             logger.info("Found {} matching messages for label modification", messages.size());
@@ -211,6 +287,8 @@ public class GmailRepositoryImpl implements GmailRepository {
                 logger.warn("Some label modifications failed. Failed message IDs: {}",
                            String.join(", ", result.getFailedOperations().keySet()));
             }
+
+            return result;
 
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
@@ -271,13 +349,24 @@ public class GmailRepositoryImpl implements GmailRepository {
     }
 
     @Override
-    public void markMessageAsRead(String userId, String messageId) throws IOException {
+    public BulkOperationResult markMessageAsRead(String userId, String messageId) throws IOException {
         try {
             var gmail = getGmailService();
             // Remove the UNREAD label from the message
             String unreadLabel = properties.gmailApi().messageProcessing().labels().unread();
             var mods = new com.google.api.services.gmail.model.ModifyMessageRequest().setRemoveLabelIds(List.of(unreadLabel));
-            gmail.users().messages().modify(userId, messageId, mods).execute();
+
+            BulkOperationResult result = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            try {
+                gmail.users().messages().modify(userId, messageId, mods).execute();
+                result.addSuccess(messageId);
+                logger.debug("Successfully marked message {} as read", messageId);
+            } catch (IOException e) {
+                result.addFailure(messageId, e.getMessage());
+                logger.error("Failed to mark message {} as read: {}", messageId, e.getMessage());
+            }
+            result.markCompleted();
+            return result;
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }

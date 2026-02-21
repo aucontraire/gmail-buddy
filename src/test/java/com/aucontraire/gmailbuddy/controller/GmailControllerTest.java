@@ -4,6 +4,7 @@ import com.aucontraire.gmailbuddy.config.TestTokenProviderConfiguration;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.service.GmailService;
+import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.aucontraire.gmailbuddy.service.TestOAuth2AuthorizedClientService;
 import com.google.api.services.gmail.model.Message;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +34,7 @@ import java.util.List;
 
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -87,8 +89,9 @@ public class GmailControllerTest {
                 "  \"negatedQuery\": \"label:Spam\"\n" +
                 "}";
 
-        when(gmailService.listMessagesByFilterCriteria(eq("me"), any(FilterCriteriaDTO.class)))
-                .thenReturn(Collections.emptyList());
+        MessageListResult mockResult = new MessageListResult(Collections.emptyList(), null, 0);
+        when(gmailService.listMessagesByFilterCriteriaWithPagination(eq("me"), any(FilterCriteriaDTO.class), any(), anyInt()))
+                .thenReturn(mockResult);
 
         mockMvc.perform(post("/api/v1/gmail/messages/filter")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -100,7 +103,8 @@ public class GmailControllerTest {
     @Test
     @org.junit.jupiter.api.Disabled("Legacy test - Jackson serialization issue with Google Message objects")
     public void testListMessages() throws Exception {
-        when(gmailService.listMessages(eq("me"))).thenReturn(Collections.emptyList());
+        MessageListResult mockListResult = new MessageListResult(Collections.emptyList(), null, 0);
+        when(gmailService.listMessagesWithPagination(eq("me"), any(), anyInt())).thenReturn(mockListResult);
 
         mockMvc.perform(get("/api/v1/gmail/messages")
                         .accept(MediaType.APPLICATION_JSON)

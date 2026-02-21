@@ -33,6 +33,7 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers("/login**", "/oauth2/**", "/favicon.ico", "/static/**").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll() // OpenAPI docs
                         .requestMatchers("/api/v1/gmail/**").authenticated() // API endpoints require authentication
                         .anyRequest().authenticated()
                 )
@@ -48,7 +49,7 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED) // Allow sessions for browser, stateless for API
                 )
                 .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/api/v1/gmail/**") // Disable CSRF for API endpoints
+                        .ignoringRequestMatchers("/api/v1/gmail/**", "/v3/api-docs/**", "/swagger-ui/**") // Disable CSRF for API and docs
                 )
                 .addFilterBefore(tokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class) // Add custom token filter
                 .headers(headers -> headers.frameOptions(config -> config.disable()));
