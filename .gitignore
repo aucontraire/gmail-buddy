@@ -61,3 +61,6 @@ PROJECT_PLAN.md
 
 ### Backup files ###
 *.bak
+
+### Spec files
+specs

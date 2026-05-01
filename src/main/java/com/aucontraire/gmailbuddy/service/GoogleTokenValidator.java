@@ -39,6 +39,8 @@ public class GoogleTokenValidator {
     private static final Set<String> REQUIRED_GMAIL_SCOPES = Set.of(
         "https://www.googleapis.com/auth/gmail.readonly",
         "https://www.googleapis.com/auth/gmail.modify",
+        // Required for users.messages.batchDelete (permanent delete used by DELETE endpoints).
+        // gmail.modify only permits trash(); batchDelete requires the full-access scope.
         "https://mail.google.com/"
     );
 
