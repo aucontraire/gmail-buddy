@@ -78,18 +78,37 @@ For automated scripts, you can implement the full OAuth2 flow programmatically. 
 
 ## 📧 Required Gmail Scopes
 
-For full functionality, ensure your token has these scopes:
+Gmail Buddy currently uses three Gmail scopes. **Which scope you need depends on which endpoints you call.**
 
-```
-https://mail.google.com/
-```
+| Endpoint | Minimum scope required |
+|---|---|
+| `GET /messages`, `GET /messages/latest` | `https://www.googleapis.com/auth/gmail.readonly` |
+| `POST /messages/filter` | `https://www.googleapis.com/auth/gmail.readonly` |
+| `GET /messages/{id}/body` | `https://www.googleapis.com/auth/gmail.readonly` |
+| `PUT /messages/{id}/read` | `https://www.googleapis.com/auth/gmail.modify` |
+| `POST /messages/filter/modifyLabels` | `https://www.googleapis.com/auth/gmail.modify` |
+| `DELETE /messages/{id}` | `https://mail.google.com/` |
+| `DELETE /messages/filter` (bulk) | `https://mail.google.com/` |
 
-This scope provides:
-- Read access to Gmail messages
-- Modify access (labels, delete, archive)
-- Full Gmail management capabilities
+### Why the DELETE endpoints require `https://mail.google.com/`
 
-**Note**: Lesser scopes like `gmail.readonly` or `gmail.modify` will limit functionality.
+The DELETE endpoints call Gmail's `users.messages.batchDelete` API, which performs **permanent, irreversible deletion** (the message is removed entirely, not moved to Trash). Per Google's OAuth scope rules, `gmail.modify` permits only `users.messages.trash()` (recoverable, soft delete) — it does NOT permit `batchDelete()`. The full-access `https://mail.google.com/` scope is the only scope that authorizes permanent deletion.
+
+Implementation reference: see `users().messages().batchDelete(...)` at `src/main/java/com/aucontraire/gmailbuddy/client/GmailBatchClient.java` (`executeNativeBatchDelete` method).
+
+### ⚠️ `https://mail.google.com/` is a Google "restricted scope"
+
+For local development against a test/internal OAuth client, this is invisible. If the application is ever published with a production OAuth client (verified-app status, public consent screen), the restricted-scope classification triggers:
+
+- Mandatory Google OAuth verification review (multi-week process)
+- Annual third-party security assessment
+- A more cautious-looking consent screen for end users
+
+If those constraints become a blocker, the alternative is to rewrite the DELETE endpoints to call `users.messages.trash()` instead of `batchDelete()` (recoverable delete; can be done with `gmail.modify` alone). That tradeoff is documented in `docs/architecture/SPIKE-002-Send-Email-Endpoint-Readiness.md` §11.1.
+
+### Recommended scope for testing the full API
+
+To exercise every current endpoint with a single token, request `https://mail.google.com/` in the OAuth Playground (instructions above). It implicitly covers `gmail.readonly` and `gmail.modify` as well. If you only intend to test read or modify endpoints, you can use the narrower `gmail.readonly` or `gmail.modify` scope and skip the restricted-scope warning entirely.
 
 ## 🔧 Postman Setup
 
@@ -238,8 +257,9 @@ curl -X DELETE http://localhost:8020/api/v1/gmail/messages/filter \
 - Ensure the `Authorization` header is properly formatted
 
 **403 Forbidden**
-- Your token may lack necessary Gmail permissions
-- Re-generate token with `https://mail.google.com/` scope
+- Your token may lack the scope required by that specific endpoint — see the scope-to-endpoint table above.
+- Common cause: calling a DELETE endpoint with a `gmail.modify` token. Permanent delete (`batchDelete`) requires `https://mail.google.com/`; `gmail.modify` only permits trashing.
+- Re-generate the token with the scope that endpoint requires.
 
 **404 Not Found**
 - Verify the endpoint URL is correct
