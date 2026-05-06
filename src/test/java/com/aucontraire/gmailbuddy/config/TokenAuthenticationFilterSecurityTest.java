@@ -16,6 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -98,7 +99,7 @@ class TokenAuthenticationFilterSecurityTest {
         assertThat(auth.getAuthorities().iterator().next().getAuthority()).isEqualTo("ROLE_API_USER");
 
         // Verify secure token reference was created
-        verify(tokenReferenceService).createTokenReference(TEST_TOKEN, TEST_USER_EMAIL);
+        verify(tokenReferenceService).createTokenReference(eq(TEST_TOKEN), eq(TEST_USER_EMAIL), anyString());
         verify(filterChain).doFilter(request, response);
     }
 
@@ -121,7 +122,7 @@ class TokenAuthenticationFilterSecurityTest {
 
         verify(tokenValidator).getTokenInfo(TEST_TOKEN);
         verify(tokenValidator).hasValidGmailScopes(anyString());
-        verify(tokenReferenceService).createTokenReference(TEST_TOKEN, TEST_USER_EMAIL);
+        verify(tokenReferenceService).createTokenReference(eq(TEST_TOKEN), eq(TEST_USER_EMAIL), anyString());
         verify(filterChain).doFilter(request, response);
     }
 
@@ -245,7 +246,7 @@ class TokenAuthenticationFilterSecurityTest {
         // Arrange
         setupValidTokenRequest();
         setupValidTokenValidator();
-        when(tokenReferenceService.createTokenReference(TEST_TOKEN, TEST_USER_EMAIL))
+        when(tokenReferenceService.createTokenReference(eq(TEST_TOKEN), eq(TEST_USER_EMAIL), anyString()))
                 .thenThrow(new RuntimeException("Token reference creation failed"));
 
         // Act
@@ -257,7 +258,7 @@ class TokenAuthenticationFilterSecurityTest {
 
         verify(tokenValidator).getTokenInfo(TEST_TOKEN);
         verify(tokenValidator).hasValidGmailScopes(anyString());
-        verify(tokenReferenceService).createTokenReference(TEST_TOKEN, TEST_USER_EMAIL);
+        verify(tokenReferenceService).createTokenReference(eq(TEST_TOKEN), eq(TEST_USER_EMAIL), anyString());
         verify(response).setStatus(401);
     }
 
@@ -283,7 +284,7 @@ class TokenAuthenticationFilterSecurityTest {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         assertThat(auth).isNotNull();
         assertThat(auth.getPrincipal()).isEqualTo("user123");
-        verify(tokenReferenceService).createTokenReference(TEST_TOKEN, "user123");
+        verify(tokenReferenceService).createTokenReference(eq(TEST_TOKEN), eq("user123"), anyString());
     }
 
     @Test
@@ -308,7 +309,7 @@ class TokenAuthenticationFilterSecurityTest {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         assertThat(auth).isNotNull();
         assertThat(auth.getPrincipal()).isEqualTo("api-user");
-        verify(tokenReferenceService).createTokenReference(TEST_TOKEN, "api-user");
+        verify(tokenReferenceService).createTokenReference(eq(TEST_TOKEN), eq("api-user"), anyString());
     }
 
     @Test
@@ -325,7 +326,7 @@ class TokenAuthenticationFilterSecurityTest {
         when(tokenValidator.getTokenInfo(TEST_TOKEN)).thenReturn(tokenInfo);
 
         // Simulate token reference service failure
-        when(tokenReferenceService.createTokenReference(anyString(), anyString()))
+        when(tokenReferenceService.createTokenReference(anyString(), anyString(), anyString()))
                 .thenThrow(new RuntimeException("Simulated failure"));
 
         // Act & Assert - should not throw exception that could expose token
@@ -359,7 +360,7 @@ class TokenAuthenticationFilterSecurityTest {
 
     private void setupTokenReferenceServiceForUser(String userId) {
         when(tokenReference.getReferenceId()).thenReturn(TEST_REFERENCE_ID);
-        when(tokenReferenceService.createTokenReference(TEST_TOKEN, userId))
+        when(tokenReferenceService.createTokenReference(eq(TEST_TOKEN), eq(userId), anyString()))
                 .thenReturn(tokenReference);
     }
 }

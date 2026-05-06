@@ -4,16 +4,27 @@ import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
+import com.aucontraire.gmailbuddy.exception.AuthorizationException;
+import com.aucontraire.gmailbuddy.exception.MessageSendException;
+import com.aucontraire.gmailbuddy.exception.RateLimitException;
+import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
+import com.aucontraire.gmailbuddy.exception.ValidationException;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
+import com.aucontraire.gmailbuddy.service.DraftCreationResult;
+import com.aucontraire.gmailbuddy.service.SentMessageResult;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.*;
+import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.*;
@@ -25,15 +36,18 @@ public class GmailRepositoryImpl implements GmailRepository {
     private final GmailBatchClient gmailBatchClient;
     private final TokenProvider tokenProvider;
     private final GmailBuddyProperties properties;
+    private final GmailMessageMapper gmailMessageMapper;
     private final Logger logger = LoggerFactory.getLogger(GmailRepositoryImpl.class);
 
     @Autowired
     public GmailRepositoryImpl(GmailClient gmailClient, GmailBatchClient gmailBatchClient,
-                              TokenProvider tokenProvider, GmailBuddyProperties properties) {
+                              TokenProvider tokenProvider, GmailBuddyProperties properties,
+                              GmailMessageMapper gmailMessageMapper) {
         this.gmailClient = gmailClient;
         this.gmailBatchClient = gmailBatchClient;
         this.tokenProvider = tokenProvider;
         this.properties = properties;
+        this.gmailMessageMapper = gmailMessageMapper;
     }
 
     private Gmail getGmailService() throws IOException, GeneralSecurityException {
@@ -370,5 +384,160 @@ public class GmailRepositoryImpl implements GmailRepository {
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Send / Draft — T038 (createDraft) implemented; T045 (sendMessage) and
+    // T052 (sendDraft) remain as stubs pending their respective dispatches
+    // -------------------------------------------------------------------------
+
+    /**
+     * Stub implementation. Full implementation arrives in T045.
+     *
+     * @throws UnsupportedOperationException always
+     */
+    @Override
+    public SentMessageResult sendMessage(String userId, MimeMessage mimeMessage) throws IOException {
+        throw new UnsupportedOperationException("Not yet implemented — see T045");
+    }
+
+    /**
+     * Stages a draft for later send/edit. The MimeMessage is serialized to its raw
+     * RFC 5322 byte form, base64url-encoded (RFC 4648 §5), and submitted to the
+     * Gmail API via {@code users.drafts.create}. The resulting {@link Draft} is
+     * mapped to a {@link DraftCreationResult} via {@link GmailMessageMapper}.
+     *
+     * <p>Any {@link GoogleJsonResponseException} from the Gmail API is mapped to an
+     * appropriate project exception via {@link #mapGmailSendError(GoogleJsonResponseException)}.
+     * Other {@link IOException}s propagate per the interface declaration.</p>
+     *
+     * @param userId      the Gmail user identifier; typically {@code "me"}
+     * @param mimeMessage the fully-constructed RFC 5322 message to stage as a draft
+     * @return a {@link DraftCreationResult} containing the Gmail-assigned draft,
+     *         message, and thread identifiers
+     * @throws IOException if serialization, network I/O, or a non-JSON Gmail error occurs
+     */
+    @Override
+    public DraftCreationResult createDraft(String userId, MimeMessage mimeMessage) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            mimeMessage.writeTo(buffer);
+            String encodedRaw = Base64.getUrlEncoder().encodeToString(buffer.toByteArray());
+
+            Message rawMessage = new Message().setRaw(encodedRaw);
+            Draft draft = new Draft().setMessage(rawMessage);
+
+            Draft createdDraft = gmail.users().drafts().create(userId, draft).execute();
+            logger.info("Draft created successfully for userId={}, draftId={}", userId, createdDraft.getId());
+
+            return gmailMessageMapper.toDraftCreationResult(createdDraft);
+
+        } catch (GoogleJsonResponseException e) {
+            logger.error("Gmail API error creating draft for userId={}: status={}, message={}",
+                    userId, e.getStatusCode(), e.getMessage());
+            throw mapGmailSendError(e);
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        } catch (jakarta.mail.MessagingException e) {
+            throw new IOException("Failed to serialize MimeMessage for draft creation", e);
+        }
+    }
+
+    /**
+     * Stub implementation. Full implementation arrives in T052.
+     *
+     * @throws UnsupportedOperationException always
+     */
+    @Override
+    public SentMessageResult sendDraft(String userId, String draftId) throws IOException {
+        throw new UnsupportedOperationException("Not yet implemented — see T052");
+    }
+
+    // -------------------------------------------------------------------------
+    // Private error-mapping helper (research.md Decision 10)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Maps a {@link GoogleJsonResponseException} from a Gmail send or draft-send
+     * call to the appropriate project exception.
+     *
+     * <p>Error reasons are extracted from
+     * {@code e.getDetails().getErrors().get(0).getReason()} when available.
+     * The mapping follows research.md Decision 10:</p>
+     *
+     * <ul>
+     *   <li>{@code invalidArgument} → {@link ValidationException} (HTTP 422)</li>
+     *   <li>{@code insufficientPermissions} → {@link AuthorizationException} (HTTP 403)</li>
+     *   <li>{@code dailySendLimitExceeded} → {@link RateLimitException}
+     *       with {@code retryAfterSeconds=86400} (HTTP 429).
+     *       <strong>CRITICAL: this path MUST NOT route through any retry-with-backoff
+     *       logic.</strong> The limit resets at the next calendar day; exponential
+     *       backoff is useless and wastes quota.</li>
+     *   <li>{@code forbidden} (unverified send-as identity) → {@link AuthorizationException}
+     *       (HTTP 403)</li>
+     *   <li>{@code messageTooLarge} → {@link ValidationException} (HTTP 413 via
+     *       {@code GlobalExceptionHandler}; may become a dedicated exception in v2)</li>
+     *   <li>HTTP 404 (draft does not exist — drafts.send only) →
+     *       {@link ResourceNotFoundException} (HTTP 404)</li>
+     *   <li>Any other 4xx / 5xx → {@link MessageSendException} (HTTP 502)</li>
+     * </ul>
+     *
+     * @param e the exception thrown by the Gmail API client
+     * @return a project exception whose type matches the Gmail error reason
+     */
+    private RuntimeException mapGmailSendError(GoogleJsonResponseException e) {
+        int statusCode = e.getStatusCode();
+
+        // 404 always maps to ResourceNotFoundException (draft not found / already sent)
+        if (statusCode == 404) {
+            return new ResourceNotFoundException(
+                    "Draft not found or already sent/discarded", e);
+        }
+
+        // Extract the error reason from the first error detail when present
+        String reason = null;
+        if (e.getDetails() != null
+                && e.getDetails().getErrors() != null
+                && !e.getDetails().getErrors().isEmpty()) {
+            reason = e.getDetails().getErrors().get(0).getReason();
+        }
+
+        if (reason == null) {
+            return new MessageSendException("Gmail send failed: HTTP " + statusCode, e);
+        }
+
+        return switch (reason) {
+            case "invalidArgument" ->
+                    new ValidationException(
+                            "Gmail rejected one or more recipient addresses or message fields", e);
+
+            case "insufficientPermissions" ->
+                    new AuthorizationException(
+                            "Insufficient Gmail permissions to send mail", e);
+
+            // CRITICAL: dailySendLimitExceeded MUST NOT go through any retry-with-backoff
+            // path. The daily send limit resets at the next calendar day; retrying within
+            // the same day wastes quota and does not resolve the limit. retryAfterSeconds
+            // is set to 86400 (24 hours) to inform the caller of the reset window.
+            case "dailySendLimitExceeded" ->
+                    new RateLimitException(
+                            "Daily Gmail send limit reached; retry after the next-day reset",
+                            e,
+                            86400L);
+
+            case "forbidden" ->
+                    new AuthorizationException(
+                            "Gmail rejected send: forbidden (unverified send-as identity or account restricted)", e);
+
+            case "messageTooLarge" ->
+                    new ValidationException(
+                            "Message exceeds Gmail's maximum allowed size", e);
+
+            default ->
+                    new MessageSendException(
+                            "Gmail send failed with reason: " + reason, e);
+        };
     }
 }

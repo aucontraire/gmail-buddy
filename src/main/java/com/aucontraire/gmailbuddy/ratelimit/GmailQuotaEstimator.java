@@ -30,6 +30,9 @@ public class GmailQuotaEstimator {
     private static final int MESSAGES_BATCH_MODIFY_QUOTA = 50;
     private static final int MESSAGES_DELETE_QUOTA = 10;
     private static final int MESSAGES_MODIFY_QUOTA = 5;
+    private static final int MESSAGES_SEND_QUOTA = 100;
+    private static final int DRAFTS_CREATE_QUOTA = 10;
+    private static final int DRAFTS_SEND_QUOTA = 100;
 
     /**
      * Estimates quota usage for listing messages.
@@ -134,5 +137,35 @@ public class GmailQuotaEstimator {
         // For now, we estimate this as just the search cost
         logger.debug("Estimated quota for filtering {} messages: {} units", messageCount, quota);
         return quota;
+    }
+
+    /**
+     * Estimates quota usage for sending a message directly (users.messages.send).
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateSendMessageQuota() {
+        logger.debug("Estimated quota for sending message: {} units", MESSAGES_SEND_QUOTA);
+        return MESSAGES_SEND_QUOTA;
+    }
+
+    /**
+     * Estimates quota usage for creating a draft (users.drafts.create).
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateCreateDraftQuota() {
+        logger.debug("Estimated quota for creating draft: {} units", DRAFTS_CREATE_QUOTA);
+        return DRAFTS_CREATE_QUOTA;
+    }
+
+    /**
+     * Estimates quota usage for sending an existing draft (users.drafts.send).
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateSendDraftQuota() {
+        logger.debug("Estimated quota for sending draft: {} units", DRAFTS_SEND_QUOTA);
+        return DRAFTS_SEND_QUOTA;
     }
 }

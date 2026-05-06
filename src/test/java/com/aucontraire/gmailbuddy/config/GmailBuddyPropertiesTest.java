@@ -12,6 +12,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.util.unit.DataSize;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
@@ -195,9 +196,10 @@ class GmailBuddyPropertiesTest {
                 properties.validation(),
                 properties.security(),
                 properties.environment(),
-                properties.applicationRateLimit()
+                properties.applicationRateLimit(),
+                new GmailBuddyProperties.Send(DataSize.ofMegabytes(10), 500, 998)
         );
-        
+
         Set<ConstraintViolation<GmailBuddyProperties>> violations = validator.validate(invalidProperties);
         assertFalse(violations.isEmpty());
         assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("blank")));
@@ -223,9 +225,10 @@ class GmailBuddyPropertiesTest {
                 properties.validation(),
                 properties.security(),
                 properties.environment(),
-                properties.applicationRateLimit()
+                properties.applicationRateLimit(),
+                new GmailBuddyProperties.Send(DataSize.ofMegabytes(10), 500, 998)
         );
-        
+
         Set<ConstraintViolation<GmailBuddyProperties>> violations = validator.validate(invalidProperties);
         assertFalse(violations.isEmpty());
         assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("1")));
@@ -257,9 +260,10 @@ class GmailBuddyPropertiesTest {
                 properties.validation(),
                 properties.security(),
                 properties.environment(),
-                properties.applicationRateLimit()
+                properties.applicationRateLimit(),
+                new GmailBuddyProperties.Send(DataSize.ofMegabytes(10), 500, 998)
         );
-        
+
         Set<ConstraintViolation<GmailBuddyProperties>> violations = validator.validate(invalidProperties);
         assertFalse(violations.isEmpty());
         assertTrue(violations.stream().anyMatch(v -> v.getMessage().contains("positive") || v.getPropertyPath().toString().contains("defaultRetrySeconds")));

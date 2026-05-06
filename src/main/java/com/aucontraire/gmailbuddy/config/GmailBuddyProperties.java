@@ -2,6 +2,7 @@ package com.aucontraire.gmailbuddy.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.util.unit.DataSize;
 import org.springframework.validation.annotation.Validated;
 
 import jakarta.validation.Valid;
@@ -28,7 +29,8 @@ public record GmailBuddyProperties(
     @Valid @NotNull Validation validation,
     @Valid @NotNull Security security,
     @Valid @NotNull Environment environment,
-    @Valid @NotNull ApplicationRateLimit applicationRateLimit
+    @Valid @NotNull ApplicationRateLimit applicationRateLimit,
+    @Valid @NotNull Send send
 ) {
 
     /**
@@ -245,6 +247,18 @@ public record GmailBuddyProperties(
     public record ApplicationRateLimit(
         @Min(1) @Max(10000) int requestsPerWindow,
         @Min(1) @Max(3600) long windowSizeSeconds
+    ) {
+        // Default values are set in application.properties
+    }
+
+    /**
+     * Send and draft endpoint configuration.
+     * Maps to gmail-buddy.send.* properties.
+     */
+    public record Send(
+        @NotNull DataSize maxBodySize,
+        @Min(1) @Max(500) int maxRecipientsPerMessage,
+        @Min(1) @Max(998) int maxSubjectLength
     ) {
         // Default values are set in application.properties
     }

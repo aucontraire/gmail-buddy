@@ -1,8 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <!--
+        Log-injection prevention (FR-024).
+        CrlfSanitizingMessageConverter replaces %msg in the encoder pattern.
+        It escapes \r and \n in every log message so that user-supplied strings
+        (recipient addresses, subject lines, validation-rejection values, Gmail
+        query strings built from request fields) cannot inject synthetic log lines.
+        Using a converter rather than per-call-site sanitization ensures that no
+        log.info(...) call can bypass the protection by forgetting to invoke a
+        helper method.
+    -->
+    <conversionRule conversionWord="sanitizedMsg"
+                    converterClass="com.aucontraire.gmailbuddy.util.CrlfSanitizingMessageConverter"/>
+
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} - %sanitizedMsg%n</pattern>
         </encoder>
     </appender>
 

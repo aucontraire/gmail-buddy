@@ -410,7 +410,7 @@ class Phase2ErrorScenariosTest {
             // Mock token reference service
             TokenReference mockTokenReference = mock(TokenReference.class);
             when(mockTokenReference.getReferenceId()).thenReturn("ref-123");
-            when(tokenReferenceService.createTokenReference(VALID_TOKEN, "test@example.com")).thenReturn(mockTokenReference);
+            when(tokenReferenceService.createTokenReference(eq(VALID_TOKEN), eq("test@example.com"), anyString())).thenReturn(mockTokenReference);
 
             // Mock SecurityContext to throw exception when setAuthentication is called
             doThrow(new RuntimeException("SecurityContext corrupted")).when(securityContext).setAuthentication(any());

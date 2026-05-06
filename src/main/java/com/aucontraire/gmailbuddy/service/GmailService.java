@@ -2,6 +2,7 @@ package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.dto.DeleteResult;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
+import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
@@ -9,12 +10,15 @@ import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.google.api.services.gmail.model.FilterCriteria;
 import com.google.api.services.gmail.model.Message;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 @Service
@@ -23,13 +27,16 @@ public class GmailService {
     private final GmailRepository gmailRepository;
     private final GmailQueryBuilder gmailQueryBuilder;
     private final FilterCriteriaMapper filterCriteriaMapper;
+    private final MimeMessageBuilder mimeMessageBuilder;
     private final Logger logger = LoggerFactory.getLogger(GmailService.class);
 
     @Autowired
-    public GmailService(GmailRepository gmailRepository, GmailQueryBuilder gmailQueryBuilder, FilterCriteriaMapper filterCriteriaMapper) {
+    public GmailService(GmailRepository gmailRepository, GmailQueryBuilder gmailQueryBuilder,
+                        FilterCriteriaMapper filterCriteriaMapper, MimeMessageBuilder mimeMessageBuilder) {
         this.gmailRepository = gmailRepository;
         this.gmailQueryBuilder = gmailQueryBuilder;
         this.filterCriteriaMapper = filterCriteriaMapper;
+        this.mimeMessageBuilder = mimeMessageBuilder;
     }
 
     public String buildQuery(FilterCriteria filterCriteria) {
@@ -261,6 +268,37 @@ public class GmailService {
             throw new GmailApiException(
                     String.format("Failed to mark message as read for messageId: %s for user: %s", messageId, userId),
                     e
+            );
+        }
+    }
+
+    /**
+     * Stages a draft email in the user's Gmail Drafts folder. The DTO is first
+     * converted to a {@link MimeMessage} via {@link MimeMessageBuilder}, then
+     * submitted to the Gmail API via the repository layer.
+     *
+     * <p>This is the default outreach path for AI-personalized content — the draft
+     * is immediately visible in any Gmail client for the user to review, edit,
+     * send, or discard before delivery.</p>
+     *
+     * @param userId the Gmail user identifier; typically {@code "me"}
+     * @param dto    the validated send request containing recipients, subject, and body
+     * @return a {@link DraftCreationResult} with the Gmail-assigned draft, message,
+     *         and thread identifiers
+     * @throws GmailApiException if MimeMessage construction fails or the Gmail API
+     *                           returns an error
+     */
+    public DraftCreationResult createDraft(String userId, SendMessageDTO dto) throws GmailApiException {
+        try {
+            MimeMessage mimeMessage = mimeMessageBuilder.build(dto);
+            return gmailRepository.createDraft(userId, mimeMessage);
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            logger.error("Failed to build MimeMessage for draft creation for user: {}", userId, e);
+            throw new GmailApiException("Failed to construct email message for draft", e);
+        } catch (IOException e) {
+            logger.error("Failed to create draft for user: {}", userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to create draft for user: %s", userId), e
             );
         }
     }

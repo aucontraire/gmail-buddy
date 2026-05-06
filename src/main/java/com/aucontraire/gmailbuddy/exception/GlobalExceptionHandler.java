@@ -278,6 +278,11 @@ public class GlobalExceptionHandler {
     /**
      * Handles Spring validation exceptions for request body validation.
      * Maps to RFC 7807 ProblemDetail with field-level validation errors.
+     *
+     * <p>If any failing {@link FieldError} carries a {@code @NoHeaderInjection}
+     * constraint code, the response uses {@link ProblemTypes#HEADER_INJECTION_DETECTED}
+     * so security-relevant attempts can be triaged separately from ordinary input
+     * validation failures (FR-015, FR-018, SC-005).</p>
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ProblemDetail> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
@@ -290,9 +295,32 @@ public class GlobalExceptionHandler {
             fieldErrors.put(fieldName, errorMessage);
         });
 
+        boolean headerInjectionDetected = ex.getBindingResult().getAllErrors().stream()
+                .filter(FieldError.class::isInstance)
+                .map(FieldError.class::cast)
+                .anyMatch(fe -> {
+                    String[] codes = fe.getCodes();
+                    if (codes == null) {
+                        return false;
+                    }
+                    for (String code : codes) {
+                        if (code != null && code.contains("NoHeaderInjection")) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+
+        String problemType = headerInjectionDetected
+                ? ProblemTypes.HEADER_INJECTION_DETECTED
+                : ProblemTypes.VALIDATION_ERROR;
+        String title = headerInjectionDetected
+                ? "Header Injection Detected"
+                : "Validation Error";
+
         ProblemDetail.Builder builder = ProblemDetail.builder()
-                .type(ProblemTypes.VALIDATION_ERROR)
-                .title("Validation Error")
+                .type(problemType)
+                .title(title)
                 .status(HttpStatus.BAD_REQUEST.value())
                 .detail("Input validation failed for " + fieldErrors.size() + " field(s)")
                 .instance(request.getRequestURI())
@@ -305,7 +333,11 @@ public class GlobalExceptionHandler {
 
         ProblemDetail problem = builder.build();
 
-        logger.warn("Validation error: {} (correlation: {})", fieldErrors, requestId);
+        if (headerInjectionDetected) {
+            logger.warn("Header injection detected: {} (correlation: {})", fieldErrors, requestId);
+        } else {
+            logger.warn("Validation error: {} (correlation: {})", fieldErrors, requestId);
+        }
         return buildProblemResponse(problem, HttpStatus.BAD_REQUEST);
     }
 

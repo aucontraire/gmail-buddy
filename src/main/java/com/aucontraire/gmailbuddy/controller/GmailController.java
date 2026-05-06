@@ -4,15 +4,18 @@ import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.dto.DeleteResult;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
+import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
 import com.aucontraire.gmailbuddy.dto.error.ErrorResponse;
 import com.aucontraire.gmailbuddy.dto.response.BulkDeleteResponse;
 import com.aucontraire.gmailbuddy.dto.response.DeleteOperationResult;
+import com.aucontraire.gmailbuddy.dto.response.DraftResponse;
 import com.aucontraire.gmailbuddy.dto.response.LabelModificationResponse;
 import com.aucontraire.gmailbuddy.dto.response.MessageListResponse;
 import com.aucontraire.gmailbuddy.dto.response.MessageSummary;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
+import com.aucontraire.gmailbuddy.service.DraftCreationResult;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.aucontraire.gmailbuddy.util.LinkHeaderBuilder;
@@ -38,6 +41,7 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
+import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -397,6 +401,57 @@ public class GmailController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * POST /drafts - Stage an email as a draft in the user's Gmail Drafts folder.
+     *
+     * <p>This is the default outreach path for AI-personalized content. The draft is
+     * immediately visible in any Gmail client (web, mobile, desktop) for the user to
+     * review, edit, send, or discard before delivery.</p>
+     *
+     * <p>The same {@link SendMessageDTO} payload is used for both direct-send and
+     * draft-creation; the destination Gmail API call differs. Per the API contract,
+     * this endpoint returns HTTP 201 Created with a {@code Location} header pointing
+     * to the new draft resource.</p>
+     */
+    @Operation(
+        summary = "Create a draft email",
+        description = "Stages an email as a draft in the user's Gmail Drafts folder. " +
+                      "The draft is immediately visible in Gmail for review, editing, or discard. " +
+                      "This is the recommended path for AI-personalized outreach content. " +
+                      "Returns HTTP 201 Created with a Location header pointing to the new draft."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Draft created successfully",
+            content = @Content(schema = @Schema(implementation = DraftResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid request - validation failure or header-injection detected",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "422", description = "Unprocessable entity - Gmail rejected one or more recipient addresses",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error - draft creation failed",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping(value = "/drafts",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<DraftResponse> createDraft(
+            @Valid @RequestBody SendMessageDTO dto) {
+
+        String userId = properties.gmailApi().defaultUserId();
+
+        DraftCreationResult result = gmailService.createDraft(userId, dto);
+
+        logger.info("Draft created for userId={}, draftId={}", userId, result.draftId());
+
+        DraftResponse body = DraftResponse.drafted(result.draftId(), result.messageId(), result.threadId());
+        URI location = URI.create("/api/v1/gmail/drafts/" + result.draftId());
+
+        return ResponseEntity.created(location).body(body);
     }
 
     @Operation(
