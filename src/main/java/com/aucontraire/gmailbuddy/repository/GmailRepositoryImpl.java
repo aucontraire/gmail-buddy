@@ -387,18 +387,51 @@ public class GmailRepositoryImpl implements GmailRepository {
     }
 
     // -------------------------------------------------------------------------
-    // Send / Draft — T038 (createDraft) implemented; T045 (sendMessage) and
-    // T052 (sendDraft) remain as stubs pending their respective dispatches
+    // Send / Draft — T038 (createDraft), T045 (sendMessage), T052 (sendDraft)
+    // all fully implemented below
     // -------------------------------------------------------------------------
 
     /**
-     * Stub implementation. Full implementation arrives in T045.
+     * Sends an email message immediately via {@code users.messages.send}. The
+     * MimeMessage is serialized to its raw RFC 5322 byte form, base64url-encoded
+     * (RFC 4648 §5), and submitted to the Gmail API. The resulting {@link Message}
+     * is mapped to a {@link SentMessageResult} via {@link GmailMessageMapper}.
      *
-     * @throws UnsupportedOperationException always
+     * <p>Any {@link GoogleJsonResponseException} from the Gmail API is mapped to an
+     * appropriate project exception via {@link #mapGmailSendError(GoogleJsonResponseException)}.
+     * Other {@link IOException}s propagate per the interface declaration.</p>
+     *
+     * @param userId      the Gmail user identifier; typically {@code "me"}
+     * @param mimeMessage the fully-constructed RFC 5322 message to send
+     * @return a {@link SentMessageResult} containing the Gmail-assigned message
+     *         and thread identifiers
+     * @throws IOException if serialization, network I/O, or a non-JSON Gmail error occurs
      */
     @Override
     public SentMessageResult sendMessage(String userId, MimeMessage mimeMessage) throws IOException {
-        throw new UnsupportedOperationException("Not yet implemented — see T045");
+        try {
+            Gmail gmail = getGmailService();
+
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            mimeMessage.writeTo(buffer);
+            String encodedRaw = Base64.getUrlEncoder().encodeToString(buffer.toByteArray());
+
+            Message message = new Message().setRaw(encodedRaw);
+
+            Message sentMessage = gmail.users().messages().send(userId, message).execute();
+            logger.info("Message sent successfully for userId={}, messageId={}", userId, sentMessage.getId());
+
+            return gmailMessageMapper.toSentMessageResult(sentMessage);
+
+        } catch (GoogleJsonResponseException e) {
+            logger.error("Gmail API error sending message for userId={}: status={}, message={}",
+                    userId, e.getStatusCode(), e.getMessage());
+            throw mapGmailSendError(e);
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        } catch (jakarta.mail.MessagingException e) {
+            throw new IOException("Failed to serialize MimeMessage for send", e);
+        }
     }
 
     /**
@@ -446,13 +479,46 @@ public class GmailRepositoryImpl implements GmailRepository {
     }
 
     /**
-     * Stub implementation. Full implementation arrives in T052.
+     * Sends a previously-created draft by identifier via {@code users.drafts.send}.
+     * A {@link Draft} with only the {@code id} field set is submitted; Gmail resolves
+     * the full message content from the draft store. The resulting {@link Message}
+     * is mapped to a {@link SentMessageResult} via {@link GmailMessageMapper}.
      *
-     * @throws UnsupportedOperationException always
+     * <p>This operation is naturally idempotent at the resource level: a successful
+     * send removes the draft. A subsequent retry returns a 404 from Gmail, which
+     * {@link #mapGmailSendError(GoogleJsonResponseException)} maps to
+     * {@link ResourceNotFoundException} (HTTP 404).</p>
+     *
+     * <p>Any {@link GoogleJsonResponseException} is mapped via
+     * {@link #mapGmailSendError(GoogleJsonResponseException)}. Other
+     * {@link IOException}s propagate per the interface declaration.</p>
+     *
+     * @param userId  the Gmail user identifier; typically {@code "me"}
+     * @param draftId the Gmail-assigned draft identifier
+     * @return a {@link SentMessageResult} containing the Gmail-assigned message
+     *         and thread identifiers
+     * @throws IOException if network I/O or a non-JSON Gmail error occurs
      */
     @Override
     public SentMessageResult sendDraft(String userId, String draftId) throws IOException {
-        throw new UnsupportedOperationException("Not yet implemented — see T052");
+        try {
+            Gmail gmail = getGmailService();
+
+            Draft draft = new Draft().setId(draftId);
+
+            Message sentMessage = gmail.users().drafts().send(userId, draft).execute();
+            logger.info("Draft sent successfully for userId={}, draftId={}, messageId={}",
+                    userId, draftId, sentMessage.getId());
+
+            return gmailMessageMapper.toSentMessageResult(sentMessage);
+
+        } catch (GoogleJsonResponseException e) {
+            logger.error("Gmail API error sending draft for userId={}, draftId={}: status={}, message={}",
+                    userId, draftId, e.getStatusCode(), e.getMessage());
+            throw mapGmailSendError(e);
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
     }
 
     // -------------------------------------------------------------------------

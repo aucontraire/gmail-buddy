@@ -60,6 +60,26 @@ Per CLAUDE.md §A3 (Anti-Slop "No Cosmetic-Only Changes"): do NOT bundle this wi
 
 ---
 
+## FU-003 — `ValidationException` returns HTTP 400 instead of 422
+
+**Surfaces as**: contract drift between `specs/001-send-draft-emails/contracts/api-endpoints.md` (Endpoint 1 error matrix says `400 invalidArgument` from Gmail → `/problems/invalid-recipient` → HTTP **422 Unprocessable Entity**) and the actual production response, which returns HTTP **400 Bad Request**.
+
+Origin: `ValidationException.getHttpStatus()` returns 400 (used by all Bean Validation failures). When the send-message Gmail-error mapping helper (`mapGmailSendError`) wraps a Gmail-side `invalidArgument` rejection into `ValidationException`, `GlobalExceptionHandler.handleValidationException` resolves the status to 400 — same as a generic input-validation failure. The contract intends 422 for the semantic-rejection-by-mailbox-provider case, distinguishable from 400 for malformed request input.
+
+**Why it's not blocking**: the response is still actionable for the calling service — the ProblemDetail `type` URI distinguishes `/problems/invalid-recipient` from `/problems/validation-error`, so a sophisticated client can branch correctly. But the HTTP status semantics don't match the contract.
+
+**Recommended fix**:
+- Add a new `InvalidRecipientException extends GmailBuddyClientException` with `getHttpStatus() = 422`.
+- Update `GmailRepositoryImpl.mapGmailSendError(...)` to throw `InvalidRecipientException` (instead of `ValidationException`) for the `invalidArgument` case from Gmail's send/draft endpoints.
+- Add a dedicated `@ExceptionHandler(InvalidRecipientException.class)` branch in `GlobalExceptionHandler` returning 422 + `/problems/invalid-recipient`.
+- Update the SendMessageControllerTest assertion to expect 422 (currently asserts 400 to match observed behavior).
+
+**Recommended timing**: small follow-up commit on the same branch IF you want the contract to match before merging. Otherwise a focused follow-up PR after merge — the test asserts current behavior so this isn't a regression.
+
+**Owner (per CLAUDE.md)**: `validation-error-handler` (exception hierarchy + GlobalExceptionHandler) with light coordination from `gmail-api-integration` (the mapGmailSendError helper).
+
+---
+
 ## How to use this doc
 
 - Add new entries as `FU-NNN` sequentially.

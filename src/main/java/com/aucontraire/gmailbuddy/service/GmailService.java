@@ -302,4 +302,59 @@ public class GmailService {
             );
         }
     }
+
+    /**
+     * Sends a previously-created draft by its identifier. Thin pass-through to the
+     * repository layer — no MimeMessage construction is needed because the message
+     * content already lives in Gmail's draft store.
+     *
+     * <p>Naturally idempotent at the resource level: if the draft was already sent
+     * (or discarded), Gmail returns 404 and the repository maps it to
+     * {@link com.aucontraire.gmailbuddy.exception.ResourceNotFoundException}, which
+     * the controller returns as HTTP 404.</p>
+     *
+     * @param userId  the Gmail user identifier; typically {@code "me"}
+     * @param draftId the Gmail-assigned draft identifier returned by {@link #createDraft}
+     * @return a {@link SentMessageResult} with the Gmail-assigned message and thread identifiers
+     * @throws GmailApiException if the Gmail API returns an error
+     */
+    public SentMessageResult sendDraft(String userId, String draftId) throws GmailApiException {
+        try {
+            return gmailRepository.sendDraft(userId, draftId);
+        } catch (IOException e) {
+            logger.error("Failed to send draft for draftId: {} for user: {}", draftId, userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to send draft for draftId: %s for user: %s", draftId, userId), e
+            );
+        }
+    }
+
+    /**
+     * Sends an email message immediately. The DTO is first converted to a
+     * {@link MimeMessage} via {@link MimeMessageBuilder}, then submitted to the
+     * Gmail API via the repository layer.
+     *
+     * <p>Reserved for deterministic, pre-trusted templates. Callers MUST NOT
+     * auto-retry POSTs after a network timeout — duplicate sends may result.</p>
+     *
+     * @param userId the Gmail user identifier; typically {@code "me"}
+     * @param dto    the validated send request containing recipients, subject, and body
+     * @return a {@link SentMessageResult} with the Gmail-assigned message and thread identifiers
+     * @throws GmailApiException if MimeMessage construction fails or the Gmail API
+     *                           returns an error
+     */
+    public SentMessageResult sendMessage(String userId, SendMessageDTO dto) throws GmailApiException {
+        try {
+            MimeMessage mimeMessage = mimeMessageBuilder.build(dto);
+            return gmailRepository.sendMessage(userId, mimeMessage);
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            logger.error("Failed to build MimeMessage for send for user: {}", userId, e);
+            throw new GmailApiException("Failed to construct email message for send", e);
+        } catch (IOException e) {
+            logger.error("Failed to send message for user: {}", userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to send message for user: %s", userId), e
+            );
+        }
+    }
 }

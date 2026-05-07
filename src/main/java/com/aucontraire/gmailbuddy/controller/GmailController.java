@@ -11,6 +11,7 @@ import com.aucontraire.gmailbuddy.dto.response.BulkDeleteResponse;
 import com.aucontraire.gmailbuddy.dto.response.DeleteOperationResult;
 import com.aucontraire.gmailbuddy.dto.response.DraftResponse;
 import com.aucontraire.gmailbuddy.dto.response.LabelModificationResponse;
+import com.aucontraire.gmailbuddy.dto.response.SendMessageResponse;
 import com.aucontraire.gmailbuddy.dto.response.MessageListResponse;
 import com.aucontraire.gmailbuddy.dto.response.MessageSummary;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
@@ -18,6 +19,7 @@ import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
+import com.aucontraire.gmailbuddy.service.SentMessageResult;
 import com.aucontraire.gmailbuddy.util.LinkHeaderBuilder;
 import com.google.api.services.gmail.model.Message;
 import io.swagger.v3.oas.annotations.Operation;
@@ -452,6 +454,104 @@ public class GmailController {
         URI location = URI.create("/api/v1/gmail/drafts/" + result.draftId());
 
         return ResponseEntity.created(location).body(body);
+    }
+
+    /**
+     * POST /drafts/{draftId}/send — Deliver a previously-staged draft.
+     *
+     * <p>Triggers immediate delivery of the draft identified by {@code draftId}.
+     * This is a state transition on an existing draft resource, not creation,
+     * so the response is HTTP 200 OK with no {@code Location} header (per
+     * Decision 3 / contracts/api-endpoints.md Endpoint 3).</p>
+     *
+     * <p>Naturally idempotent: a successful send removes the draft from Gmail.
+     * A retry returns HTTP 404 because the draft no longer exists (see Decision 6).</p>
+     */
+    @Operation(
+        summary = "Send an existing draft",
+        description = "Delivers a previously-created draft by its identifier. " +
+                      "This is a state transition on an existing resource — the draft is consumed " +
+                      "and the message appears in the Sent folder. " +
+                      "Returns HTTP 200 OK (not 201) with no Location header. " +
+                      "Naturally idempotent: a retry after successful send returns 404."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Draft sent successfully",
+            content = @Content(schema = @Schema(implementation = SendMessageResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Draft not found - already sent, discarded, or invalid draftId",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Daily Gmail send limit reached - retry after 86400 seconds",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error - send failed",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping(value = "/drafts/{draftId}/send",
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<SendMessageResponse> sendDraft(
+            @Parameter(description = "The Gmail-assigned draft identifier returned by POST /drafts", required = true)
+            @PathVariable String draftId) {
+
+        String userId = properties.gmailApi().defaultUserId();
+
+        SentMessageResult result = gmailService.sendDraft(userId, draftId);
+
+        logger.info("Draft sent for userId={}, draftId={}, messageId={}", userId, draftId, result.messageId());
+
+        return ResponseEntity.ok(SendMessageResponse.sent(result.messageId(), result.threadId()));
+    }
+
+    /**
+     * POST /messages — Send an email message immediately.
+     *
+     * <p>Sends the message constructed from the request body directly via the Gmail
+     * API. Reserved for deterministic, pre-trusted templates. Per Decision 3 and
+     * contracts/api-endpoints.md Endpoint 1, this returns HTTP 201 Created with a
+     * {@code Location} header pointing to the body-fetch endpoint for the new
+     * message resource.</p>
+     *
+     * <p><strong>At-least-once semantics</strong>: callers MUST NOT auto-retry
+     * after a network timeout — duplicate sends may result (Decision 6, FR-023).</p>
+     */
+    @Operation(
+        summary = "Send an email message directly",
+        description = "Sends an email immediately via the Gmail API. " +
+                      "Reserved for deterministic, pre-trusted templates — not the recommended path for " +
+                      "AI-personalized content (use POST /drafts instead). " +
+                      "Returns HTTP 201 Created with a Location header pointing to the message body endpoint. " +
+                      "WARNING: callers must not auto-retry after a timeout — duplicate sends may result."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Message sent successfully — new message resource created",
+            content = @Content(schema = @Schema(implementation = SendMessageResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid request - validation failure or header-injection detected",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions or unverified send-as identity",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "422", description = "Unprocessable entity - Gmail rejected one or more recipient addresses",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Daily Gmail send limit reached - retry after 86400 seconds",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error - send failed",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping(value = "/messages",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<SendMessageResponse> sendMessage(
+            @Valid @RequestBody SendMessageDTO dto) {
+
+        String userId = properties.gmailApi().defaultUserId();
+
+        SentMessageResult result = gmailService.sendMessage(userId, dto);
+
+        logger.info("Message sent for userId={}, messageId={}", userId, result.messageId());
+
+        URI location = URI.create("/api/v1/gmail/messages/" + result.messageId() + "/body");
+        return ResponseEntity.created(location).body(SendMessageResponse.sent(result.messageId(), result.threadId()));
     }
 
     @Operation(
