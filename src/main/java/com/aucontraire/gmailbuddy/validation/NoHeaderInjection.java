@@ -35,7 +35,7 @@ public @interface NoHeaderInjection {
      *
      * @return the error message template
      */
-    String message() default "Header-injection characters (\\r or \\n) are not permitted";
+    String message() default "Header-injection characters (line-terminator characters) are not permitted";
 
     /**
      * Validation groups this constraint belongs to.

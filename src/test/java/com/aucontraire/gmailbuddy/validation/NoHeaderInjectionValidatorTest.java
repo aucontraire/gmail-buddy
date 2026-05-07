@@ -200,4 +200,74 @@ class NoHeaderInjectionValidatorTest {
         // Assert
         assertThat(result).isFalse();
     }
+
+    // -------------------------------------------------------------------------
+    // isValid — additional Unicode line-terminator characters (defence-in-depth)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void isValid_valueWithNextLineCharacter_returnsFalse() {
+        // Arrange: U+0085 NEXT LINE is a Unicode line terminator recognised by the
+        // Java Language Specification and various parsers; must be rejected as
+        // defence-in-depth even though current call sites encode it via RFC 2047.
+        String withNel = "SubjectX-Injected-Header: malicious";
+
+        // Act
+        boolean result = validator.isValid(withNel, context);
+
+        // Assert
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void isValid_valueWithVerticalTab_returnsFalse() {
+        // Arrange: U+000B VERTICAL TAB is a line terminator per the Unicode Standard
+        // and the Java Language Specification; must be rejected as defence-in-depth.
+        String withVt = "SubjectX-Injected-Header: malicious";
+
+        // Act
+        boolean result = validator.isValid(withVt, context);
+
+        // Assert
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void isValid_valueWithFormFeed_returnsFalse() {
+        // Arrange: U+000C FORM FEED is a line terminator per the Unicode Standard
+        // and the Java Language Specification; must be rejected as defence-in-depth.
+        String withFf = "SubjectX-Injected-Header: malicious";
+
+        // Act
+        boolean result = validator.isValid(withFf, context);
+
+        // Assert
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void isValid_valueWithUnicodeLineSeparator_returnsFalse() {
+        // Arrange: U+2028 LINE SEPARATOR is the Unicode-native line terminator;
+        // some parsers treat it identically to LF and must therefore be rejected.
+        String withLs = "Subject X-Injected-Header: malicious";
+
+        // Act
+        boolean result = validator.isValid(withLs, context);
+
+        // Assert
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void isValid_valueWithUnicodeParagraphSeparator_returnsFalse() {
+        // Arrange: U+2029 PARAGRAPH SEPARATOR is a Unicode line terminator that
+        // some parsers treat as a block boundary; must be rejected as defence-in-depth.
+        String withPs = "Subject X-Injected-Header: malicious";
+
+        // Act
+        boolean result = validator.isValid(withPs, context);
+
+        // Assert
+        assertThat(result).isFalse();
+    }
 }
