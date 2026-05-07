@@ -1,7 +1,7 @@
 package com.aucontraire.gmailbuddy.controller;
 
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
-import com.aucontraire.gmailbuddy.exception.ValidationException;
+import com.aucontraire.gmailbuddy.exception.InvalidRecipientException;
 import com.aucontraire.gmailbuddy.fixture.SendMessageRequestFixtures;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
 import com.aucontraire.gmailbuddy.ratelimit.GmailQuotaEstimator;
@@ -41,8 +41,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   <li>Location header IS present and ends with {@code /body} per Decision 3 and
  *       contracts/api-endpoints.md Endpoint 1</li>
  *   <li>Response body: {@code {messageId, threadId, status: "SENT"}}</li>
- *   <li>Validation failure (Gmail rejects recipient) → service throws
- *       {@link ValidationException} → 400 with problem type</li>
+ *   <li>Recipient rejection (Gmail rejects recipient) → service throws
+ *       {@link InvalidRecipientException} → 422 with problem type
+ *       {@code /problems/invalid-recipient}</li>
  * </ul>
  *
  * <p>Uses {@code @WebMvcTest} (web layer only) with {@code @MockitoBean GmailService}.
@@ -192,26 +193,25 @@ class SendMessageControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // 400 — Gmail rejects the recipient (ValidationException from service layer)
+    // 422 — Gmail rejects the recipient (InvalidRecipientException from service layer)
     // -------------------------------------------------------------------------
 
     @Test
     @WithMockUser
-    @DisplayName("postSendMessage_gmailRejectsRecipient_returns400WithValidationErrorProblemType")
-    void postSendMessage_gmailRejectsRecipient_returns400WithValidationErrorProblemType()
+    @DisplayName("postSendMessage_gmailRejectsRecipient_returns422WithInvalidRecipientProblemType")
+    void postSendMessage_gmailRejectsRecipient_returns422WithInvalidRecipientProblemType()
             throws Exception {
-        // Arrange: service throws ValidationException when Gmail returns 400 invalidArgument
-        // (mapped from mapGmailSendError in the repository layer and wrapped in GmailApiException
-        // at the service layer — but since ValidationException is a RuntimeException it propagates
-        // directly through the GmailApiException catch-block only for IOException).
-        // The repository throws ValidationException directly (it's a RuntimeException),
-        // which the service does NOT catch (only IOException is caught).
-        // GlobalExceptionHandler catches ValidationException → 400 + /problems/validation-error.
+        // Arrange: the repository maps Gmail's 400 invalidArgument reason to
+        // InvalidRecipientException (not ValidationException), which propagates as a
+        // RuntimeException through the service layer uncaught (only IOException is caught).
+        // GlobalExceptionHandler.handleInvalidRecipientException catches it and returns
+        // 422 Unprocessable Entity + /problems/invalid-recipient, distinguishing a
+        // mailbox-provider semantic rejection from a Bean Validation structural failure (400).
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         String requestBody = objectMapper.writeValueAsString(dto);
 
         when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class)))
-                .thenThrow(new ValidationException(
+                .thenThrow(new InvalidRecipientException(
                         "Gmail rejected one or more recipient addresses or message fields"));
 
         // Act & Assert
@@ -219,8 +219,8 @@ class SendMessageControllerTest {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.type").value("/problems/validation-error"));
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("/problems/invalid-recipient"));
     }
 
     // -------------------------------------------------------------------------

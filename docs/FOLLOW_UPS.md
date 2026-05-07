@@ -31,26 +31,6 @@ Origin: `TokenReferenceService` / `AESEncryptionUtil` (added in the Token Securi
 
 ---
 
-## FU-003 — `ValidationException` returns HTTP 400 instead of 422
-
-**Surfaces as**: contract drift between `specs/001-send-draft-emails/contracts/api-endpoints.md` (Endpoint 1 error matrix says `400 invalidArgument` from Gmail → `/problems/invalid-recipient` → HTTP **422 Unprocessable Entity**) and the actual production response, which returns HTTP **400 Bad Request**.
-
-Origin: `ValidationException.getHttpStatus()` returns 400 (used by all Bean Validation failures). When the send-message Gmail-error mapping helper (`mapGmailSendError`) wraps a Gmail-side `invalidArgument` rejection into `ValidationException`, `GlobalExceptionHandler.handleValidationException` resolves the status to 400 — same as a generic input-validation failure. The contract intends 422 for the semantic-rejection-by-mailbox-provider case, distinguishable from 400 for malformed request input.
-
-**Why it's not blocking**: the response is still actionable for the calling service — the ProblemDetail `type` URI distinguishes `/problems/invalid-recipient` from `/problems/validation-error`, so a sophisticated client can branch correctly. But the HTTP status semantics don't match the contract.
-
-**Recommended fix**:
-- Add a new `InvalidRecipientException extends GmailBuddyClientException` with `getHttpStatus() = 422`.
-- Update `GmailRepositoryImpl.mapGmailSendError(...)` to throw `InvalidRecipientException` (instead of `ValidationException`) for the `invalidArgument` case from Gmail's send/draft endpoints.
-- Add a dedicated `@ExceptionHandler(InvalidRecipientException.class)` branch in `GlobalExceptionHandler` returning 422 + `/problems/invalid-recipient`.
-- Update the SendMessageControllerTest assertion to expect 422 (currently asserts 400 to match observed behavior).
-
-**Recommended timing**: small follow-up commit on the same branch IF you want the contract to match before merging. Otherwise a focused follow-up PR after merge — the test asserts current behavior so this isn't a regression.
-
-**Owner (per CLAUDE.md)**: `validation-error-handler` (exception hierarchy + GlobalExceptionHandler) with light coordination from `gmail-api-integration` (the mapGmailSendError helper).
-
----
-
 ## FU-006 — Decide tracking policy for `CLAUDE.md` and `docs/Gmail-Buddy-API.postman_collection.json`
 
 **Surfaces as**: both files are present in the working tree, are updated whenever the API surface changes (most recently in PR #9 by tasks T056 and T057), but are kept untracked per the established branch convention. They drift from production over time without ever being committed.
@@ -73,10 +53,33 @@ Origin: `ValidationException.getHttpStatus()` returns 400 (used by all Bean Vali
 
 ---
 
+## FU-007 — `messageTooLarge` in `mapGmailSendError` claims HTTP 413 but returns 400
+
+**Surfaces as**: Javadoc on `mapGmailSendError` (`GmailRepositoryImpl.java`, line describing the `messageTooLarge` case) documents `HTTP 413` as the intended outcome, but the implementation wraps the error in `new ValidationException(...)`, whose `getHttpStatus()` returns `HttpStatus.BAD_REQUEST.value()` (400). `GlobalExceptionHandler.handleValidationException` then routes it to `/problems/validation-error` at 400 — not 413.
+
+**Why it's not blocking**: A 413 vs 400 distinction is a quality-of-API issue, not a functional one. Clients can still identify the error from the `detail` field ("Message exceeds Gmail's maximum allowed size"). The Javadoc note "(HTTP 413 via `GlobalExceptionHandler`; may become a dedicated exception in v2)" was aspirational at the time of writing, not a committed contract.
+
+**Recommended fix**:
+- Create `MessageTooLargeException extends GmailBuddyClientException` with `getHttpStatus() = HttpStatus.PAYLOAD_TOO_LARGE.value()` (413) and `ERROR_CODE = "MESSAGE_TOO_LARGE"`.
+- Add `ProblemTypes.MESSAGE_TOO_LARGE = BASE_URI + "/message-too-large"`.
+- Update the `messageTooLarge` case in `mapGmailSendError` to throw `MessageTooLargeException`.
+- Add `@ExceptionHandler(MessageTooLargeException.class)` in `GlobalExceptionHandler` returning 413 + `/problems/message-too-large`.
+- Update `determineProblemType` to include `"MESSAGE_TOO_LARGE"`.
+- Update (or add) repository and controller tests that assert `messageTooLarge` → `MessageTooLargeException` and 413 status.
+- Update OpenAPI `@ApiResponse` on `sendMessage` and `createDraft` to list 413.
+
+**Pattern to follow**: identical to FU-003 (`InvalidRecipientException` / `INVALID_RECIPIENT` / `/problems/invalid-recipient`) — it was resolved in this branch as a template.
+
+**Recommended timing**: small follow-up PR on master after FU-003 merges. Keep this scoped to the single `messageTooLarge` case — same focused diff pattern as FU-003.
+
+**Owner (per CLAUDE.md)**: `validation-error-handler` (exception hierarchy + GlobalExceptionHandler).
+
+---
+
 ## How to use this doc
 
 - Add new entries as `FU-NNN` sequentially.
-- Each entry stays open until the corresponding fix lands; on completion, mark the heading as `~~FU-NNN~~ (resolved in <commit-sha>)` and move to the bottom of the file.
+- Each entry stays open until the corresponding fix lands; on completion, strike the heading as `~~FU-NNN~~ (resolved in PR #N)` and move to the `## Resolved` section at the bottom with a trimmed 1-line summary. Full diagnostic detail at the time of filing stays in git history.
 - Items here are intentionally NOT the same scope as feature spec backlogs (which live under `specs/`); these are cross-cutting nits / operational items / pre-existing tech debt observed during feature work.
 - Scope guideline: prefer FOLLOW_UPS for items that can ship in 1 focused PR. Larger-scope items (deferred features, multi-step initiatives) live in maintainer-side planning notes outside this repo.
 
@@ -97,3 +100,7 @@ Replaced `message.toPrettyString()` with `message.getId()` on the `getMessageBod
 ### ~~FU-005~~ — 2 `@Disabled` tests in `GmailControllerTest` (resolved in PR #12)
 
 Re-enabled both tests by fixing the underlying broken `@SpringBootTest` context. Root cause was deeper than the disable rationales suggested: an inner `@Configuration` class was suppressing full-application-context scanning, so security/exception-handling/message-conversion didn't behave as in production. Switched to `@SpringBootTest(classes = GmailBuddyApplication.class)` + `@ActiveProfiles("test")`, removed the inner config, added `@MockitoBean GmailRepository`, added `jsonPath` assertions on the `MessageListResponse` envelope. Skip count dropped from 2 to 0; the third test in the class (`testGetMessageBody_ResourceNotFoundException`) was previously passing for the wrong reason (Spring's default 404 handler, not `GlobalExceptionHandler`) and now passes correctly.
+
+### ~~FU-003~~ — `ValidationException` returned HTTP 400 instead of 422 for Gmail `invalidArgument` (resolved in PR #13)
+
+Created `InvalidRecipientException extends GmailBuddyClientException` (HTTP 422) and routed Gmail's `invalidArgument` rejection through it instead of `ValidationException`. Added dedicated `@ExceptionHandler(InvalidRecipientException.class)` returning 422 + `/problems/invalid-recipient` (`ProblemTypes.INVALID_RECIPIENT` was already defined and unused). Updated repository, controller-slice, and exception-class tests; added a new `sendDraft_invalidArgumentError_throwsInvalidRecipientException` test (path was previously untested). Closes contract drift documented in `mapGmailSendError`'s Javadoc since the send/draft feature shipped. Also surfaced `messageTooLarge`'s analogous 400-vs-413 drift, filed as FU-007.

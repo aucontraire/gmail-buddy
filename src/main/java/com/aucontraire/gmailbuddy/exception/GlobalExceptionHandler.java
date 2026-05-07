@@ -244,6 +244,42 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles InvalidRecipientException (Gmail-side rejection of a recipient address or
+     * message field with reason='invalidArgument').
+     *
+     * <p>This is a <em>semantic</em> rejection by the upstream mailbox provider, not a
+     * structural Bean Validation failure. The distinction is important for clients:
+     * a {@code 422} here means the input was well-formed but Gmail's delivery layer
+     * refused it, whereas a {@code 400} from
+     * {@link #handleValidationException(ValidationException)} means the input itself
+     * was structurally invalid before it ever reached Gmail.</p>
+     *
+     * Maps to RFC 7807 ProblemDetail with 422 Unprocessable Entity status and
+     * problem type {@link com.aucontraire.gmailbuddy.constants.ProblemTypes#INVALID_RECIPIENT}.
+     */
+    @ExceptionHandler(InvalidRecipientException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidRecipientException(InvalidRecipientException ex) {
+        String requestId = getRequestId();
+        HttpStatus status = HttpStatus.valueOf(ex.getHttpStatus());
+
+        ProblemDetail problem = ProblemDetail.builder()
+                .type(ProblemTypes.INVALID_RECIPIENT)
+                .title("Invalid Recipient")
+                .status(status.value())
+                .detail(ex.getMessage())
+                .instance(request.getRequestURI())
+                .requestId(requestId)
+                .retryable(false)
+                .category("CLIENT_ERROR")
+                .build();
+
+        logger.warn("Recipient rejected by Gmail [{}]: {} (correlation: {})",
+                ex.getErrorCode(), ex.getMessage(), requestId);
+
+        return buildProblemResponse(problem, status);
+    }
+
+    /**
      * Handles generic GmailBuddyException instances not caught by more specific handlers.
      */
     @ExceptionHandler(GmailBuddyException.class)
@@ -435,6 +471,7 @@ public class GlobalExceptionHandler {
     private String determineProblemType(String errorCode) {
         return switch (errorCode) {
             case "VALIDATION_ERROR" -> ProblemTypes.VALIDATION_ERROR;
+            case "INVALID_RECIPIENT" -> ProblemTypes.INVALID_RECIPIENT;
             case "RESOURCE_NOT_FOUND" -> ProblemTypes.RESOURCE_NOT_FOUND;
             case "AUTHENTICATION_ERROR" -> ProblemTypes.AUTHENTICATION_FAILED;
             case "AUTHORIZATION_ERROR" -> ProblemTypes.AUTHORIZATION_FAILED;
