@@ -58,6 +58,7 @@ logs/
 
 # Local documentation (kept locally, not in repo)
 PROJECT_PLAN.md
+docs/ROADMAP.md
 
 ### Backup files ###
 *.bak

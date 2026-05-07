@@ -114,8 +114,56 @@ Optionally also log `getThreadId()` if useful for diagnostics. Do NOT log `toPre
 
 ---
 
+## FU-005 — Resolve the 2 `@Disabled` tests in `GmailControllerTest`
+
+**Surfaces as**: `GmailControllerTest.java` carries 2 test methods annotated `@Disabled("Legacy test - ...")`. They show up as skips on every test run (`Tests run: 3, Failures: 0, Errors: 0, Skipped: 2`).
+
+**Why it's a real concern**: CLAUDE.md § "Test Integrity Rules (ABSOLUTE - ZERO TOLERANCE)" explicitly forbids `@Disabled` to hide problems:
+> NEVER skip tests with `@Disabled` to hide problems - Address the root cause
+> The ONLY acceptable actions when tests fail:
+>   1. Fix the code if it's wrong
+>   2. Fix the test if it's wrong
+>   3. Update the test if requirements changed
+>   4. Ask the user for clarification if unclear
+
+The 2 `@Disabled` annotations are pre-existing, not introduced by the send/draft feature, but they're a standing CLAUDE.md violation that ships in every commit until they're either fixed or honestly removed.
+
+**Recommended fix**:
+1. Read `GmailControllerTest.java` to understand what the 2 disabled tests were originally trying to verify.
+2. For each: decide whether the test is fixable (the production code may have changed making the assertions stale → update the test), should be deleted (the behavior under test is no longer relevant → `git rm` the test method), or should escalate to a real bug report (the test is correct but the production code is broken → fix the production code).
+3. Whatever the path, the `@Disabled` annotation must go. CLAUDE.md doesn't allow it.
+
+**Recommended timing**: small focused PR after the send/draft feature merges. ~30-min effort once the original intent of each test is understood.
+
+**Owner (per CLAUDE.md)**: `testing-qa-agent` (test integrity is their domain).
+
+---
+
+## FU-006 — Decide tracking policy for `CLAUDE.md` and `docs/Gmail-Buddy-API.postman_collection.json`
+
+**Surfaces as**: both files are present in the working tree, are updated whenever the API surface changes (most recently in PR #9 by tasks T056 and T057), but are kept untracked per the established branch convention. They drift from production over time without ever being committed.
+
+**Why it's a real concern**: documentation drift. `CLAUDE.md` is the contract for any future Claude Code session in this repo — if its API endpoint list lags behind reality, future sessions will reason from outdated information. `Postman` collection drift means PR reviewers and integration testers don't have an up-to-date reference.
+
+**Three reasonable options**:
+
+1. **Track both files going forward**: `git add CLAUDE.md docs/Gmail-Buddy-API.postman_collection.json` once, then update + commit them with each feature PR. Pros: always current; PR reviewers see endpoint additions in the diff. Cons: Postman collection diffs are noisy (JSON ID fields change between environments); CLAUDE.md is sometimes used for personal session notes that may not belong in version control.
+
+2. **Track only `CLAUDE.md`**: it's pure markdown and changes are intentional. Leave Postman untracked since its noise outweighs its review value (the OpenAPI annotations + `docs/API_TESTING_GUIDE.md` already cover the same content for reviewers).
+
+3. **Accept the drift**: keep both untracked; commit to a discipline of re-syncing them at the start of every feature branch by running through the spec's contract. Cons: easy to forget; "discipline" is a fragile compliance mechanism.
+
+**Recommended**: option 2 (track `CLAUDE.md`, leave Postman untracked). Rationale: `CLAUDE.md` is small, all-text, and load-bearing for future AI-assisted work in the repo; Postman's JSON noise is real and the same information is captured in tracked `OpenAPI` annotations and `API_TESTING_GUIDE.md`. But this is a project-policy decision, not a clear-cut technical answer — your call.
+
+**Recommended timing**: trivial decision; once made, a small commit either tracks `CLAUDE.md` or doesn't.
+
+**Owner (per CLAUDE.md)**: project maintainer (you) — this is a policy choice, not a domain task.
+
+---
+
 ## How to use this doc
 
 - Add new entries as `FU-NNN` sequentially.
 - Each entry stays open until the corresponding fix lands; on completion, mark the heading as `~~FU-NNN~~ (resolved in <commit-sha>)` and move to the bottom of the file.
 - Items here are intentionally NOT the same scope as feature spec backlogs (which live under `specs/`); these are cross-cutting nits / operational items / pre-existing tech debt observed during feature work.
+- Scope guideline: prefer FOLLOW_UPS for items that can ship in 1 focused PR. Larger-scope items (deferred features, multi-step initiatives) live in maintainer-side planning notes outside this repo.
