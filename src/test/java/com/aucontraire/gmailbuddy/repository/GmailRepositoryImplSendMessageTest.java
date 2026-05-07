@@ -5,8 +5,8 @@ import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthorizationException;
 import com.aucontraire.gmailbuddy.exception.InvalidRecipientException;
+import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
 import com.aucontraire.gmailbuddy.exception.RateLimitException;
-import com.aucontraire.gmailbuddy.exception.ValidationException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
@@ -313,12 +313,12 @@ class GmailRepositoryImplSendMessageTest {
     }
 
     // -------------------------------------------------------------------------
-    // GoogleJsonResponseException — messageTooLarge → ValidationException
+    // GoogleJsonResponseException — messageTooLarge → MessageTooLargeException
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("sendMessage_messageTooLargeError_throwsValidationException")
-    void sendMessage_messageTooLargeError_throwsValidationException() throws Exception {
+    @DisplayName("sendMessage_messageTooLargeError_throwsMessageTooLargeException")
+    void sendMessage_messageTooLargeError_throwsMessageTooLargeException() throws Exception {
         // Arrange
         MimeMessage mimeMessage = buildTestMimeMessage();
         GoogleJsonResponseException gmailError =
@@ -331,9 +331,12 @@ class GmailRepositoryImplSendMessageTest {
         when(messages.send(eq(TEST_USER_ID), any(Message.class))).thenReturn(messagesSend);
         when(messagesSend.execute()).thenThrow(gmailError);
 
-        // Act & Assert
+        // Act & Assert: Gmail's MIME-size rejection maps to MessageTooLargeException
+        // (HTTP 413), not ValidationException (HTTP 400). The distinction is critical:
+        // ValidationException covers local Bean Validation failures; MessageTooLargeException
+        // covers Gmail-side rejection of the assembled MIME stream as too large.
         assertThatThrownBy(() -> repository.sendMessage(TEST_USER_ID, mimeMessage))
-                .isInstanceOf(ValidationException.class);
+                .isInstanceOf(MessageTooLargeException.class);
     }
 
     // -------------------------------------------------------------------------

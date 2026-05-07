@@ -7,6 +7,7 @@ import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.exception.AuthorizationException;
 import com.aucontraire.gmailbuddy.exception.InvalidRecipientException;
 import com.aucontraire.gmailbuddy.exception.MessageSendException;
+import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
 import com.aucontraire.gmailbuddy.exception.RateLimitException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.exception.ValidationException;
@@ -544,8 +545,7 @@ public class GmailRepositoryImpl implements GmailRepository {
      *       backoff is useless and wastes quota.</li>
      *   <li>{@code forbidden} (unverified send-as identity) → {@link AuthorizationException}
      *       (HTTP 403)</li>
-     *   <li>{@code messageTooLarge} → {@link ValidationException} (HTTP 413 via
-     *       {@code GlobalExceptionHandler}; may become a dedicated exception in v2)</li>
+     *   <li>{@code messageTooLarge} → {@link MessageTooLargeException} (HTTP 413)</li>
      *   <li>HTTP 404 (draft does not exist — drafts.send only) →
      *       {@link ResourceNotFoundException} (HTTP 404)</li>
      *   <li>Any other 4xx / 5xx → {@link MessageSendException} (HTTP 502)</li>
@@ -599,7 +599,7 @@ public class GmailRepositoryImpl implements GmailRepository {
                             "Gmail rejected send: forbidden (unverified send-as identity or account restricted)", e);
 
             case "messageTooLarge" ->
-                    new ValidationException(
+                    new MessageTooLargeException(
                             "Message exceeds Gmail's maximum allowed size", e);
 
             default ->
