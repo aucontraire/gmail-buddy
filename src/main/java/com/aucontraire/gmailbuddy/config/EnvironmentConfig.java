@@ -1,15 +1,19 @@
 package com.aucontraire.gmailbuddy.config;
 
 import io.github.cdimascio.dotenv.Dotenv;
-import org.springframework.context.annotation.Configuration;
+import io.github.cdimascio.dotenv.DotenvEntry;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.env.EnvironmentPostProcessor;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.MapPropertySource;
 
-import jakarta.annotation.PostConstruct;
+import java.util.HashMap;
+import java.util.Map;
 
-@Configuration
-public class EnvironmentConfig {
+public class EnvironmentConfig implements EnvironmentPostProcessor {
 
-    @PostConstruct
-    public void loadEnvironmentVariables() {
+    @Override
+    public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
         try {
             Dotenv dotenv = Dotenv.configure()
                     .directory("./")
@@ -17,19 +21,15 @@ public class EnvironmentConfig {
                     .ignoreIfMissing()
                     .load();
 
-            // Set system properties from .env file
-            dotenv.entries().forEach(entry -> {
-                String key = entry.getKey();
-                String value = entry.getValue();
-                
-                // Only set if not already defined as system property or environment variable
-                if (System.getProperty(key) == null && System.getenv(key) == null) {
-                    System.setProperty(key, value);
-                }
-            });
+            Map<String, Object> dotenvProperties = new HashMap<>();
+            for (DotenvEntry entry : dotenv.entries()) {
+                dotenvProperties.put(entry.getKey(), entry.getValue());
+            }
+
+            // addLast ensures shell-exported env vars and -D system properties take precedence over .env values
+            environment.getPropertySources().addLast(new MapPropertySource("dotenv", dotenvProperties));
         } catch (Exception e) {
-            // Log warning but don't fail startup if .env file has issues
-            System.out.println("Warning: Could not load .env file: " + e.getMessage());
+            System.err.println("Warning: Could not load .env file: " + e.getMessage());
         }
     }
 }
