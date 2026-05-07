@@ -314,7 +314,7 @@ public class GmailRepositoryImpl implements GmailRepository {
         try {
             Gmail gmail = getGmailService();
             Message message = gmail.users().messages().get(userId, messageId).execute();
-            logger.info("Message retrieved: {}", message.toPrettyString());
+            logger.info("Message retrieved: messageId={}", message.getId());
             return getMessageBodyFromParts(message.getPayload().getParts()); // Call helper function
 
         } catch (GeneralSecurityException e) {
