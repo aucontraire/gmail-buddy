@@ -4,6 +4,7 @@ import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthorizationException;
+import com.aucontraire.gmailbuddy.exception.InvalidRecipientException;
 import com.aucontraire.gmailbuddy.exception.RateLimitException;
 import com.aucontraire.gmailbuddy.exception.ValidationException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
@@ -234,12 +235,12 @@ class GmailRepositoryImplSendMessageTest {
     }
 
     // -------------------------------------------------------------------------
-    // GoogleJsonResponseException — invalidArgument → ValidationException
+    // GoogleJsonResponseException — invalidArgument → InvalidRecipientException
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("sendMessage_invalidArgumentError_throwsValidationException")
-    void sendMessage_invalidArgumentError_throwsValidationException() throws Exception {
+    @DisplayName("sendMessage_invalidArgumentError_throwsInvalidRecipientException")
+    void sendMessage_invalidArgumentError_throwsInvalidRecipientException() throws Exception {
         // Arrange: Gmail rejects the recipient with 400 invalidArgument.
         MimeMessage mimeMessage = buildTestMimeMessage();
         GoogleJsonResponseException gmailError =
@@ -252,9 +253,10 @@ class GmailRepositoryImplSendMessageTest {
         when(messages.send(eq(TEST_USER_ID), any(Message.class))).thenReturn(messagesSend);
         when(messagesSend.execute()).thenThrow(gmailError);
 
-        // Act & Assert
+        // Act & Assert: Gmail's semantic rejection of a recipient maps to
+        // InvalidRecipientException (HTTP 422), not ValidationException (HTTP 400).
         assertThatThrownBy(() -> repository.sendMessage(TEST_USER_ID, mimeMessage))
-                .isInstanceOf(ValidationException.class);
+                .isInstanceOf(InvalidRecipientException.class);
     }
 
     // -------------------------------------------------------------------------

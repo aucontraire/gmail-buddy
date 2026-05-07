@@ -5,6 +5,7 @@ import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.exception.AuthorizationException;
+import com.aucontraire.gmailbuddy.exception.InvalidRecipientException;
 import com.aucontraire.gmailbuddy.exception.MessageSendException;
 import com.aucontraire.gmailbuddy.exception.RateLimitException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
@@ -534,7 +535,7 @@ public class GmailRepositoryImpl implements GmailRepository {
      * The mapping follows research.md Decision 10:</p>
      *
      * <ul>
-     *   <li>{@code invalidArgument} → {@link ValidationException} (HTTP 422)</li>
+     *   <li>{@code invalidArgument} → {@link InvalidRecipientException} (HTTP 422)</li>
      *   <li>{@code insufficientPermissions} → {@link AuthorizationException} (HTTP 403)</li>
      *   <li>{@code dailySendLimitExceeded} → {@link RateLimitException}
      *       with {@code retryAfterSeconds=86400} (HTTP 429).
@@ -576,7 +577,7 @@ public class GmailRepositoryImpl implements GmailRepository {
 
         return switch (reason) {
             case "invalidArgument" ->
-                    new ValidationException(
+                    new InvalidRecipientException(
                             "Gmail rejected one or more recipient addresses or message fields", e);
 
             case "insufficientPermissions" ->

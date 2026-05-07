@@ -3,8 +3,8 @@ package com.aucontraire.gmailbuddy.repository;
 import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
+import com.aucontraire.gmailbuddy.exception.InvalidRecipientException;
 import com.aucontraire.gmailbuddy.exception.RateLimitException;
-import com.aucontraire.gmailbuddy.exception.ValidationException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
@@ -240,12 +240,12 @@ class GmailRepositoryImplCreateDraftTest {
     }
 
     // -------------------------------------------------------------------------
-    // GoogleJsonResponseException — invalidArgument → ValidationException
+    // GoogleJsonResponseException — invalidArgument → InvalidRecipientException
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("createDraft_invalidArgumentError_throwsValidationException")
-    void createDraft_invalidArgumentError_throwsValidationException() throws Exception {
+    @DisplayName("createDraft_invalidArgumentError_throwsInvalidRecipientException")
+    void createDraft_invalidArgumentError_throwsInvalidRecipientException() throws Exception {
         // Arrange
         MimeMessage mimeMessage = buildTestMimeMessage();
         GoogleJsonResponseException gmailError =
@@ -258,9 +258,10 @@ class GmailRepositoryImplCreateDraftTest {
         when(drafts.create(eq(TEST_USER_ID), any(Draft.class))).thenReturn(draftsCreate);
         when(draftsCreate.execute()).thenThrow(gmailError);
 
-        // Act & Assert
+        // Act & Assert: Gmail's semantic rejection of a recipient maps to
+        // InvalidRecipientException (HTTP 422), not ValidationException (HTTP 400).
         assertThatThrownBy(() -> repository.createDraft(TEST_USER_ID, mimeMessage))
-                .isInstanceOf(ValidationException.class);
+                .isInstanceOf(InvalidRecipientException.class);
     }
 
     // -------------------------------------------------------------------------
