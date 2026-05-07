@@ -280,6 +280,42 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles MessageTooLargeException (Gmail-side rejection of an assembled MIME payload
+     * that exceeds Gmail's maximum allowed size, i.e. {@code reason='messageTooLarge'}).
+     *
+     * <p>This is a provider-side size limit rejection, not a Bean Validation failure.
+     * The distinction is important for clients: a {@code 413} here means the request was
+     * structurally valid and passed all local validation (including any {@code @MaxBodySize}
+     * pre-check), but the assembled MIME stream was too large for Gmail's API layer to
+     * accept. A {@code 400} from {@link #handleValidationException(ValidationException)}
+     * means the input was structurally invalid before it ever reached Gmail.</p>
+     *
+     * Maps to RFC 7807 ProblemDetail with 413 Payload Too Large status and
+     * problem type {@link com.aucontraire.gmailbuddy.constants.ProblemTypes#MESSAGE_TOO_LARGE}.
+     */
+    @ExceptionHandler(MessageTooLargeException.class)
+    public ResponseEntity<ProblemDetail> handleMessageTooLargeException(MessageTooLargeException ex) {
+        String requestId = getRequestId();
+        HttpStatus status = HttpStatus.valueOf(ex.getHttpStatus());
+
+        ProblemDetail problem = ProblemDetail.builder()
+                .type(ProblemTypes.MESSAGE_TOO_LARGE)
+                .title("Message Too Large")
+                .status(status.value())
+                .detail(ex.getMessage())
+                .instance(request.getRequestURI())
+                .requestId(requestId)
+                .retryable(false)
+                .category("CLIENT_ERROR")
+                .build();
+
+        logger.warn("Message rejected by Gmail (too large) [{}]: {} (correlation: {})",
+                ex.getErrorCode(), ex.getMessage(), requestId);
+
+        return buildProblemResponse(problem, status);
+    }
+
+    /**
      * Handles generic GmailBuddyException instances not caught by more specific handlers.
      */
     @ExceptionHandler(GmailBuddyException.class)
@@ -472,6 +508,7 @@ public class GlobalExceptionHandler {
         return switch (errorCode) {
             case "VALIDATION_ERROR" -> ProblemTypes.VALIDATION_ERROR;
             case "INVALID_RECIPIENT" -> ProblemTypes.INVALID_RECIPIENT;
+            case "MESSAGE_TOO_LARGE" -> ProblemTypes.MESSAGE_TOO_LARGE;
             case "RESOURCE_NOT_FOUND" -> ProblemTypes.RESOURCE_NOT_FOUND;
             case "AUTHENTICATION_ERROR" -> ProblemTypes.AUTHENTICATION_FAILED;
             case "AUTHORIZATION_ERROR" -> ProblemTypes.AUTHORIZATION_FAILED;

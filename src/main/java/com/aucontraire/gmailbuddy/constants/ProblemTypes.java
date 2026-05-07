@@ -98,6 +98,17 @@ public final class ProblemTypes {
     public static final String INVALID_RECIPIENT = BASE_URI + "/invalid-recipient";
 
     /**
+     * Message too large - Gmail rejected the assembled MIME payload because it exceeds
+     * the maximum allowed size (35 MB raw, ~25 MB base64).
+     * HTTP Status: 413 Payload Too Large
+     * Triggered when Gmail returns messageTooLarge for a send/draft-send request whose
+     * MIME stream passed local Bean Validation (including the @MaxBodySize 10 MB pre-check)
+     * but was rejected by Gmail's API layer as too large (FR-018).
+     * Example: An email with large attachments whose combined encoded size exceeds Gmail's limit.
+     */
+    public static final String MESSAGE_TOO_LARGE = BASE_URI + "/message-too-large";
+
+    /**
      * Daily send limit exceeded - the authenticated user has reached their Gmail
      * daily sending limit (Google returns 403 dailySendLimitExceeded).
      * HTTP Status: 429 Too Many Requests

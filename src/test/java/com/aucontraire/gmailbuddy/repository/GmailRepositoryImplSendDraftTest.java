@@ -4,6 +4,7 @@ import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.InvalidRecipientException;
+import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
 import com.aucontraire.gmailbuddy.exception.RateLimitException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
@@ -248,6 +249,31 @@ class GmailRepositoryImplSendDraftTest {
         // InvalidRecipientException (HTTP 422), not ValidationException (HTTP 400).
         assertThatThrownBy(() -> repository.sendDraft(TEST_USER_ID, TEST_DRAFT_ID))
                 .isInstanceOf(InvalidRecipientException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // GoogleJsonResponseException — messageTooLarge → MessageTooLargeException
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("sendDraft_messageTooLargeError_throwsMessageTooLargeException")
+    void sendDraft_messageTooLargeError_throwsMessageTooLargeException() throws Exception {
+        // Arrange: Gmail rejects the draft's assembled MIME payload as too large.
+        GoogleJsonResponseException gmailError =
+                buildGoogleJsonException(413, "messageTooLarge");
+
+        when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
+        when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
+        when(gmail.users()).thenReturn(users);
+        when(users.drafts()).thenReturn(drafts);
+        when(drafts.send(eq(TEST_USER_ID), any(Draft.class))).thenReturn(draftsSend);
+        when(draftsSend.execute()).thenThrow(gmailError);
+
+        // Act & Assert: Gmail's MIME-size rejection maps to MessageTooLargeException
+        // (HTTP 413), not ValidationException (HTTP 400). The assembled MIME stream
+        // exceeded Gmail's maximum allowed size (35 MB raw), not a local validation failure.
+        assertThatThrownBy(() -> repository.sendDraft(TEST_USER_ID, TEST_DRAFT_ID))
+                .isInstanceOf(MessageTooLargeException.class);
     }
 
     // -------------------------------------------------------------------------

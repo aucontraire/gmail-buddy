@@ -2,6 +2,7 @@ package com.aucontraire.gmailbuddy.controller;
 
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.exception.InvalidRecipientException;
+import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
 import com.aucontraire.gmailbuddy.fixture.SendMessageRequestFixtures;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
 import com.aucontraire.gmailbuddy.ratelimit.GmailQuotaEstimator;
@@ -221,6 +222,37 @@ class SendMessageControllerTest {
                         .content(requestBody))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.type").value("/problems/invalid-recipient"));
+    }
+
+    // -------------------------------------------------------------------------
+    // 413 — Gmail rejects the payload as too large (MessageTooLargeException from service layer)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser
+    @DisplayName("postSendMessage_gmailMessageTooLarge_returns413WithMessageTooLargeProblemType")
+    void postSendMessage_gmailMessageTooLarge_returns413WithMessageTooLargeProblemType()
+            throws Exception {
+        // Arrange: the repository maps Gmail's messageTooLarge reason to
+        // MessageTooLargeException (not ValidationException), which propagates as a
+        // RuntimeException through the service layer uncaught (only IOException is caught).
+        // GlobalExceptionHandler.handleMessageTooLargeException catches it and returns
+        // 413 Payload Too Large + /problems/message-too-large, distinguishing a
+        // Gmail-side MIME-size rejection from a Bean Validation structural failure (400).
+        SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
+        String requestBody = objectMapper.writeValueAsString(dto);
+
+        when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class)))
+                .thenThrow(new MessageTooLargeException(
+                        "Message exceeds Gmail's maximum allowed size"));
+
+        // Act & Assert
+        mockMvc.perform(post(MESSAGES_ENDPOINT)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.type").value("/problems/message-too-large"));
     }
 
     // -------------------------------------------------------------------------

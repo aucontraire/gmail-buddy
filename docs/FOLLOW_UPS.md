@@ -53,29 +53,6 @@ Origin: `TokenReferenceService` / `AESEncryptionUtil` (added in the Token Securi
 
 ---
 
-## FU-007 — `messageTooLarge` in `mapGmailSendError` claims HTTP 413 but returns 400
-
-**Surfaces as**: Javadoc on `mapGmailSendError` (`GmailRepositoryImpl.java`, line describing the `messageTooLarge` case) documents `HTTP 413` as the intended outcome, but the implementation wraps the error in `new ValidationException(...)`, whose `getHttpStatus()` returns `HttpStatus.BAD_REQUEST.value()` (400). `GlobalExceptionHandler.handleValidationException` then routes it to `/problems/validation-error` at 400 — not 413.
-
-**Why it's not blocking**: A 413 vs 400 distinction is a quality-of-API issue, not a functional one. Clients can still identify the error from the `detail` field ("Message exceeds Gmail's maximum allowed size"). The Javadoc note "(HTTP 413 via `GlobalExceptionHandler`; may become a dedicated exception in v2)" was aspirational at the time of writing, not a committed contract.
-
-**Recommended fix**:
-- Create `MessageTooLargeException extends GmailBuddyClientException` with `getHttpStatus() = HttpStatus.PAYLOAD_TOO_LARGE.value()` (413) and `ERROR_CODE = "MESSAGE_TOO_LARGE"`.
-- Add `ProblemTypes.MESSAGE_TOO_LARGE = BASE_URI + "/message-too-large"`.
-- Update the `messageTooLarge` case in `mapGmailSendError` to throw `MessageTooLargeException`.
-- Add `@ExceptionHandler(MessageTooLargeException.class)` in `GlobalExceptionHandler` returning 413 + `/problems/message-too-large`.
-- Update `determineProblemType` to include `"MESSAGE_TOO_LARGE"`.
-- Update (or add) repository and controller tests that assert `messageTooLarge` → `MessageTooLargeException` and 413 status.
-- Update OpenAPI `@ApiResponse` on `sendMessage` and `createDraft` to list 413.
-
-**Pattern to follow**: identical to FU-003 (`InvalidRecipientException` / `INVALID_RECIPIENT` / `/problems/invalid-recipient`) — it was resolved in this branch as a template.
-
-**Recommended timing**: small follow-up PR on master after FU-003 merges. Keep this scoped to the single `messageTooLarge` case — same focused diff pattern as FU-003.
-
-**Owner (per CLAUDE.md)**: `validation-error-handler` (exception hierarchy + GlobalExceptionHandler).
-
----
-
 ## How to use this doc
 
 - Add new entries as `FU-NNN` sequentially.
@@ -104,3 +81,7 @@ Re-enabled both tests by fixing the underlying broken `@SpringBootTest` context.
 ### ~~FU-003~~ — `ValidationException` returned HTTP 400 instead of 422 for Gmail `invalidArgument` (resolved in PR #13)
 
 Created `InvalidRecipientException extends GmailBuddyClientException` (HTTP 422) and routed Gmail's `invalidArgument` rejection through it instead of `ValidationException`. Added dedicated `@ExceptionHandler(InvalidRecipientException.class)` returning 422 + `/problems/invalid-recipient` (`ProblemTypes.INVALID_RECIPIENT` was already defined and unused). Updated repository, controller-slice, and exception-class tests; added a new `sendDraft_invalidArgumentError_throwsInvalidRecipientException` test (path was previously untested). Closes contract drift documented in `mapGmailSendError`'s Javadoc since the send/draft feature shipped. Also surfaced `messageTooLarge`'s analogous 400-vs-413 drift, filed as FU-007.
+
+### ~~FU-007~~ — `messageTooLarge` in `mapGmailSendError` returned HTTP 400 instead of 413 (resolved in PR #14)
+
+Created `MessageTooLargeException extends GmailBuddyClientException` (HTTP 413) and routed Gmail's `messageTooLarge` rejection through it instead of `ValidationException`. Added dedicated `@ExceptionHandler(MessageTooLargeException.class)` returning 413 + `/problems/message-too-large` (`ProblemTypes.MESSAGE_TOO_LARGE`). Updated Javadoc in `mapGmailSendError`. Renamed existing `sendMessage_messageTooLargeError_throwsValidationException` test; added `messageTooLarge` tests for `createDraft` and `sendDraft` (both paths were previously untested for this case). Added a controller-slice test asserting 413 + `/problems/message-too-large`. Added 413 `@ApiResponse` to all three send/draft endpoints; also added 422 to `sendDraft` (FU-003 leftover). Closes the parallel contract drift to FU-003.
