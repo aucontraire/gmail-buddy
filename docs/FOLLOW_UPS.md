@@ -51,31 +51,6 @@ Origin: `ValidationException.getHttpStatus()` returns 400 (used by all Bean Vali
 
 ---
 
-## FU-005 — Resolve the 2 `@Disabled` tests in `GmailControllerTest`
-
-**Surfaces as**: `GmailControllerTest.java` carries 2 test methods annotated `@Disabled("Legacy test - ...")`. They show up as skips on every test run (`Tests run: 3, Failures: 0, Errors: 0, Skipped: 2`).
-
-**Why it's a real concern**: CLAUDE.md § "Test Integrity Rules (ABSOLUTE - ZERO TOLERANCE)" explicitly forbids `@Disabled` to hide problems:
-> NEVER skip tests with `@Disabled` to hide problems - Address the root cause
-> The ONLY acceptable actions when tests fail:
->   1. Fix the code if it's wrong
->   2. Fix the test if it's wrong
->   3. Update the test if requirements changed
->   4. Ask the user for clarification if unclear
-
-The 2 `@Disabled` annotations are pre-existing, not introduced by the send/draft feature, but they're a standing CLAUDE.md violation that ships in every commit until they're either fixed or honestly removed.
-
-**Recommended fix**:
-1. Read `GmailControllerTest.java` to understand what the 2 disabled tests were originally trying to verify.
-2. For each: decide whether the test is fixable (the production code may have changed making the assertions stale → update the test), should be deleted (the behavior under test is no longer relevant → `git rm` the test method), or should escalate to a real bug report (the test is correct but the production code is broken → fix the production code).
-3. Whatever the path, the `@Disabled` annotation must go. CLAUDE.md doesn't allow it.
-
-**Recommended timing**: small focused PR after the send/draft feature merges. ~30-min effort once the original intent of each test is understood.
-
-**Owner (per CLAUDE.md)**: `testing-qa-agent` (test integrity is their domain).
-
----
-
 ## FU-006 — Decide tracking policy for `CLAUDE.md` and `docs/Gmail-Buddy-API.postman_collection.json`
 
 **Surfaces as**: both files are present in the working tree, are updated whenever the API surface changes (most recently in PR #9 by tasks T056 and T057), but are kept untracked per the established branch convention. They drift from production over time without ever being committed.
@@ -118,3 +93,7 @@ Dropped `@Autowired(required = false)` from the sole constructor and the matchin
 ### ~~FU-004~~ — `getMessageBody` log statement leaked message body content (resolved in PR #11)
 
 Replaced `message.toPrettyString()` with `message.getId()` on the `getMessageBody` log line, closing a Constitution VII violation (full Gmail SDK `Message` — including `payload.parts.body.data` — was being logged on every `GET /api/v1/gmail/messages/{id}/body` call). Added a Logback `ListAppender`-based regression test asserting the log emits `messageId=…` and no payload/parts/body fragments.
+
+### ~~FU-005~~ — 2 `@Disabled` tests in `GmailControllerTest` (resolved in PR #12)
+
+Re-enabled both tests by fixing the underlying broken `@SpringBootTest` context. Root cause was deeper than the disable rationales suggested: an inner `@Configuration` class was suppressing full-application-context scanning, so security/exception-handling/message-conversion didn't behave as in production. Switched to `@SpringBootTest(classes = GmailBuddyApplication.class)` + `@ActiveProfiles("test")`, removed the inner config, added `@MockitoBean GmailRepository`, added `jsonPath` assertions on the `MessageListResponse` envelope. Skip count dropped from 2 to 0; the third test in the class (`testGetMessageBody_ResourceNotFoundException`) was previously passing for the wrong reason (Spring's default 404 handler, not `GlobalExceptionHandler`) and now passes correctly.

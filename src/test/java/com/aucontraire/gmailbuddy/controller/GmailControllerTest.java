@@ -1,12 +1,12 @@
 package com.aucontraire.gmailbuddy.controller;
 
+import com.aucontraire.gmailbuddy.GmailBuddyApplication;
 import com.aucontraire.gmailbuddy.config.TestTokenProviderConfiguration;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
+import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
-import com.aucontraire.gmailbuddy.service.TestOAuth2AuthorizedClientService;
-import com.google.api.services.gmail.model.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -14,35 +14,34 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.mockito.Mockito;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
-import java.util.List;
 
-import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@SpringBootTest(classes = GmailBuddyApplication.class, webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 @Import(TestTokenProviderConfiguration.class)
 public class GmailControllerTest {
 
@@ -54,16 +53,8 @@ public class GmailControllerTest {
     @MockitoBean
     private GmailService gmailService;
 
-    @Autowired
-    private OAuth2AuthorizedClientService authorizedClientService;
-
-    @Configuration
-    static class TestConfig {
-        @Bean
-        public OAuth2AuthorizedClientService authorizedClientService() {
-            return new TestOAuth2AuthorizedClientService();
-        }
-    }
+    @MockitoBean
+    private GmailRepository gmailRepository;
 
     @BeforeEach
     public void setup() {
@@ -78,7 +69,6 @@ public class GmailControllerTest {
     }
 
     @Test
-    @org.junit.jupiter.api.Disabled("Legacy test - content type issue needs investigation")
     public void testListMessagesByFilterCriteria() throws Exception {
         String jsonPayload = "{\n" +
                 "  \"from\": \"jobalerts-noreply@linkedin.com\",\n" +
@@ -97,11 +87,13 @@ public class GmailControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonPayload)
                         .with(csrf()))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.messages").isArray())
+                .andExpect(jsonPath("$.totalCount").value(0));
     }
 
     @Test
-    @org.junit.jupiter.api.Disabled("Legacy test - Jackson serialization issue with Google Message objects")
     public void testListMessages() throws Exception {
         MessageListResult mockListResult = new MessageListResult(Collections.emptyList(), null, 0);
         when(gmailService.listMessagesWithPagination(eq("me"), any(), anyInt())).thenReturn(mockListResult);
@@ -109,7 +101,10 @@ public class GmailControllerTest {
         mockMvc.perform(get("/api/v1/gmail/messages")
                         .accept(MediaType.APPLICATION_JSON)
                         .with(csrf()))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.messages").isArray())
+                .andExpect(jsonPath("$.totalCount").value(0));
     }
 
     @Test
