@@ -1,5 +1,9 @@
 package com.aucontraire.gmailbuddy.repository;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
@@ -10,6 +14,9 @@ import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.ListMessagesResponse;
 import com.google.api.services.gmail.model.Message;
+import com.google.api.services.gmail.model.MessagePart;
+import com.google.api.services.gmail.model.MessagePartBody;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,6 +25,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -33,7 +41,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for GmailRepositoryImpl with TokenProvider abstraction.
- * 
+ *
  * These tests verify that the repository layer properly uses the TokenProvider
  * abstraction and is decoupled from Spring Security's SecurityContextHolder.
  */
@@ -57,34 +65,52 @@ class GmailRepositoryImplTest {
 
     @Mock
     private Gmail gmail;
-    
+
     @Mock
     private Gmail.Users users;
-    
+
     @Mock
     private Gmail.Users.Messages messages;
-    
+
     @Mock
     private Gmail.Users.Messages.List messagesList;
-    
+
     @Mock
     private Gmail.Users.Messages.Trash messagesTrash;
-    
+
     @Mock
     private Gmail.Users.Messages.Delete messagesDelete;
-    
+
+    @Mock
+    private Gmail.Users.Messages.Get messagesGet;
+
     private GmailRepositoryImpl repository;
-    
+
+    private ListAppender<ILoggingEvent> logAppender;
+    private Logger repositoryLogger;
+
     private static final String TEST_USER_ID = "testuser@example.com";
     private static final String TEST_ACCESS_TOKEN = "test-access-token-123";
     private static final String TEST_MESSAGE_ID = "test-message-id";
     private static final String TEST_QUERY = "from:test@example.com";
-    
+
     @BeforeEach
     void setUp() {
         repository = new GmailRepositoryImpl(gmailClient, gmailBatchClient, tokenProvider, properties, gmailMessageMapper);
+
+        repositoryLogger = (Logger) LoggerFactory.getLogger(GmailRepositoryImpl.class);
+        repositoryLogger.setLevel(Level.DEBUG);
+        logAppender = new ListAppender<>();
+        logAppender.start();
+        repositoryLogger.addAppender(logAppender);
     }
-    
+
+    @AfterEach
+    void tearDown() {
+        repositoryLogger.detachAppender(logAppender);
+        logAppender.stop();
+    }
+
     @Test
     void getMessages_WithValidToken_ReturnsMessages() throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
@@ -110,33 +136,33 @@ class GmailRepositoryImplTest {
         verify(tokenProvider).getAccessToken();
         verify(gmailClient).createGmailService(TEST_ACCESS_TOKEN);
     }
-    
+
     @Test
     void getMessages_WithAuthenticationException_ThrowsIllegalStateException() throws AuthenticationException, GeneralSecurityException {
         // Given
         when(tokenProvider.getAccessToken()).thenThrow(new AuthenticationException("Token expired"));
-        
+
         // When & Then
         IllegalStateException exception = assertThrows(
             IllegalStateException.class,
             () -> repository.getMessages(TEST_USER_ID)
         );
-        
+
         assertTrue(exception.getMessage().contains("Failed to authenticate with Gmail API"));
         assertTrue(exception.getCause() instanceof AuthenticationException);
         verify(tokenProvider).getAccessToken();
         verifyNoInteractions(gmailClient);
     }
-    
+
     @Test
     void getLatestMessages_WithValidToken_ReturnsLimitedMessages() throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
         long maxResults = 10L;
         Message message = new Message().setId("latest-msg");
         List<Message> expectedMessages = Arrays.asList(message);
-        
+
         ListMessagesResponse response = new ListMessagesResponse().setMessages(expectedMessages);
-        
+
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
         when(gmail.users()).thenReturn(users);
@@ -144,24 +170,24 @@ class GmailRepositoryImplTest {
         when(messages.list(TEST_USER_ID)).thenReturn(messagesList);
         when(messagesList.setMaxResults(maxResults)).thenReturn(messagesList);
         when(messagesList.execute()).thenReturn(response);
-        
+
         // When
         List<Message> result = repository.getLatestMessages(TEST_USER_ID, maxResults);
-        
+
         // Then
         assertEquals(expectedMessages, result);
         verify(messagesList).setMaxResults(maxResults);
         verify(tokenProvider).getAccessToken();
     }
-    
+
     @Test
     void getMessagesByFilterCriteria_WithValidQuery_ReturnsFilteredMessages() throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
         Message message = new Message().setId("filtered-msg");
         List<Message> expectedMessages = Arrays.asList(message);
-        
+
         ListMessagesResponse response = new ListMessagesResponse().setMessages(expectedMessages);
-        
+
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
         when(gmail.users()).thenReturn(users);
@@ -169,16 +195,16 @@ class GmailRepositoryImplTest {
         when(messages.list(TEST_USER_ID)).thenReturn(messagesList);
         when(messagesList.setQ(TEST_QUERY)).thenReturn(messagesList);
         when(messagesList.execute()).thenReturn(response);
-        
+
         // When
         List<Message> result = repository.getMessagesByFilterCriteria(TEST_USER_ID, TEST_QUERY);
-        
+
         // Then
         assertEquals(expectedMessages, result);
         verify(messagesList).setQ(TEST_QUERY);
         verify(tokenProvider).getAccessToken();
     }
-    
+
     @Test
     void deleteMessage_WithValidToken_DeletesMessage() throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
@@ -198,14 +224,14 @@ class GmailRepositoryImplTest {
         verify(tokenProvider).getAccessToken();
         verify(gmailBatchClient).batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID));
     }
-    
+
     @Test
     void deleteMessage_WithGmailClientException_ThrowsIOException() throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN))
             .thenThrow(new GeneralSecurityException("Gmail service creation failed"));
-        
+
         // When & Then
         IOException exception = assertThrows(
             IOException.class,
@@ -244,10 +270,10 @@ class GmailRepositoryImplTest {
     void testTokenProviderIntegration_NoSecurityContextHolderDependency() throws AuthenticationException {
         // This test verifies that the repository doesn't directly use SecurityContextHolder
         // and relies solely on the TokenProvider abstraction
-        
+
         // Given
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
-        
+
         // When
         assertDoesNotThrow(() -> {
             // The repository should be able to get tokens without any SecurityContext setup
@@ -255,11 +281,11 @@ class GmailRepositoryImplTest {
             String token = tokenProvider.getAccessToken();
             assertNotNull(token);
         });
-        
+
         // Then
         verify(tokenProvider).getAccessToken();
     }
-    
+
     @Test
     void testTokenProviderMockability() throws AuthenticationException {
         // This test demonstrates how easy it is to mock the TokenProvider
@@ -319,5 +345,50 @@ class GmailRepositoryImplTest {
         // Assert
         verify(tokenProvider).getAccessToken();
         verify(gmailBatchClient).batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID));
+    }
+
+    // ========== Tests for PII / Constitution VII compliance ==========
+
+    @Test
+    @DisplayName("getMessageBody log must contain messageId and must NOT contain message body payload (Constitution VII)")
+    void getMessageBody_LogMustNotContainBodyPayload_OnlyMessageId()
+            throws IOException, GeneralSecurityException, AuthenticationException {
+        // Arrange - build a Message with no payload parts so getMessageBodyFromParts
+        // returns "" immediately without touching the mimeType property chain.
+        // The absence of parts is sufficient to exercise the log line under test.
+        Message message = new Message()
+                .setId(TEST_MESSAGE_ID)
+                .setPayload(new com.google.api.services.gmail.model.MessagePart().setParts(null));
+
+        when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
+        when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
+        when(gmail.users()).thenReturn(users);
+        when(users.messages()).thenReturn(messages);
+        when(messages.get(TEST_USER_ID, TEST_MESSAGE_ID)).thenReturn(messagesGet);
+        when(messagesGet.execute()).thenReturn(message);
+
+        // Act
+        repository.getMessageBody(TEST_USER_ID, TEST_MESSAGE_ID);
+
+        // Assert - the "Message retrieved" log line must contain the messageId
+        // and must NOT contain body-payload keywords (Constitution VII)
+        List<String> logMessages = logAppender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .filter(m -> m.contains("Message retrieved"))
+                .toList();
+
+        assertThat(logMessages)
+                .as("Expected exactly one 'Message retrieved' log statement")
+                .hasSize(1);
+
+        String retrievedLog = logMessages.get(0);
+        assertThat(retrievedLog)
+                .as("Log must contain the messageId for correlation")
+                .contains("messageId=" + TEST_MESSAGE_ID);
+        assertThat(retrievedLog)
+                .as("Log must NOT contain 'toPrettyString' serialized payload fields (Constitution VII)")
+                .doesNotContain("payload")
+                .doesNotContain("\"parts\"")
+                .doesNotContain("\"body\"");
     }
 }

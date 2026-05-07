@@ -31,35 +31,6 @@ Origin: `TokenReferenceService` / `AESEncryptionUtil` (added in the Token Securi
 
 ---
 
-## FU-002 — Resolve Spring `@Autowired` warning on `WebConfig`
-
-**Surfaces as**: startup log entry every time the application boots:
-
-```
-WARN - Inconsistent constructor declaration on bean with name 'webConfig':
-       single autowire-marked constructor flagged as optional - this constructor
-       is effectively required since there is no default constructor to fall
-       back to: public com.aucontraire.gmailbuddy.config.WebConfig$$SpringCGLIB$$0(
-         com.aucontraire.gmailbuddy.config.RateLimitInterceptor)
-```
-
-Origin: pre-existing in `WebConfig.java`. Likely an `@Autowired(required = false)` (or equivalent default-arg pattern) on a constructor that has no fallback default constructor — Spring's warning says: "you marked this optional but I can't actually skip it because there's no other constructor."
-
-**Why it's not blocking**: cosmetic. The bean is constructed correctly; the warning is just noise on every startup.
-
-**Recommended fix** (one of):
-- Remove the `@Autowired` annotation entirely if the constructor is the only one (Spring auto-detects single-constructor injection since 4.3 — explicit annotation is redundant).
-- Or, if `@Autowired(required = false)` was intentional, refactor the constructor to truly support optional injection (e.g., add a default constructor or a no-arg path).
-- Most likely fix: drop the annotation; net change ≈ 1 line.
-
-**Recommended timing**: trivial 1-line commit. Could go in any small docs/cleanup PR (e.g., bundled with the FU-001 fix, or as a one-off chore commit).
-
-Per CLAUDE.md §A3 (Anti-Slop "No Cosmetic-Only Changes"): do NOT bundle this with feature work. Cosmetic-only changes belong in their own commit so feature diffs stay clean.
-
-**Owner (per CLAUDE.md)**: `spring-boot-config-manager` (Spring DI / configuration domain).
-
----
-
 ## FU-003 — `ValidationException` returns HTTP 400 instead of 422
 
 **Surfaces as**: contract drift between `specs/001-send-draft-emails/contracts/api-endpoints.md` (Endpoint 1 error matrix says `400 invalidArgument` from Gmail → `/problems/invalid-recipient` → HTTP **422 Unprocessable Entity**) and the actual production response, which returns HTTP **400 Bad Request**.
@@ -77,40 +48,6 @@ Origin: `ValidationException.getHttpStatus()` returns 400 (used by all Bean Vali
 **Recommended timing**: small follow-up commit on the same branch IF you want the contract to match before merging. Otherwise a focused follow-up PR after merge — the test asserts current behavior so this isn't a regression.
 
 **Owner (per CLAUDE.md)**: `validation-error-handler` (exception hierarchy + GlobalExceptionHandler) with light coordination from `gmail-api-integration` (the mapGmailSendError helper).
-
----
-
-## FU-004 — Existing `getMessageBody` log statement leaks message body content
-
-**Surfaces as**: a constitution VII violation in pre-existing code, discovered during the T062 spot-check of the send/draft feature's deviation. Not introduced by the send/draft feature, but it's the same kind of issue the deviation is bounded against.
-
-**Location**: `src/main/java/com/aucontraire/gmailbuddy/repository/GmailRepositoryImpl.java`, line 317:
-
-```java
-logger.info("Message retrieved: {}", message.toPrettyString());
-```
-
-`message.toPrettyString()` serializes the entire Gmail API `Message` object including `payload` → `parts` → `body.data` (base64-encoded body content). This means the existing `GET /api/v1/gmail/messages/{messageId}/body` endpoint logs full email body content on every call.
-
-**Why it's a violation**: Constitution Principle VII states *"OAuth tokens, credentials, email bodies, and PII MUST NOT appear in logs."* The body content of every retrieved message is being logged.
-
-**Why it wasn't blocking the send/draft feature**: this is in a DIFFERENT endpoint (the existing message-retrieval path), not in any new send/draft endpoint. The new code we added doesn't log body content. Per CLAUDE.md §A3 ("No Cosmetic-Only Changes" mixed with feature work), this fix belongs in its own commit/PR.
-
-**Recommended fix** (1 line):
-
-```java
-// Before
-logger.info("Message retrieved: {}", message.toPrettyString());
-
-// After
-logger.info("Message retrieved: messageId={}", message.getId());
-```
-
-Optionally also log `getThreadId()` if useful for diagnostics. Do NOT log `toPrettyString()`, `getPayload()`, or anything that traverses to body content.
-
-**Recommended timing**: trivial 1-line follow-up commit. Could be bundled with FU-002 (cosmetic Spring `@Autowired` warning fix) into one tiny chore commit since both are pre-existing-code hygiene.
-
-**Owner (per CLAUDE.md)**: `gmail-api-integration` (Gmail API path) or `security-auth-specialist` (logging-PII concern). Either is appropriate.
 
 ---
 
@@ -167,3 +104,17 @@ The 2 `@Disabled` annotations are pre-existing, not introduced by the send/draft
 - Each entry stays open until the corresponding fix lands; on completion, mark the heading as `~~FU-NNN~~ (resolved in <commit-sha>)` and move to the bottom of the file.
 - Items here are intentionally NOT the same scope as feature spec backlogs (which live under `specs/`); these are cross-cutting nits / operational items / pre-existing tech debt observed during feature work.
 - Scope guideline: prefer FOLLOW_UPS for items that can ship in 1 focused PR. Larger-scope items (deferred features, multi-step initiatives) live in maintainer-side planning notes outside this repo.
+
+---
+
+## Resolved
+
+Resolved entries are kept here for traceability — heading + 1-line summary + fix reference. Full diagnostic detail at the time of filing is in git history.
+
+### ~~FU-002~~ — Spring `@Autowired` warning on `WebConfig` (resolved in PR #11)
+
+Dropped `@Autowired(required = false)` from the sole constructor and the matching null-guard in `addInterceptors`. `RateLimitInterceptor` is unconditionally `@Component`, so the optionality was dead code. Spring no longer emits the "Inconsistent constructor declaration" warning at startup.
+
+### ~~FU-004~~ — `getMessageBody` log statement leaked message body content (resolved in PR #11)
+
+Replaced `message.toPrettyString()` with `message.getId()` on the `getMessageBody` log line, closing a Constitution VII violation (full Gmail SDK `Message` — including `payload.parts.body.data` — was being logged on every `GET /api/v1/gmail/messages/{id}/body` call). Added a Logback `ListAppender`-based regression test asserting the log emits `messageId=…` and no payload/parts/body fragments.
