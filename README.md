@@ -18,6 +18,8 @@ A robust, enterprise-ready Spring Boot application for Gmail management with exc
 - **🏷️ Label Operations**: Bulk label modification and management
 - **📖 Message Content**: Extract and display email body content
 - **📚 Bulk Operations**: Mass delete and label operations with validation
+- **📨 Send & Draft Operations**: Create drafts for human review, send approved drafts programmatically, or direct-send trusted templates — all via Bearer token or OAuth2 session
+- **🛡️ Header Injection Prevention**: CRLF-injection rejected as a security event distinct from validation errors, with per-field positional reporting on recipient lists
 - **⚡ Native Batch Processing**: Gmail API native batchDelete() for up to 1000 messages per batch (99% quota reduction)
 - **🚀 High-Performance Operations**: Adaptive batch sizing with circuit breaker protection
 - **🔄 Intelligent Rate Limiting**: Exponential backoff with adaptive algorithms
@@ -118,6 +120,9 @@ Gmail Buddy supports **dual authentication modes**:
 | `PUT` | `/api/v1/gmail/messages/{id}/read` | Mark message as read | - | Standard |
 | `DELETE` | `/api/v1/gmail/messages/filter` | **High-performance bulk delete** | `FilterCriteriaDTO` | **99% quota reduction** |
 | `POST` | `/api/v1/gmail/messages/filter/modifyLabels` | Bulk modify labels | `FilterCriteriaWithLabelsDTO` | Batch optimized |
+| `POST` | `/api/v1/gmail/drafts` | **Stage a draft for review** in Gmail Drafts folder | `SendMessageDTO` | Standard (10 quota units) |
+| `POST` | `/api/v1/gmail/drafts/{draftId}/send` | **Send a previously-created draft** programmatically | - | Standard (100 quota units, naturally idempotent) |
+| `POST` | `/api/v1/gmail/messages` | **Send a message directly** without staging (trusted templates only) | `SendMessageDTO` | Standard (100 quota units) |
 
 ### High-Performance Batch Operations
 
@@ -181,7 +186,26 @@ curl -X POST http://localhost:8020/api/v1/gmail/messages/filter/modifyLabels \
   }'
 ```
 
-> **Note**: Replace `ya29.a0ARrdaM...` with your actual Bearer token. See [API Testing Guide](docs/API_TESTING_GUIDE.md) for instructions on obtaining tokens.
+**Create a Draft (stage for review before sending):**
+```bash
+curl -i -X POST http://localhost:8020/api/v1/gmail/drafts \
+  -H "Authorization: Bearer ya29.a0ARrdaM..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": ["recipient@example.com"],
+    "subject": "Following up on our conversation",
+    "body": "<p>Hi,</p><p>This draft was created via the Gmail Buddy API.</p>",
+    "bodyType": "html"
+  }'
+
+# Response (201 Created):
+# {"draftId":"r-9876543210","messageId":"19a2b3c4d5e6f7g8","threadId":"19a2b3c4d5e6f7g8","status":"DRAFT"}
+#
+# The draft is immediately visible in Gmail → Drafts folder for review, edit, or discard.
+# To send it programmatically: POST /api/v1/gmail/drafts/{draftId}/send
+```
+
+> **Note**: Replace `ya29.a0ARrdaM...` with your actual Bearer token. The token must carry the `gmail.send` scope (or `gmail.modify` / `mail.google.com`) for send and draft endpoints. See [API Testing Guide](docs/API_TESTING_GUIDE.md) for instructions on obtaining tokens.
 
 ### Error Responses
 
@@ -626,8 +650,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Insufficient Gmail Permissions**
 - Check that Gmail API is enabled in Google Cloud Console
-- Verify OAuth2 scopes include `gmail.readonly` and `gmail.modify`
-- Re-authenticate to refresh token permissions
+- Verify OAuth2 scopes include `gmail.readonly`, `gmail.modify`, and `gmail.send` (required for send and draft endpoints)
+- Re-authenticate to refresh token permissions (note: adding `gmail.send` to the scope set invalidates existing refresh tokens; re-consent is required on first startup after this scope is added)
 
 **Test User Restrictions**
 - Add your Google account as a test user in OAuth consent screen

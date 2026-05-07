@@ -70,6 +70,25 @@ public class TokenReferenceService {
     }
 
     /**
+     * Creates a secure token reference with the actual OAuth2 scope from the validated token.
+     *
+     * Use this overload when the caller has already validated the token and has the scope string
+     * available (e.g., from {@code GoogleTokenValidator.TokenInfoResponse#getScope()}). Storing
+     * the real scope in the token reference metadata ensures audit logs and reference lookups
+     * reflect what the token actually authorizes, rather than a hardcoded placeholder.
+     *
+     * @param rawToken the raw OAuth2 access token
+     * @param userId the user identifier (email or user ID)
+     * @param scope the OAuth2 scope string from the validated token (e.g., from tokenInfo.getScope())
+     * @return TokenReference containing encrypted token and metadata
+     * @throws IllegalArgumentException if parameters are invalid
+     * @throws RuntimeException if encryption fails
+     */
+    public TokenReference createTokenReference(String rawToken, String userId, String scope) {
+        return createTokenReference(rawToken, userId, scope, defaultTokenLifetimeSeconds);
+    }
+
+    /**
      * Creates a secure token reference with custom lifetime.
      *
      * @param rawToken the raw OAuth2 access token
@@ -80,6 +99,25 @@ public class TokenReferenceService {
      * @throws RuntimeException if encryption fails
      */
     public TokenReference createTokenReference(String rawToken, String userId, long lifetimeSeconds) {
+        return createTokenReference(rawToken, userId, null, lifetimeSeconds);
+    }
+
+    /**
+     * Creates a secure token reference with explicit scope and custom lifetime.
+     *
+     * This is the canonical implementation. All other overloads delegate here.
+     * When {@code scope} is null or blank, the field is stored as-is (null) rather than
+     * substituting a hardcoded default — callers that care about scope should supply it.
+     *
+     * @param rawToken the raw OAuth2 access token
+     * @param userId the user identifier (email or user ID)
+     * @param scope the OAuth2 scope string, or null if not available to the caller
+     * @param lifetimeSeconds token lifetime in seconds
+     * @return TokenReference containing encrypted token and metadata
+     * @throws IllegalArgumentException if parameters are invalid
+     * @throws RuntimeException if encryption fails
+     */
+    private TokenReference createTokenReference(String rawToken, String userId, String scope, long lifetimeSeconds) {
         if (rawToken == null || rawToken.trim().isEmpty()) {
             throw new IllegalArgumentException("Raw token cannot be null or empty");
         }
@@ -94,12 +132,12 @@ public class TokenReferenceService {
             // Encrypt the raw token
             String encryptedToken = encryptionUtil.encrypt(rawToken);
 
-            // Create token reference
+            // Create token reference with the actual scope from the validated token
             TokenReference tokenReference = TokenReference.builder()
                     .encryptedToken(encryptedToken)
                     .userId(userId)
                     .expiresIn(lifetimeSeconds)
-                    .scope("gmail.readonly gmail.modify") // Default Gmail scopes
+                    .scope(scope)
                     .build();
 
             // Store in cache

@@ -97,7 +97,8 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
                 // SECURITY FIX: Create encrypted token reference instead of storing raw token
                 TokenReference tokenReference = tokenReferenceService.createTokenReference(
                     bearerToken,
-                    userEmail
+                    userEmail,
+                    tokenInfo.getScope()
                 );
 
                 // Store only the secure reference ID, not the raw token

@@ -110,6 +110,12 @@
             <artifactId>google-api-services-gmail</artifactId>
             <version>v1-rev20240520-2.0.0</version>
         </dependency>
+        <!-- Jakarta Mail (Eclipse Angus reference implementation) for MimeMessage construction.
+             Version omitted — Spring Boot 3.4.0 BOM manages org.eclipse.angus:jakarta.mail at 2.0.3. -->
+        <dependency>
+            <groupId>org.eclipse.angus</groupId>
+            <artifactId>jakarta.mail</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.google.http-client</groupId>
             <artifactId>google-http-client-jackson2</artifactId>

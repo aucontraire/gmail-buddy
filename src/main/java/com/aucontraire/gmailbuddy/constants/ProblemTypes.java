@@ -76,6 +76,37 @@ public final class ProblemTypes {
      */
     public static final String CONSTRAINT_VIOLATION = BASE_URI + "/constraint-violation";
 
+    // Send & Draft endpoints (feature 001)
+
+    /**
+     * Header injection detected - a header-bound field contains carriage-return or
+     * line-feed characters, indicating a header-injection attempt.
+     * HTTP Status: 400 Bad Request
+     * Distinct from /problems/validation-error so security-relevant attempts can be
+     * triaged separately from ordinary input validation failures (FR-015, FR-018).
+     * Example: Subject or recipient address contains \r or \n.
+     */
+    public static final String HEADER_INJECTION_DETECTED = BASE_URI + "/header-injection-detected";
+
+    /**
+     * Invalid recipient - Gmail rejected one or more recipient addresses as invalid.
+     * HTTP Status: 422 Unprocessable Entity
+     * Triggered when Gmail returns 400 invalidArgument for a recipient address that
+     * passed local validation but was rejected by the upstream mail provider (FR-018).
+     * Example: Address is syntactically plausible but the mailbox does not exist.
+     */
+    public static final String INVALID_RECIPIENT = BASE_URI + "/invalid-recipient";
+
+    /**
+     * Daily send limit exceeded - the authenticated user has reached their Gmail
+     * daily sending limit (Google returns 403 dailySendLimitExceeded).
+     * HTTP Status: 429 Too Many Requests
+     * Response includes Retry-After: 86400 (24-hour window reset).
+     * Must NOT be routed through any application-level retry-with-backoff path (FR-019).
+     * Example: User has exhausted their daily outbound message quota.
+     */
+    public static final String DAILY_SEND_LIMIT_EXCEEDED = BASE_URI + "/daily-send-limit-exceeded";
+
     // Server Error Problem Types (5xx)
 
     /**
@@ -84,6 +115,18 @@ public final class ProblemTypes {
      * Example: Gmail API is down, network timeout, API error response.
      */
     public static final String GMAIL_API_ERROR = BASE_URI + "/gmail-api-error";
+
+    // Send & Draft endpoints (feature 001)
+
+    /**
+     * Message send failed - Gmail rejected or failed to process a send/draft-send
+     * request for a reason not covered by a more specific problem type.
+     * HTTP Status: 502 Bad Gateway
+     * Catch-all for MessageSendException cases that do not map to INVALID_RECIPIENT
+     * or DAILY_SEND_LIMIT_EXCEEDED (FR-018).
+     * Example: Transient Gmail API failure, unexpected error response from provider.
+     */
+    public static final String MESSAGE_SEND_FAILED = BASE_URI + "/message-send-failed";
 
     /**
      * Service unavailable - the Gmail Buddy service is temporarily unavailable.

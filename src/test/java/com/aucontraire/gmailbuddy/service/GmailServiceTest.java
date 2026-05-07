@@ -31,6 +31,7 @@ class GmailServiceTest {
     private GmailRepository gmailRepository;
     private GmailQueryBuilder gmailQueryBuilder;
     private FilterCriteriaMapper filterCriteriaMapper;
+    private MimeMessageBuilder mimeMessageBuilder;
     private GmailService gmailService;
 
     @BeforeEach
@@ -38,7 +39,8 @@ class GmailServiceTest {
         gmailRepository = mock(GmailRepository.class);
         gmailQueryBuilder = mock(GmailQueryBuilder.class);
         filterCriteriaMapper = mock(FilterCriteriaMapper.class);
-        gmailService = new GmailService(gmailRepository, gmailQueryBuilder, filterCriteriaMapper);
+        mimeMessageBuilder = mock(MimeMessageBuilder.class);
+        gmailService = new GmailService(gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder);
     }
 
     @Test

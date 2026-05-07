@@ -4,6 +4,7 @@ import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.util.unit.DataSize;
 
 @TestConfiguration
 public class TestGmailBuddyPropertiesConfiguration {
@@ -62,7 +63,8 @@ public class TestGmailBuddyPropertiesConfiguration {
             new GmailBuddyProperties.Environment(
                 new GmailBuddyProperties.Environment.EnvFile("src/main/resources", ".env")
             ),
-            new GmailBuddyProperties.ApplicationRateLimit(1000, 60)
+            new GmailBuddyProperties.ApplicationRateLimit(1000, 60),
+            new GmailBuddyProperties.Send(DataSize.ofMegabytes(10), 500, 998)
         );
     }
 }

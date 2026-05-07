@@ -33,7 +33,7 @@ The easiest way to get a Bearer token for API testing:
 
 2. **Configure Scopes**
    - In the left panel, find "Input your own scopes"
-   - Enter: `https://mail.google.com/`
+   - Enter: `https://mail.google.com/` (covers all endpoints), or enter `https://www.googleapis.com/auth/gmail.send` if you only need to test the send/draft endpoints
    - Click "Authorize APIs"
 
 3. **Complete OAuth Flow**
@@ -89,6 +89,9 @@ Gmail Buddy currently uses three Gmail scopes. **Which scope you need depends on
 | `POST /messages/filter/modifyLabels` | `https://www.googleapis.com/auth/gmail.modify` |
 | `DELETE /messages/{id}` | `https://mail.google.com/` |
 | `DELETE /messages/filter` (bulk) | `https://mail.google.com/` |
+| `POST /drafts` | `https://www.googleapis.com/auth/gmail.send` |
+| `POST /drafts/{draftId}/send` | `https://www.googleapis.com/auth/gmail.send` |
+| `POST /messages` (direct send) | `https://www.googleapis.com/auth/gmail.send` |
 
 ### Why the DELETE endpoints require `https://mail.google.com/`
 
@@ -108,7 +111,7 @@ If those constraints become a blocker, the alternative is to rewrite the DELETE 
 
 ### Recommended scope for testing the full API
 
-To exercise every current endpoint with a single token, request `https://mail.google.com/` in the OAuth Playground (instructions above). It implicitly covers `gmail.readonly` and `gmail.modify` as well. If you only intend to test read or modify endpoints, you can use the narrower `gmail.readonly` or `gmail.modify` scope and skip the restricted-scope warning entirely.
+To exercise every current endpoint with a single token, request `https://mail.google.com/` in the OAuth Playground (instructions above). It implicitly covers `gmail.readonly`, `gmail.modify`, and `gmail.send` as well. If you only intend to test the new send/draft endpoints (`POST /drafts`, `POST /drafts/{draftId}/send`, `POST /messages`), you can use the narrower `https://www.googleapis.com/auth/gmail.send` scope — this avoids requesting the restricted `mail.google.com` scope entirely. If you only intend to test read or modify endpoints, use `gmail.readonly` or `gmail.modify` accordingly.
 
 ## 🔧 Postman Setup
 
@@ -245,6 +248,47 @@ curl -X DELETE http://localhost:8020/api/v1/gmail/messages/filter \
     "from": "oldnewsletter@example.com",
     "query": "older_than:1y"
   }'
+```
+
+### Send & Draft Operations
+
+**Create a Draft** (recommended path for AI-personalized outreach)
+```bash
+curl -i -X POST http://localhost:8020/api/v1/gmail/drafts \
+  -H "Authorization: Bearer ya29.a0ARrdaM..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": ["recruiter@example.com"],
+    "subject": "Application for Senior Backend Engineer",
+    "body": "<p>Dear hiring team,</p><p>I am reaching out about the role...</p>",
+    "bodyType": "html"
+  }'
+# Returns 201 Created with Location header and {"draftId":"...","messageId":"...","threadId":"...","status":"DRAFT"}
+```
+
+**Send an Existing Draft** (state transition — 200, not 201)
+```bash
+DRAFT_ID="r-9876543210"   # draftId from the POST /drafts response
+
+curl -i -X POST "http://localhost:8020/api/v1/gmail/drafts/$DRAFT_ID/send" \
+  -H "Authorization: Bearer ya29.a0ARrdaM..."
+# Returns 200 OK with {"messageId":"...","threadId":"...","status":"SENT"}
+# A retry after successful send returns 404 (natural idempotency)
+```
+
+**Send Directly** (deterministic templates only — no draft created)
+```bash
+curl -i -X POST http://localhost:8020/api/v1/gmail/messages \
+  -H "Authorization: Bearer ya29.a0ARrdaM..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": ["recruiter@example.com"],
+    "subject": "Following up on our conversation",
+    "body": "Hi,\n\nThanks for taking the time to chat.\n\nBest,\nOmar",
+    "bodyType": "text"
+  }'
+# Returns 201 Created with Location header and {"messageId":"...","threadId":"...","status":"SENT"}
+# WARNING: Do not auto-retry after a network timeout — duplicate sends may result.
 ```
 
 ## 🚨 Troubleshooting

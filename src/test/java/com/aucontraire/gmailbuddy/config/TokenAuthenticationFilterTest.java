@@ -94,7 +94,7 @@ class TokenAuthenticationFilterTest {
 
         // Setup default token reference mock behavior (lenient for tests that don't use them)
         lenient().when(tokenReference.getReferenceId()).thenReturn(TEST_REFERENCE_ID);
-        lenient().when(tokenReferenceService.createTokenReference(anyString(), anyString())).thenReturn(tokenReference);
+        lenient().when(tokenReferenceService.createTokenReference(anyString(), anyString(), anyString())).thenReturn(tokenReference);
     }
 
     @Nested
@@ -379,7 +379,7 @@ class TokenAuthenticationFilterTest {
                 return true;
             }));
             // Verify token reference was created
-            verify(tokenReferenceService).createTokenReference(VALID_BEARER_TOKEN, userEmail);
+            verify(tokenReferenceService).createTokenReference(eq(VALID_BEARER_TOKEN), eq(userEmail), anyString());
             verify(filterChain).doFilter(request, response);
         }
 

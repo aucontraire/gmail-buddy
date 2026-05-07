@@ -35,10 +35,23 @@ public class GoogleTokenValidator {
     /**
      * Required Gmail scopes for API access.
      * At least one of these scopes must be present in the validated token.
+     *
+     * Scope rationale:
+     * - gmail.readonly / gmail.modify: cover standard read and label-mutation operations.
+     * - gmail.send: required so that least-privilege Bearer tokens issued to the Python consumer
+     *   (which carry only gmail.send) pass this filter and reach the send/draft endpoints.
+     *   Without this entry a send-only token is rejected with HTTP 401 before hitting the controller.
+     * - mail.google.com: load-bearing for the existing DELETE endpoints. Both DELETE paths route
+     *   through GmailBatchClient.executeNativeBatchDelete() which calls users().messages().batchDelete()
+     *   — a permanent, irreversible delete operation. gmail.modify only authorises trash(); batchDelete
+     *   requires the full-access mail.google.com scope. Removing this entry would break both DELETE
+     *   endpoints with HTTP 403 insufficientPermissions.
      */
     private static final Set<String> REQUIRED_GMAIL_SCOPES = Set.of(
         "https://www.googleapis.com/auth/gmail.readonly",
         "https://www.googleapis.com/auth/gmail.modify",
+        // Allows least-privilege send-only Bearer tokens from the Python consumer to pass validation.
+        "https://www.googleapis.com/auth/gmail.send",
         // Required for users.messages.batchDelete (permanent delete used by DELETE endpoints).
         // gmail.modify only permits trash(); batchDelete requires the full-access scope.
         "https://mail.google.com/"

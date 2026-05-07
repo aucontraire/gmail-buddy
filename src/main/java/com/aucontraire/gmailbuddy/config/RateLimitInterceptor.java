@@ -122,6 +122,15 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             // DELETE /messages/filter - batch delete
             // Estimate for a moderate batch (10 batches of 50 messages each)
             return quotaEstimator.estimateBatchDeleteQuota(500, 50);
+        } else if (uri.endsWith("/messages") && "POST".equals(method)) {
+            // POST /messages - direct send
+            return quotaEstimator.estimateSendMessageQuota();
+        } else if (uri.endsWith("/drafts") && "POST".equals(method)) {
+            // POST /drafts - create draft
+            return quotaEstimator.estimateCreateDraftQuota();
+        } else if (uri.matches(".*/drafts/[^/]+/send") && "POST".equals(method)) {
+            // POST /drafts/{draftId}/send - send existing draft
+            return quotaEstimator.estimateSendDraftQuota();
         } else if (uri.endsWith("/messages") || uri.endsWith("/messages/latest")) {
             // GET /messages or /messages/latest - list messages
             return quotaEstimator.estimateListMessagesQuota(0); // Can't know count yet
