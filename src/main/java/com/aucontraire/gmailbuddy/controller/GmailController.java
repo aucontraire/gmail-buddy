@@ -448,7 +448,10 @@ public class GmailController {
 
         DraftCreationResult result = gmailService.createDraft(userId, dto);
 
-        logger.info("Draft created for userId={}, draftId={}", userId, result.draftId());
+        logger.info("Draft created: userId={}, draftId={}, recipientCount={}, to={}, cc={}, bcc={}, subject={}",
+                userId, result.draftId(),
+                dto.to().size() + dto.cc().size() + dto.bcc().size(),
+                dto.to(), dto.cc(), dto.bcc(), dto.subject());
 
         DraftResponse body = DraftResponse.drafted(result.draftId(), result.messageId(), result.threadId());
         URI location = URI.create("/api/v1/gmail/drafts/" + result.draftId());
@@ -548,7 +551,10 @@ public class GmailController {
 
         SentMessageResult result = gmailService.sendMessage(userId, dto);
 
-        logger.info("Message sent for userId={}, messageId={}", userId, result.messageId());
+        logger.info("Message sent: userId={}, messageId={}, recipientCount={}, to={}, cc={}, bcc={}, subject={}",
+                userId, result.messageId(),
+                dto.to().size() + dto.cc().size() + dto.bcc().size(),
+                dto.to(), dto.cc(), dto.bcc(), dto.subject());
 
         URI location = URI.create("/api/v1/gmail/messages/" + result.messageId() + "/body");
         return ResponseEntity.created(location).body(SendMessageResponse.sent(result.messageId(), result.threadId()));

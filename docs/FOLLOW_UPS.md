@@ -80,6 +80,40 @@ Origin: `ValidationException.getHttpStatus()` returns 400 (used by all Bean Vali
 
 ---
 
+## FU-004 — Existing `getMessageBody` log statement leaks message body content
+
+**Surfaces as**: a constitution VII violation in pre-existing code, discovered during the T062 spot-check of the send/draft feature's deviation. Not introduced by the send/draft feature, but it's the same kind of issue the deviation is bounded against.
+
+**Location**: `src/main/java/com/aucontraire/gmailbuddy/repository/GmailRepositoryImpl.java`, line 317:
+
+```java
+logger.info("Message retrieved: {}", message.toPrettyString());
+```
+
+`message.toPrettyString()` serializes the entire Gmail API `Message` object including `payload` → `parts` → `body.data` (base64-encoded body content). This means the existing `GET /api/v1/gmail/messages/{messageId}/body` endpoint logs full email body content on every call.
+
+**Why it's a violation**: Constitution Principle VII states *"OAuth tokens, credentials, email bodies, and PII MUST NOT appear in logs."* The body content of every retrieved message is being logged.
+
+**Why it wasn't blocking the send/draft feature**: this is in a DIFFERENT endpoint (the existing message-retrieval path), not in any new send/draft endpoint. The new code we added doesn't log body content. Per CLAUDE.md §A3 ("No Cosmetic-Only Changes" mixed with feature work), this fix belongs in its own commit/PR.
+
+**Recommended fix** (1 line):
+
+```java
+// Before
+logger.info("Message retrieved: {}", message.toPrettyString());
+
+// After
+logger.info("Message retrieved: messageId={}", message.getId());
+```
+
+Optionally also log `getThreadId()` if useful for diagnostics. Do NOT log `toPrettyString()`, `getPayload()`, or anything that traverses to body content.
+
+**Recommended timing**: trivial 1-line follow-up commit. Could be bundled with FU-002 (cosmetic Spring `@Autowired` warning fix) into one tiny chore commit since both are pre-existing-code hygiene.
+
+**Owner (per CLAUDE.md)**: `gmail-api-integration` (Gmail API path) or `security-auth-specialist` (logging-PII concern). Either is appropriate.
+
+---
+
 ## How to use this doc
 
 - Add new entries as `FU-NNN` sequentially.
