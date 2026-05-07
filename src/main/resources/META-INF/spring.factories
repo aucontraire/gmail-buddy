@@ -1,0 +1,2 @@
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.aucontraire.gmailbuddy.config.EnvironmentConfig
