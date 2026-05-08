@@ -1074,4 +1074,96 @@ class MimeMessageBuilderTest {
         String serialized = baos.toString(java.nio.charset.StandardCharsets.UTF_8);
         assertThat(serialized).contains("Content-Type: application/pdf");
     }
+
+    // =========================================================================
+    // T046 — US3 interaction anti-regression: multiple attachments + threading
+    //
+    // Checkpoint C already added two tests that partially cover T046's intent:
+    //   - build_withAttachmentAndNonNullLookup_inReplyToHeaderPresent
+    //   - build_withAttachmentAndNonNullLookup_contentIsStillMultipartMixed
+    //
+    // T046 documentation (per tasks.md instructions):
+    //   Those two tests verify the single-attachment + single threading-header case.
+    //   The test below is the sharper anti-regression demanded by T046: it uses THREE
+    //   attachments (not one), verifies BOTH In-Reply-To AND References headers are
+    //   present (not just one), asserts the exact part count, and exercises the full
+    //   writeTo() round-trip — the same end-to-end serialization path that caught the
+    //   text/* DataContentHandler bug before Checkpoint C. Together with the two
+    //   Checkpoint C tests, T046 is fully covered.
+    // =========================================================================
+
+    /**
+     * T046 — sharper anti-regression: 3 attachments + non-null lookup.
+     *
+     * <p>Verifies:
+     * <ul>
+     *   <li>BOTH {@code In-Reply-To} AND {@code References} headers are present
+     *       (not just one) — guards against a partial-header regression.</li>
+     *   <li>The multipart has exactly 4 parts: 1 body + 3 attachments — guards
+     *       against a part-count regression under larger attachment counts.</li>
+     *   <li>{@code writeTo()} succeeds end-to-end — the serialization safety net
+     *       that caught the text/* DataContentHandler bug.</li>
+     * </ul>
+     */
+    @Test
+    @DisplayName("build_withThreeAttachmentsAndNonNullLookup_bothThreadingHeadersAndCorrectPartCount")
+    void build_withThreeAttachmentsAndNonNullLookup_bothThreadingHeadersAndCorrectPartCount()
+            throws Exception {
+
+        // Arrange: three attachments covering different MIME types
+        List<com.aucontraire.gmailbuddy.dto.Attachment> threeAttachments = List.of(
+                new com.aucontraire.gmailbuddy.dto.Attachment("resume.pdf", "application/pdf", "JVBERi0xLjQK"),
+                new com.aucontraire.gmailbuddy.dto.Attachment("cover.txt", "text/plain",
+                        java.util.Base64.getEncoder().encodeToString(
+                                "Cover letter content".getBytes(java.nio.charset.StandardCharsets.UTF_8))),
+                new com.aucontraire.gmailbuddy.dto.Attachment("photo.png", "image/png", "iVBORw0KGgo=")
+        );
+        SendMessageDTO dto = new SendMessageDTO(
+                List.of("recruiter@example.com"),
+                null, null,
+                "Re: Follow-up with materials",
+                "Please find three files attached.",
+                "text",
+                "thread-xyz99",
+                "1a2b3c4d5e6f7a8b",
+                threeAttachments
+        );
+        OriginalMessageLookup lookup = new OriginalMessageLookup(
+                "1a2b3c4d5e6f7a8b",
+                "thread-xyz99",
+                "<CAMultiple123@mail.gmail.com>"
+        );
+
+        // Act
+        MimeMessage message = builder.build(dto, lookup);
+
+        // Assert 1: BOTH In-Reply-To AND References are present (not just one)
+        String[] inReplyTo = message.getHeader("In-Reply-To");
+        assertThat(inReplyTo).isNotNull().isNotEmpty();
+        assertThat(inReplyTo[0]).isEqualTo("<CAMultiple123@mail.gmail.com>");
+
+        String[] references = message.getHeader("References");
+        assertThat(references).isNotNull().isNotEmpty();
+        assertThat(references[0]).isEqualTo("<CAMultiple123@mail.gmail.com>");
+
+        // Assert 2: content is multipart/mixed with exactly 4 parts (1 body + 3 attachments)
+        Object content = message.getContent();
+        assertThat(content).isInstanceOf(MimeMultipart.class);
+        MimeMultipart multipart = (MimeMultipart) content;
+        assertThat(multipart.getCount()).isEqualTo(4);
+
+        // Assert 3: writeTo() round-trip succeeds end-to-end (safety net for text/* bug)
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        message.writeTo(baos);
+        assertThat(baos.size()).isGreaterThan(0);
+
+        String serialized = baos.toString(java.nio.charset.StandardCharsets.UTF_8);
+        // Both threading headers must survive serialisation
+        assertThat(serialized).contains("In-Reply-To: <CAMultiple123@mail.gmail.com>");
+        assertThat(serialized).contains("References: <CAMultiple123@mail.gmail.com>");
+        // All three attachment MIME types must appear in the serialized output
+        assertThat(serialized).contains("application/pdf");
+        assertThat(serialized).contains("text/plain");
+        assertThat(serialized).contains("image/png");
+    }
 }
