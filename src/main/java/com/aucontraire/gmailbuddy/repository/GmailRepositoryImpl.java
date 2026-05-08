@@ -5,12 +5,14 @@ import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.exception.AuthorizationException;
+import com.aucontraire.gmailbuddy.exception.GmailApiException;
 import com.aucontraire.gmailbuddy.exception.InvalidRecipientException;
 import com.aucontraire.gmailbuddy.exception.MessageSendException;
 import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
 import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
 import com.aucontraire.gmailbuddy.exception.RateLimitException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
+import com.aucontraire.gmailbuddy.exception.ServiceUnavailableException;
 import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
 import com.aucontraire.gmailbuddy.exception.ValidationException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
@@ -30,6 +32,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.security.GeneralSecurityException;
 import java.util.*;
 
@@ -401,9 +404,8 @@ public class GmailRepositoryImpl implements GmailRepository {
      * (RFC 4648 §5), and submitted to the Gmail API. The resulting {@link Message}
      * is mapped to a {@link SentMessageResult} via {@link GmailMessageMapper}.
      *
-     * <p>Any {@link GoogleJsonResponseException} from the Gmail API is mapped to an
-     * appropriate project exception via {@link #mapGmailSendError(GoogleJsonResponseException)}.
-     * Other {@link IOException}s propagate per the interface declaration.</p>
+     * <p>Delegates to {@link #sendMessage(String, MimeMessage, String)} with a
+     * {@code null} threadId, preserving backward compatibility.</p>
      *
      * @param userId      the Gmail user identifier; typically {@code "me"}
      * @param mimeMessage the fully-constructed RFC 5322 message to send
@@ -413,6 +415,36 @@ public class GmailRepositoryImpl implements GmailRepository {
      */
     @Override
     public SentMessageResult sendMessage(String userId, MimeMessage mimeMessage) throws IOException {
+        return sendMessage(userId, mimeMessage, null);
+    }
+
+    /**
+     * Sends an email message immediately via {@code users.messages.send}, optionally
+     * placing it into the specified Gmail thread. The MimeMessage is serialized to its
+     * raw RFC 5322 byte form, base64url-encoded (RFC 4648 §5), and submitted to the
+     * Gmail API.
+     *
+     * <p>When {@code threadId} is non-null, it is applied to the Gmail API
+     * {@code Message} object via {@code message.setThreadId(threadId)} before the
+     * send call. This is the Gmail API envelope field that controls thread placement
+     * in Gmail's UI (research.md Decision 2 — distinct from the RFC 5322
+     * {@code In-Reply-To} / {@code References} MIME headers, which are set in the
+     * MimeMessage by the builder layer).</p>
+     *
+     * <p>Any {@link GoogleJsonResponseException} from the Gmail API is mapped to an
+     * appropriate project exception via {@link #mapGmailSendError(GoogleJsonResponseException)}.
+     * Other {@link IOException}s propagate per the interface declaration.</p>
+     *
+     * @param userId      the Gmail user identifier; typically {@code "me"}
+     * @param mimeMessage the fully-constructed RFC 5322 message to send
+     * @param threadId    the resolved Gmail thread ID to set on the outgoing message;
+     *                    {@code null} means no thread is specified (new thread)
+     * @return a {@link SentMessageResult} containing the Gmail-assigned message
+     *         and thread identifiers
+     * @throws IOException if serialization, network I/O, or a non-JSON Gmail error occurs
+     */
+    @Override
+    public SentMessageResult sendMessage(String userId, MimeMessage mimeMessage, String threadId) throws IOException {
         try {
             Gmail gmail = getGmailService();
 
@@ -421,9 +453,13 @@ public class GmailRepositoryImpl implements GmailRepository {
             String encodedRaw = Base64.getUrlEncoder().encodeToString(buffer.toByteArray());
 
             Message message = new Message().setRaw(encodedRaw);
+            if (threadId != null) {
+                message.setThreadId(threadId);
+            }
 
             Message sentMessage = gmail.users().messages().send(userId, message).execute();
-            logger.info("Message sent successfully for userId={}, messageId={}", userId, sentMessage.getId());
+            logger.info("Message sent successfully for userId={}, messageId={}, threadId={}",
+                    userId, sentMessage.getId(), sentMessage.getThreadId());
 
             return gmailMessageMapper.toSentMessageResult(sentMessage);
 
@@ -441,12 +477,10 @@ public class GmailRepositoryImpl implements GmailRepository {
     /**
      * Stages a draft for later send/edit. The MimeMessage is serialized to its raw
      * RFC 5322 byte form, base64url-encoded (RFC 4648 §5), and submitted to the
-     * Gmail API via {@code users.drafts.create}. The resulting {@link Draft} is
-     * mapped to a {@link DraftCreationResult} via {@link GmailMessageMapper}.
+     * Gmail API via {@code users.drafts.create}.
      *
-     * <p>Any {@link GoogleJsonResponseException} from the Gmail API is mapped to an
-     * appropriate project exception via {@link #mapGmailSendError(GoogleJsonResponseException)}.
-     * Other {@link IOException}s propagate per the interface declaration.</p>
+     * <p>Delegates to {@link #createDraft(String, MimeMessage, String)} with a
+     * {@code null} threadId, preserving backward compatibility.</p>
      *
      * @param userId      the Gmail user identifier; typically {@code "me"}
      * @param mimeMessage the fully-constructed RFC 5322 message to stage as a draft
@@ -456,6 +490,34 @@ public class GmailRepositoryImpl implements GmailRepository {
      */
     @Override
     public DraftCreationResult createDraft(String userId, MimeMessage mimeMessage) throws IOException {
+        return createDraft(userId, mimeMessage, null);
+    }
+
+    /**
+     * Stages a draft for later send/edit, optionally associating it with the specified
+     * Gmail thread. The MimeMessage is serialized to its raw RFC 5322 byte form,
+     * base64url-encoded (RFC 4648 §5), and submitted to the Gmail API via
+     * {@code users.drafts.create}.
+     *
+     * <p>When {@code threadId} is non-null, it is applied to the Gmail API
+     * {@code Message} object via {@code message.setThreadId(threadId)} before the
+     * draft-creation call. This is the Gmail API envelope field that controls thread
+     * placement (research.md Decision 2).</p>
+     *
+     * <p>Any {@link GoogleJsonResponseException} from the Gmail API is mapped to an
+     * appropriate project exception via {@link #mapGmailSendError(GoogleJsonResponseException)}.
+     * Other {@link IOException}s propagate per the interface declaration.</p>
+     *
+     * @param userId      the Gmail user identifier; typically {@code "me"}
+     * @param mimeMessage the fully-constructed RFC 5322 message to stage as a draft
+     * @param threadId    the resolved Gmail thread ID to associate with the draft;
+     *                    {@code null} means no thread association
+     * @return a {@link DraftCreationResult} containing the Gmail-assigned draft,
+     *         message, and thread identifiers
+     * @throws IOException if serialization, network I/O, or a non-JSON Gmail error occurs
+     */
+    @Override
+    public DraftCreationResult createDraft(String userId, MimeMessage mimeMessage, String threadId) throws IOException {
         try {
             Gmail gmail = getGmailService();
 
@@ -464,6 +526,9 @@ public class GmailRepositoryImpl implements GmailRepository {
             String encodedRaw = Base64.getUrlEncoder().encodeToString(buffer.toByteArray());
 
             Message rawMessage = new Message().setRaw(encodedRaw);
+            if (threadId != null) {
+                rawMessage.setThreadId(threadId);
+            }
             Draft draft = new Draft().setMessage(rawMessage);
 
             Draft createdDraft = gmail.users().drafts().create(userId, draft).execute();
@@ -610,9 +675,173 @@ public class GmailRepositoryImpl implements GmailRepository {
         };
     }
 
+    /**
+     * Fetches the RFC 5322 {@code Message-ID} header and {@code threadId} from the
+     * specified message using the Gmail metadata-only format (quota: ~5 units).
+     *
+     * <p>Only the {@code Message-ID} header is requested via
+     * {@code setMetadataHeaders(List.of("Message-ID"))}, which minimises response
+     * payload size. The {@code threadId} is read from the top-level
+     * {@code Message.getThreadId()} field on the same response — no second API
+     * call is needed.</p>
+     *
+     * <p>Error mapping (per research.md Decision 3 and FR-008 / FR-008a / FR-008c):</p>
+     * <ul>
+     *   <li>Gmail 404 → {@link OriginalMessageNotFoundException} (HTTP 422)</li>
+     *   <li>Gmail 403 → {@link AuthorizationException} (HTTP 403, FR-008c)</li>
+     *   <li>Gmail 429 → {@link RateLimitException} with {@code Retry-After} seconds
+     *       extracted from the response (HTTP 429, FR-008a)</li>
+     *   <li>Gmail 5xx → {@link GmailApiException} (HTTP 502, FR-008a)</li>
+     *   <li>{@link SocketTimeoutException} / transport {@link IOException} →
+     *       {@link ServiceUnavailableException} (HTTP 503, FR-008a)</li>
+     * </ul>
+     *
+     * @param userId    the Gmail user identifier; typically {@code "me"}
+     * @param messageId the Gmail short message ID of the message being replied to
+     * @return an {@link OriginalMessageLookup} containing the RFC 5322 Message-ID
+     *         and the Gmail thread ID
+     * @throws IOException if a transport-level I/O error occurs
+     */
     @Override
     public OriginalMessageLookup getMessageHeaders(String userId, String messageId) throws IOException {
-        // Stub — real implementation lands in T033 (Phase 3, US1).
-        throw new UnsupportedOperationException("getMessageHeaders not yet implemented (T033)");
+        try {
+            Gmail gmail = getGmailService();
+
+            Message response = gmail.users().messages()
+                    .get(userId, messageId)
+                    .setFormat("metadata")
+                    .setMetadataHeaders(List.of("Message-ID"))
+                    .execute();
+
+            // Null-check payload before calling getHeaders() (research.md Open follow-ups:
+            // "null-safety on getPayload()"). Draft messages and some internally-generated
+            // messages may return a null payload in metadata format — treat as not found.
+            MessagePart payload = response.getPayload();
+            if (payload == null) {
+                throw new OriginalMessageNotFoundException(
+                        "Original message has no payload (messageId=" + messageId
+                                + "); cannot extract Message-ID for threading");
+            }
+
+            // Case-insensitive header name match per research.md Decision 11 — Gmail
+            // typically capitalises as "Message-ID" but RFC 5322 header names are
+            // case-insensitive and may change across API versions.
+            String rfcMessageId = null;
+            List<MessagePartHeader> headers = payload.getHeaders();
+            if (headers != null) {
+                for (MessagePartHeader header : headers) {
+                    if ("message-id".equalsIgnoreCase(header.getName())) {
+                        rfcMessageId = header.getValue();
+                        break;
+                    }
+                }
+            }
+
+            if (rfcMessageId == null) {
+                // The message exists but has no RFC 5322 Message-ID (uncommon; possible
+                // for internally-generated Gmail messages). Fail-closed per spec Q1 —
+                // sending a reply without In-Reply-To would break the threading contract.
+                throw new OriginalMessageNotFoundException(
+                        "Original message has no Message-ID header (messageId=" + messageId
+                                + "); cannot construct In-Reply-To / References for threading");
+            }
+
+            logger.debug("Fetched message headers for threading: messageId={}", messageId);
+            return new OriginalMessageLookup(messageId, response.getThreadId(), rfcMessageId);
+
+        } catch (GoogleJsonResponseException e) {
+            logger.error("Gmail API error fetching message headers for userId={}, messageId={}: status={}, message={}",
+                    userId, messageId, e.getStatusCode(), e.getMessage());
+            throw mapGmailLookupError(e, messageId);
+        } catch (SocketTimeoutException e) {
+            // SocketTimeoutException is a subtype of IOException — intercept it explicitly
+            // before the generic IOException catch below so it maps to ServiceUnavailableException
+            // rather than propagating as a raw IOException (FR-008a).
+            throw new ServiceUnavailableException(
+                    "Timeout fetching original message headers (messageId=" + messageId
+                            + "); Gmail API did not respond in time",
+                    e);
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Private error-mapping helper for getMessageHeaders (T033)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Maps a {@link GoogleJsonResponseException} from the {@code users.messages.get}
+     * metadata call to the appropriate project exception.
+     *
+     * <p>This is a sibling to {@link #mapGmailSendError(GoogleJsonResponseException)}
+     * but with a different 404 semantics: here, 404 means "the original message being
+     * replied to does not exist", which maps to {@link OriginalMessageNotFoundException}
+     * (HTTP 422) rather than {@link ResourceNotFoundException} (HTTP 404).</p>
+     *
+     * <ul>
+     *   <li>404 → {@link OriginalMessageNotFoundException} (HTTP 422, FR-008)</li>
+     *   <li>403 → {@link AuthorizationException} (HTTP 403, FR-008c)</li>
+     *   <li>429 → {@link RateLimitException} with {@code Retry-After} seconds
+     *       extracted from the response headers (HTTP 429, FR-008a)</li>
+     *   <li>5xx → {@link GmailApiException} (HTTP 502, FR-008a)</li>
+     *   <li>any other status → {@link GmailApiException} (HTTP 502)</li>
+     * </ul>
+     *
+     * @param e         the exception thrown by the Gmail API client during lookup
+     * @param messageId the Gmail short message ID that was being looked up (for error messages)
+     * @return a project exception whose type matches the Gmail error status
+     */
+    private RuntimeException mapGmailLookupError(GoogleJsonResponseException e, String messageId) {
+        int statusCode = e.getStatusCode();
+
+        if (statusCode == 404) {
+            return new OriginalMessageNotFoundException(
+                    "Original message not found in authenticated user's Gmail account "
+                            + "(messageId=" + messageId + "); cannot thread reply",
+                    e);
+        }
+
+        if (statusCode == 403) {
+            return new AuthorizationException(
+                    "Insufficient Gmail permissions to read original message "
+                            + "(messageId=" + messageId + ")",
+                    e);
+        }
+
+        if (statusCode == 429) {
+            // Extract Retry-After seconds from the response headers when present.
+            // Gmail's 429 response may include a Retry-After header; fall back to 60s
+            // (a conservative default) if absent.
+            long retryAfterSeconds = 60L;
+            if (e.getHeaders() != null) {
+                String retryAfterHeader = e.getHeaders().getFirstHeaderStringValue("Retry-After");
+                if (retryAfterHeader != null) {
+                    try {
+                        retryAfterSeconds = Long.parseLong(retryAfterHeader.trim());
+                    } catch (NumberFormatException ignored) {
+                        // Malformed Retry-After header — keep the 60s default
+                    }
+                }
+            }
+            return new RateLimitException(
+                    "Gmail API rate limit exceeded during original-message lookup "
+                            + "(messageId=" + messageId + ")",
+                    e,
+                    retryAfterSeconds);
+        }
+
+        if (statusCode >= 500) {
+            return new GmailApiException(
+                    "Gmail API server error during original-message lookup "
+                            + "(messageId=" + messageId + "): HTTP " + statusCode,
+                    e);
+        }
+
+        // Any remaining 4xx (e.g., 400 invalid request) or unexpected status
+        return new GmailApiException(
+                "Gmail API error during original-message lookup "
+                        + "(messageId=" + messageId + "): HTTP " + statusCode,
+                e);
     }
 }

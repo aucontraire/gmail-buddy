@@ -281,6 +281,25 @@ public class GmailService {
      * is immediately visible in any Gmail client for the user to review, edit,
      * send, or discard before delivery.</p>
      *
+     * <h2>Threading orchestration (FR-003 through FR-008c)</h2>
+     * <p>When {@code dto.inReplyToMessageId()} is non-null, this method performs a
+     * {@code users.messages.get} metadata lookup via the repository to obtain the
+     * original message's RFC 5322 {@code Message-ID} and {@code threadId}. The lookup
+     * result is passed to {@link MimeMessageBuilder#build(SendMessageDTO, OriginalMessageLookup)},
+     * which sets the {@code In-Reply-To} and {@code References} MIME headers. The
+     * resolved {@code threadId} (from the lookup, or from {@code dto.threadId()} as
+     * a fallback) is applied to the Gmail API {@code Message} object BEFORE the API
+     * call.</p>
+     *
+     * <p>Lookup failures ({@link com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException},
+     * {@link com.aucontraire.gmailbuddy.exception.AuthorizationException},
+     * {@link com.aucontraire.gmailbuddy.exception.RateLimitException},
+     * {@link com.aucontraire.gmailbuddy.exception.GmailApiException},
+     * {@link com.aucontraire.gmailbuddy.exception.ServiceUnavailableException}) propagate
+     * naturally — they are all {@link RuntimeException} subclasses covered by the existing
+     * {@code GlobalExceptionHandler}. The draft is NOT created if the lookup fails
+     * (fail-closed per spec § Clarifications Q1).</p>
+     *
      * @param userId the Gmail user identifier; typically {@code "me"}
      * @param dto    the validated send request containing recipients, subject, and body
      * @return a {@link DraftCreationResult} with the Gmail-assigned draft, message,
@@ -290,8 +309,28 @@ public class GmailService {
      */
     public DraftCreationResult createDraft(String userId, SendMessageDTO dto) throws GmailApiException {
         try {
-            MimeMessage mimeMessage = mimeMessageBuilder.build(dto);
-            return gmailRepository.createDraft(userId, mimeMessage);
+            // Threading orchestration (T035): perform lookup when inReplyToMessageId is present.
+            // When absent, skip the lookup and pass null — no In-Reply-To / References headers.
+            OriginalMessageLookup lookup = null;
+            if (dto.inReplyToMessageId() != null) {
+                logger.info("Threading lookup: inReplyToMessageId={}, userId={}", dto.inReplyToMessageId(), userId);
+                lookup = gmailRepository.getMessageHeaders(userId, dto.inReplyToMessageId());
+            }
+
+            MimeMessage mimeMessage = mimeMessageBuilder.build(dto, lookup);
+
+            // Resolve the threadId and apply it to the Gmail API Message object.
+            // resolveThreadId() implements FR-005 (infer from lookup) and FR-006 (lookup wins).
+            // The threadId is a Gmail API envelope field — NOT a MIME header — so it is set
+            // here in the service layer, not inside MimeMessageBuilder (research.md Decision 2).
+            String resolvedThreadId = mimeMessageBuilder.resolveThreadId(dto, lookup);
+
+            logger.info("Creating draft: attachmentCount={}, threaded={}, threadId={}",
+                    dto.attachments().size(),
+                    lookup != null,
+                    resolvedThreadId);
+
+            return gmailRepository.createDraft(userId, mimeMessage, resolvedThreadId);
         } catch (MessagingException | UnsupportedEncodingException e) {
             logger.error("Failed to build MimeMessage for draft creation for user: {}", userId, e);
             throw new GmailApiException("Failed to construct email message for draft", e);
@@ -337,6 +376,20 @@ public class GmailService {
      * <p>Reserved for deterministic, pre-trusted templates. Callers MUST NOT
      * auto-retry POSTs after a network timeout — duplicate sends may result.</p>
      *
+     * <h2>Threading orchestration (FR-003 through FR-008c)</h2>
+     * <p>When {@code dto.inReplyToMessageId()} is non-null, this method performs a
+     * {@code users.messages.get} metadata lookup (~5 quota units) to obtain the
+     * original message's RFC 5322 {@code Message-ID} and {@code threadId}. The lookup
+     * result is passed to {@link MimeMessageBuilder#build(SendMessageDTO, OriginalMessageLookup)},
+     * which sets the {@code In-Reply-To} and {@code References} MIME headers. The
+     * resolved {@code threadId} is applied to the Gmail API {@code Message} object
+     * BEFORE the send call (~100 quota units), for a total of ~105 quota units
+     * (spec § Clarifications Q2, FR-008b).</p>
+     *
+     * <p>Lookup failures propagate naturally — they are {@link RuntimeException} subclasses
+     * covered by the existing {@code GlobalExceptionHandler}. No message is sent if the
+     * lookup fails (fail-closed per spec § Clarifications Q1).</p>
+     *
      * @param userId the Gmail user identifier; typically {@code "me"}
      * @param dto    the validated send request containing recipients, subject, and body
      * @return a {@link SentMessageResult} with the Gmail-assigned message and thread identifiers
@@ -345,8 +398,28 @@ public class GmailService {
      */
     public SentMessageResult sendMessage(String userId, SendMessageDTO dto) throws GmailApiException {
         try {
-            MimeMessage mimeMessage = mimeMessageBuilder.build(dto);
-            return gmailRepository.sendMessage(userId, mimeMessage);
+            // Threading orchestration (T035): perform lookup when inReplyToMessageId is present.
+            // When absent, skip the lookup and pass null — no In-Reply-To / References headers.
+            OriginalMessageLookup lookup = null;
+            if (dto.inReplyToMessageId() != null) {
+                logger.info("Threading lookup: inReplyToMessageId={}, userId={}", dto.inReplyToMessageId(), userId);
+                lookup = gmailRepository.getMessageHeaders(userId, dto.inReplyToMessageId());
+            }
+
+            MimeMessage mimeMessage = mimeMessageBuilder.build(dto, lookup);
+
+            // Resolve the threadId and apply it to the Gmail API Message object.
+            // resolveThreadId() implements FR-005 (infer from lookup) and FR-006 (lookup wins).
+            // The threadId is a Gmail API envelope field — NOT a MIME header — so it is set
+            // here in the service layer, not inside MimeMessageBuilder (research.md Decision 2).
+            String resolvedThreadId = mimeMessageBuilder.resolveThreadId(dto, lookup);
+
+            logger.info("Sending message: attachmentCount={}, threaded={}, threadId={}",
+                    dto.attachments().size(),
+                    lookup != null,
+                    resolvedThreadId);
+
+            return gmailRepository.sendMessage(userId, mimeMessage, resolvedThreadId);
         } catch (MessagingException | UnsupportedEncodingException e) {
             logger.error("Failed to build MimeMessage for send for user: {}", userId, e);
             throw new GmailApiException("Failed to construct email message for send", e);

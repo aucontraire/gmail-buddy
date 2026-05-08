@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -86,14 +87,14 @@ class GmailServiceSendMessageTest {
         MimeMessage mimeMessage = emptyMimeMessage();
         SentMessageResult expected = new SentMessageResult(TEST_MSG_ID, TEST_THREAD_ID);
 
-        when(mimeMessageBuilder.build(dto)).thenReturn(mimeMessage);
-        when(gmailRepository.sendMessage(USER_ID, mimeMessage)).thenReturn(expected);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
+        when(gmailRepository.sendMessage(eq(USER_ID), eq(mimeMessage), isNull())).thenReturn(expected);
 
         // Act
         gmailService.sendMessage(USER_ID, dto);
 
         // Assert: MimeMessageBuilder.build is called exactly once with the dto.
-        verify(mimeMessageBuilder).build(dto);
+        verify(mimeMessageBuilder).build(eq(dto), isNull());
     }
 
     @Test
@@ -104,15 +105,15 @@ class GmailServiceSendMessageTest {
         MimeMessage mimeMessage = emptyMimeMessage();
         SentMessageResult expected = new SentMessageResult(TEST_MSG_ID, TEST_THREAD_ID);
 
-        when(mimeMessageBuilder.build(dto)).thenReturn(mimeMessage);
-        when(gmailRepository.sendMessage(USER_ID, mimeMessage)).thenReturn(expected);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
+        when(gmailRepository.sendMessage(eq(USER_ID), eq(mimeMessage), isNull())).thenReturn(expected);
 
         // Act
         gmailService.sendMessage(USER_ID, dto);
 
         // Assert: repository.sendMessage is called exactly once with the userId
         // and the MimeMessage produced by the builder.
-        verify(gmailRepository).sendMessage(eq(USER_ID), eq(mimeMessage));
+        verify(gmailRepository).sendMessage(eq(USER_ID), eq(mimeMessage), isNull());
     }
 
     @Test
@@ -123,8 +124,8 @@ class GmailServiceSendMessageTest {
         MimeMessage mimeMessage = emptyMimeMessage();
         SentMessageResult expected = new SentMessageResult(TEST_MSG_ID, TEST_THREAD_ID);
 
-        when(mimeMessageBuilder.build(dto)).thenReturn(mimeMessage);
-        when(gmailRepository.sendMessage(USER_ID, mimeMessage)).thenReturn(expected);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
+        when(gmailRepository.sendMessage(eq(USER_ID), eq(mimeMessage), isNull())).thenReturn(expected);
 
         // Act
         SentMessageResult actual = gmailService.sendMessage(USER_ID, dto);
@@ -147,7 +148,7 @@ class GmailServiceSendMessageTest {
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         MessagingException cause = new MessagingException("JavaMail header set failure");
 
-        when(mimeMessageBuilder.build(dto)).thenThrow(cause);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenThrow(cause);
 
         // Act & Assert
         assertThatThrownBy(() -> gmailService.sendMessage(USER_ID, dto))
@@ -156,7 +157,7 @@ class GmailServiceSendMessageTest {
                 .hasCause(cause);
 
         // Verify repository is NOT called when builder fails.
-        verify(gmailRepository, never()).sendMessage(any(), any());
+        verify(gmailRepository, never()).sendMessage(any(), any(), any());
     }
 
     @Test
@@ -167,7 +168,7 @@ class GmailServiceSendMessageTest {
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         UnsupportedEncodingException cause = new UnsupportedEncodingException("UTF-8 not supported");
 
-        when(mimeMessageBuilder.build(dto)).thenThrow(cause);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenThrow(cause);
 
         // Act & Assert
         assertThatThrownBy(() -> gmailService.sendMessage(USER_ID, dto))
@@ -175,7 +176,7 @@ class GmailServiceSendMessageTest {
                 .hasMessageContaining("Failed to construct email message for send")
                 .hasCause(cause);
 
-        verify(gmailRepository, never()).sendMessage(any(), any());
+        verify(gmailRepository, never()).sendMessage(any(), any(), any());
     }
 
     // -------------------------------------------------------------------------
@@ -190,8 +191,8 @@ class GmailServiceSendMessageTest {
         MimeMessage mimeMessage = emptyMimeMessage();
         IOException cause = new IOException("Network timeout reaching Gmail API");
 
-        when(mimeMessageBuilder.build(dto)).thenReturn(mimeMessage);
-        when(gmailRepository.sendMessage(USER_ID, mimeMessage)).thenThrow(cause);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
+        when(gmailRepository.sendMessage(eq(USER_ID), eq(mimeMessage), isNull())).thenThrow(cause);
 
         // Act & Assert
         assertThatThrownBy(() -> gmailService.sendMessage(USER_ID, dto))
@@ -213,15 +214,15 @@ class GmailServiceSendMessageTest {
         MimeMessage mimeMessage = emptyMimeMessage();
         SentMessageResult expected = new SentMessageResult(TEST_MSG_ID, TEST_THREAD_ID);
 
-        when(mimeMessageBuilder.build(dto)).thenReturn(mimeMessage);
-        when(gmailRepository.sendMessage(USER_ID, mimeMessage)).thenReturn(expected);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
+        when(gmailRepository.sendMessage(eq(USER_ID), eq(mimeMessage), isNull())).thenReturn(expected);
 
         // Act
         SentMessageResult actual = gmailService.sendMessage(USER_ID, dto);
 
         // Assert
-        verify(mimeMessageBuilder).build(dto);
-        verify(gmailRepository).sendMessage(USER_ID, mimeMessage);
+        verify(mimeMessageBuilder).build(eq(dto), isNull());
+        verify(gmailRepository).sendMessage(eq(USER_ID), eq(mimeMessage), isNull());
         assertThat(actual).isSameAs(expected);
     }
 }

@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -88,14 +89,14 @@ class GmailServiceCreateDraftTest {
         DraftCreationResult expected =
                 new DraftCreationResult(TEST_DRAFT_ID, TEST_MSG_ID, TEST_THREAD_ID);
 
-        when(mimeMessageBuilder.build(dto)).thenReturn(mimeMessage);
-        when(gmailRepository.createDraft(USER_ID, mimeMessage)).thenReturn(expected);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
+        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull())).thenReturn(expected);
 
         // Act
         gmailService.createDraft(USER_ID, dto);
 
         // Assert: MimeMessageBuilder.build is called exactly once with the dto.
-        verify(mimeMessageBuilder).build(dto);
+        verify(mimeMessageBuilder).build(eq(dto), isNull());
     }
 
     @Test
@@ -108,15 +109,15 @@ class GmailServiceCreateDraftTest {
         DraftCreationResult expected =
                 new DraftCreationResult(TEST_DRAFT_ID, TEST_MSG_ID, TEST_THREAD_ID);
 
-        when(mimeMessageBuilder.build(dto)).thenReturn(mimeMessage);
-        when(gmailRepository.createDraft(USER_ID, mimeMessage)).thenReturn(expected);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
+        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull())).thenReturn(expected);
 
         // Act
         gmailService.createDraft(USER_ID, dto);
 
         // Assert: repository.createDraft is called exactly once with the userId
         // and the MimeMessage produced by the builder.
-        verify(gmailRepository).createDraft(eq(USER_ID), eq(mimeMessage));
+        verify(gmailRepository).createDraft(eq(USER_ID), eq(mimeMessage), isNull());
     }
 
     @Test
@@ -128,8 +129,8 @@ class GmailServiceCreateDraftTest {
         DraftCreationResult expected =
                 new DraftCreationResult(TEST_DRAFT_ID, TEST_MSG_ID, TEST_THREAD_ID);
 
-        when(mimeMessageBuilder.build(dto)).thenReturn(mimeMessage);
-        when(gmailRepository.createDraft(USER_ID, mimeMessage)).thenReturn(expected);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
+        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull())).thenReturn(expected);
 
         // Act
         DraftCreationResult actual = gmailService.createDraft(USER_ID, dto);
@@ -153,7 +154,7 @@ class GmailServiceCreateDraftTest {
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         MessagingException cause = new MessagingException("JavaMail header set failure");
 
-        when(mimeMessageBuilder.build(dto)).thenThrow(cause);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenThrow(cause);
 
         // Act & Assert
         assertThatThrownBy(() -> gmailService.createDraft(USER_ID, dto))
@@ -162,7 +163,7 @@ class GmailServiceCreateDraftTest {
                 .hasCause(cause);
 
         // Verify repository is NOT called when builder fails.
-        verify(gmailRepository, never()).createDraft(any(), any());
+        verify(gmailRepository, never()).createDraft(any(), any(), any());
     }
 
     @Test
@@ -173,7 +174,7 @@ class GmailServiceCreateDraftTest {
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         UnsupportedEncodingException cause = new UnsupportedEncodingException("UTF-8 not supported");
 
-        when(mimeMessageBuilder.build(dto)).thenThrow(cause);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenThrow(cause);
 
         // Act & Assert
         assertThatThrownBy(() -> gmailService.createDraft(USER_ID, dto))
@@ -181,7 +182,7 @@ class GmailServiceCreateDraftTest {
                 .hasMessageContaining("Failed to construct email message for draft")
                 .hasCause(cause);
 
-        verify(gmailRepository, never()).createDraft(any(), any());
+        verify(gmailRepository, never()).createDraft(any(), any(), any());
     }
 
     // -------------------------------------------------------------------------
@@ -196,8 +197,8 @@ class GmailServiceCreateDraftTest {
         MimeMessage mimeMessage = emptyMimeMessage();
         IOException cause = new IOException("Network timeout reaching Gmail API");
 
-        when(mimeMessageBuilder.build(dto)).thenReturn(mimeMessage);
-        when(gmailRepository.createDraft(USER_ID, mimeMessage)).thenThrow(cause);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
+        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull())).thenThrow(cause);
 
         // Act & Assert
         assertThatThrownBy(() -> gmailService.createDraft(USER_ID, dto))
@@ -220,15 +221,15 @@ class GmailServiceCreateDraftTest {
         DraftCreationResult expected =
                 new DraftCreationResult(TEST_DRAFT_ID, TEST_MSG_ID, TEST_THREAD_ID);
 
-        when(mimeMessageBuilder.build(dto)).thenReturn(mimeMessage);
-        when(gmailRepository.createDraft(USER_ID, mimeMessage)).thenReturn(expected);
+        when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
+        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull())).thenReturn(expected);
 
         // Act
         DraftCreationResult actual = gmailService.createDraft(USER_ID, dto);
 
         // Assert
-        verify(mimeMessageBuilder).build(dto);
-        verify(gmailRepository).createDraft(USER_ID, mimeMessage);
+        verify(mimeMessageBuilder).build(eq(dto), isNull());
+        verify(gmailRepository).createDraft(eq(USER_ID), eq(mimeMessage), isNull());
         assertThat(actual).isSameAs(expected);
     }
 }

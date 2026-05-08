@@ -45,6 +45,27 @@ public interface GmailRepository {
     SentMessageResult sendMessage(String userId, MimeMessage mimeMessage) throws IOException;
 
     /**
+     * Sends a fully-constructed MimeMessage immediately via the Gmail
+     * {@code users.messages.send} API call, optionally placing the message into
+     * the specified Gmail thread (FR-005, FR-006, FR-007).
+     *
+     * <p>When {@code threadId} is non-null, it is set on the Gmail API
+     * {@code Message} object via {@code message.setThreadId(threadId)} before the
+     * send call, directing Gmail to place the message in the specified thread.</p>
+     *
+     * @param userId      the Gmail user identifier; use {@code "me"} for the
+     *                    authenticated user
+     * @param mimeMessage the fully-populated RFC 5322 message to send
+     * @param threadId    the resolved Gmail thread ID to set on the outgoing message;
+     *                    {@code null} means no thread is specified (new thread)
+     * @return assigned message and thread identifiers returned by Gmail
+     * @throws IOException          on network or Gmail API communication failure
+     * @throws com.aucontraire.gmailbuddy.exception.MessageSendException
+     *                              on Gmail send failure
+     */
+    SentMessageResult sendMessage(String userId, MimeMessage mimeMessage, String threadId) throws IOException;
+
+    /**
      * Stages a draft for later send or edit. The draft is immediately visible in
      * the user's Gmail Drafts folder via {@code users.drafts.create}.
      *
@@ -57,6 +78,26 @@ public interface GmailRepository {
      *                              on Gmail draft-creation failure
      */
     DraftCreationResult createDraft(String userId, MimeMessage mimeMessage) throws IOException;
+
+    /**
+     * Stages a draft for later send or edit, optionally placing the draft into
+     * the specified Gmail thread (FR-005, FR-006, FR-007).
+     *
+     * <p>When {@code threadId} is non-null, it is set on the Gmail API
+     * {@code Message} object before the draft-creation call, directing Gmail to
+     * associate the draft with the specified thread.</p>
+     *
+     * @param userId      the Gmail user identifier; use {@code "me"} for the
+     *                    authenticated user
+     * @param mimeMessage the fully-populated RFC 5322 message to save as a draft
+     * @param threadId    the resolved Gmail thread ID to set on the draft message;
+     *                    {@code null} means no thread is specified
+     * @return assigned draft, message, and thread identifiers returned by Gmail
+     * @throws IOException          on network or Gmail API communication failure
+     * @throws com.aucontraire.gmailbuddy.exception.MessageSendException
+     *                              on Gmail draft-creation failure
+     */
+    DraftCreationResult createDraft(String userId, MimeMessage mimeMessage, String threadId) throws IOException;
 
     /**
      * Sends a previously-created draft by identifier via the Gmail
