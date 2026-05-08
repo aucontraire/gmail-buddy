@@ -1,9 +1,12 @@
 package com.aucontraire.gmailbuddy.service;
 
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
+import com.aucontraire.gmailbuddy.dto.Attachment;
 import com.aucontraire.gmailbuddy.dto.DeleteResult;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
+import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
@@ -17,8 +20,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Service
@@ -28,15 +33,18 @@ public class GmailService {
     private final GmailQueryBuilder gmailQueryBuilder;
     private final FilterCriteriaMapper filterCriteriaMapper;
     private final MimeMessageBuilder mimeMessageBuilder;
+    private final GmailBuddyProperties properties;
     private final Logger logger = LoggerFactory.getLogger(GmailService.class);
 
     @Autowired
     public GmailService(GmailRepository gmailRepository, GmailQueryBuilder gmailQueryBuilder,
-                        FilterCriteriaMapper filterCriteriaMapper, MimeMessageBuilder mimeMessageBuilder) {
+                        FilterCriteriaMapper filterCriteriaMapper, MimeMessageBuilder mimeMessageBuilder,
+                        GmailBuddyProperties properties) {
         this.gmailRepository = gmailRepository;
         this.gmailQueryBuilder = gmailQueryBuilder;
         this.filterCriteriaMapper = filterCriteriaMapper;
         this.mimeMessageBuilder = mimeMessageBuilder;
+        this.properties = properties;
     }
 
     public String buildQuery(FilterCriteria filterCriteria) {
@@ -317,7 +325,26 @@ public class GmailService {
                 lookup = gmailRepository.getMessageHeaders(userId, dto.inReplyToMessageId());
             }
 
+            // T043 — Stage 1: pre-construction payload size estimate (fast reject, FR-014, FR-017).
+            // Only applied when attachments are present; the existing @MaxBodySize Bean Validation
+            // constraint already enforces the 10 MB body cap for non-attachment requests (FR-015).
+            // When attachments ARE present, the 25 MB total-payload cap takes precedence.
+            long estimateBytes = estimatePayloadBytes(dto);
+            if (!dto.attachments().isEmpty()) {
+                enforceSizeStage1(estimateBytes);
+            }
+
             MimeMessage mimeMessage = mimeMessageBuilder.build(dto, lookup);
+
+            // T044 — Stage 2: post-construction safety net (strict 100% cap, FR-014, FR-017).
+            // Serializes the assembled MIME to measure actual bytes — catches MIME boundary/
+            // encoding overhead that Stage 1's estimate (body + decoded attachment bytes) missed.
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            mimeMessage.writeTo(baos);
+            long actualBytes = baos.size();
+            if (!dto.attachments().isEmpty()) {
+                enforceSizeStage2(actualBytes);
+            }
 
             // Resolve the threadId and apply it to the Gmail API Message object.
             // resolveThreadId() implements FR-005 (infer from lookup) and FR-006 (lookup wins).
@@ -325,12 +352,25 @@ public class GmailService {
             // here in the service layer, not inside MimeMessageBuilder (research.md Decision 2).
             String resolvedThreadId = mimeMessageBuilder.resolveThreadId(dto, lookup);
 
-            logger.info("Creating draft: attachmentCount={}, threaded={}, threadId={}",
+            // FR-019a / FR-020: log only attachment count, estimated bytes, actual bytes, and
+            // MIME types. Never log filenames, base64Data, or message body content.
+            // This log SUPPLEMENTS the threading-related log from Checkpoint B (T035) — do not
+            // remove the threading log statement; this is the US2 attachment diagnostic.
+            logger.info("Creating draft: attachmentCount={}, estimatedPayloadBytes={}, actualMimeBytes={}, mimeTypes={}",
                     dto.attachments().size(),
+                    estimateBytes,
+                    actualBytes,
+                    dto.attachments().stream().map(Attachment::mimeType).toList());
+
+            logger.info("Creating draft: threaded={}, threadId={}",
                     lookup != null,
                     resolvedThreadId);
 
             return gmailRepository.createDraft(userId, mimeMessage, resolvedThreadId);
+        } catch (MessageTooLargeException e) {
+            // Re-throw size rejections (Stage 1 or Stage 2) without wrapping — the
+            // GlobalExceptionHandler maps MessageTooLargeException → HTTP 413 directly.
+            throw e;
         } catch (MessagingException | UnsupportedEncodingException e) {
             logger.error("Failed to build MimeMessage for draft creation for user: {}", userId, e);
             throw new GmailApiException("Failed to construct email message for draft", e);
@@ -406,7 +446,26 @@ public class GmailService {
                 lookup = gmailRepository.getMessageHeaders(userId, dto.inReplyToMessageId());
             }
 
+            // T043 — Stage 1: pre-construction payload size estimate (fast reject, FR-014, FR-017).
+            // Only applied when attachments are present; the existing @MaxBodySize Bean Validation
+            // constraint already enforces the 10 MB body cap for non-attachment requests (FR-015).
+            // When attachments ARE present, the 25 MB total-payload cap takes precedence.
+            long estimateBytes = estimatePayloadBytes(dto);
+            if (!dto.attachments().isEmpty()) {
+                enforceSizeStage1(estimateBytes);
+            }
+
             MimeMessage mimeMessage = mimeMessageBuilder.build(dto, lookup);
+
+            // T044 — Stage 2: post-construction safety net (strict 100% cap, FR-014, FR-017).
+            // Serializes the assembled MIME to measure actual bytes — catches MIME boundary/
+            // encoding overhead that Stage 1's estimate (body + decoded attachment bytes) missed.
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            mimeMessage.writeTo(baos);
+            long actualBytes = baos.size();
+            if (!dto.attachments().isEmpty()) {
+                enforceSizeStage2(actualBytes);
+            }
 
             // Resolve the threadId and apply it to the Gmail API Message object.
             // resolveThreadId() implements FR-005 (infer from lookup) and FR-006 (lookup wins).
@@ -414,12 +473,25 @@ public class GmailService {
             // here in the service layer, not inside MimeMessageBuilder (research.md Decision 2).
             String resolvedThreadId = mimeMessageBuilder.resolveThreadId(dto, lookup);
 
-            logger.info("Sending message: attachmentCount={}, threaded={}, threadId={}",
+            // FR-019a / FR-020: log only attachment count, estimated bytes, actual bytes, and
+            // MIME types. Never log filenames, base64Data, or message body content.
+            // This log SUPPLEMENTS the threading-related log from Checkpoint B (T035) — do not
+            // remove the threading log statement; this is the US2 attachment diagnostic.
+            logger.info("Sending message: attachmentCount={}, estimatedPayloadBytes={}, actualMimeBytes={}, mimeTypes={}",
                     dto.attachments().size(),
+                    estimateBytes,
+                    actualBytes,
+                    dto.attachments().stream().map(Attachment::mimeType).toList());
+
+            logger.info("Sending message: threaded={}, threadId={}",
                     lookup != null,
                     resolvedThreadId);
 
             return gmailRepository.sendMessage(userId, mimeMessage, resolvedThreadId);
+        } catch (MessageTooLargeException e) {
+            // Re-throw size rejections (Stage 1 or Stage 2) without wrapping — the
+            // GlobalExceptionHandler maps MessageTooLargeException → HTTP 413 directly.
+            throw e;
         } catch (MessagingException | UnsupportedEncodingException e) {
             logger.error("Failed to build MimeMessage for send for user: {}", userId, e);
             throw new GmailApiException("Failed to construct email message for send", e);
@@ -428,6 +500,78 @@ public class GmailService {
             throw new GmailApiException(
                     String.format("Failed to send message for user: %s", userId), e
             );
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // T043 / T044 — Payload size helpers
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Estimates the total assembled MIME payload size before construction (Stage 1).
+     *
+     * <p>Computes: {@code body.getBytes(UTF_8).length + sum(base64Data.length() * 3 / 4)}
+     * for all attachments. The {@code * 3 / 4} factor converts from base64 character count
+     * to approximate decoded byte count (research.md Decision 9).</p>
+     *
+     * @param dto the validated send request DTO
+     * @return estimated payload size in bytes
+     */
+    private long estimatePayloadBytes(SendMessageDTO dto) {
+        long estimateBytes = dto.body().getBytes(StandardCharsets.UTF_8).length;
+        for (Attachment att : dto.attachments()) {
+            // base64Data.length() * 3 / 4 approximates decoded binary size.
+            estimateBytes += (long) att.base64Data().length() * 3 / 4;
+        }
+        return estimateBytes;
+    }
+
+    /**
+     * Stage 1 size enforcement: fast reject at 90% of the total-payload cap (T043).
+     *
+     * <p>The 90% threshold (rather than 100%) leaves headroom for MIME multipart
+     * overhead (boundaries, headers, base64 line folding at 76 chars + CRLF) that the
+     * pre-construction estimate does not account for. Stage 2 ({@link #enforceSizeStage2})
+     * enforces the strict 100% cap on the actual serialized bytes (research.md Decision 9,
+     * /reconcile U1).</p>
+     *
+     * <p>Choice — "only-with-attachments" vs "always": Stage 1 is applied ONLY when
+     * {@code dto.attachments()} is non-empty. For non-attachment requests the existing
+     * {@code @MaxBodySize} Bean Validation annotation (10 MB body cap, FR-015) is the
+     * sole pre-check — it runs earlier, at the DTO validation layer, and produces a
+     * structured 400 response. Duplicating that check here would add confusion without
+     * value. Stage 2 runs only when attachments are present for the same reason.</p>
+     *
+     * @param estimateBytes the estimated payload size from {@link #estimatePayloadBytes}
+     * @throws MessageTooLargeException (HTTP 413) if the estimate exceeds the 90% threshold
+     */
+    private void enforceSizeStage1(long estimateBytes) {
+        long maxTotal = properties.send().maxTotalPayloadSize().toBytes();
+        long threshold = (long) (0.9 * maxTotal);
+        if (estimateBytes > threshold) {
+            throw new MessageTooLargeException(
+                    "Total payload estimate (" + estimateBytes + " bytes) exceeds 90% of "
+                    + maxTotal + " byte cap (Stage 1 fast reject, FR-017)");
+        }
+    }
+
+    /**
+     * Stage 2 size enforcement: strict 100% cap on the actual serialized MIME bytes (T044).
+     *
+     * <p>Called after {@link MimeMessageBuilder#build} returns and the {@link MimeMessage}
+     * has been serialized to a {@link ByteArrayOutputStream}. This safety net catches
+     * any cases where Stage 1's estimate was too optimistic — e.g., MIME boundaries
+     * inflating beyond the 10% margin (research.md Decision 9).</p>
+     *
+     * @param actualBytes the actual byte count of the serialized MIME message
+     * @throws MessageTooLargeException (HTTP 413) if {@code actualBytes} exceeds the cap
+     */
+    private void enforceSizeStage2(long actualBytes) {
+        long maxTotal = properties.send().maxTotalPayloadSize().toBytes();
+        if (actualBytes > maxTotal) {
+            throw new MessageTooLargeException(
+                    "Assembled MIME payload (" + actualBytes + " bytes) exceeds "
+                    + maxTotal + " byte cap (Stage 2 safety net, FR-017)");
         }
     }
 }

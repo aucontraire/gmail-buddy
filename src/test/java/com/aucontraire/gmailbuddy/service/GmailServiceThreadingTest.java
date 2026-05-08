@@ -1,5 +1,6 @@
 package com.aucontraire.gmailbuddy.service;
 
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
 import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
@@ -11,6 +12,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.util.unit.DataSize;
 
 import java.io.IOException;
 import java.util.List;
@@ -59,6 +61,8 @@ class GmailServiceThreadingTest {
     private GmailQueryBuilder gmailQueryBuilder;
     private FilterCriteriaMapper filterCriteriaMapper;
     private MimeMessageBuilder mimeMessageBuilder;
+    private GmailBuddyProperties properties;
+    private GmailBuddyProperties.Send send;
     private GmailService gmailService;
 
     @BeforeEach
@@ -67,16 +71,27 @@ class GmailServiceThreadingTest {
         gmailQueryBuilder    = mock(GmailQueryBuilder.class);
         filterCriteriaMapper = mock(FilterCriteriaMapper.class);
         mimeMessageBuilder   = mock(MimeMessageBuilder.class);
+        properties           = mock(GmailBuddyProperties.class);
+        send                 = mock(GmailBuddyProperties.Send.class);
+        when(properties.send()).thenReturn(send);
+        when(send.maxTotalPayloadSize()).thenReturn(DataSize.ofMegabytes(25));
         gmailService = new GmailService(
-                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder);
+                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder, properties);
     }
 
     // -------------------------------------------------------------------------
-    // Helper: produce a no-op MimeMessage stub
+    // Helper: produce a stub MimeMessage that can survive writeTo() in Stage 2
     // -------------------------------------------------------------------------
 
     private MimeMessage emptyMimeMessage() {
-        return new MimeMessage(Session.getInstance(new Properties()));
+        try {
+            MimeMessage msg = new MimeMessage(Session.getInstance(new Properties()));
+            msg.setContent("stub", "text/plain");
+            msg.saveChanges();
+            return msg;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to create stub MimeMessage", e);
+        }
     }
 
     // -------------------------------------------------------------------------
