@@ -148,4 +148,30 @@ class GmailQuotaEstimatorTest {
         // Assert
         assertEquals(500, quota, "10 batches should cost 500 quota units");
     }
+
+    // -------------------------------------------------------------------------
+    // Threading quota methods — T024
+    // -------------------------------------------------------------------------
+
+    @Test
+    void testEstimateThreadedSendMessageQuota() {
+        // Arrange: threaded send = messages.get (5 units) + messages.send (100 units) = 105
+        // Act
+        int quota = estimator.estimateThreadedSendMessageQuota();
+
+        // Assert
+        assertEquals(105, quota,
+                "Threaded send message should cost 105 quota units (5 lookup + 100 send)");
+    }
+
+    @Test
+    void testEstimateThreadedCreateDraftQuota() {
+        // Arrange: threaded draft = messages.get (5 units) + drafts.create (10 units) = 15
+        // Act
+        int quota = estimator.estimateThreadedCreateDraftQuota();
+
+        // Assert
+        assertEquals(15, quota,
+                "Threaded create draft should cost 15 quota units (5 lookup + 10 draft create)");
+    }
 }

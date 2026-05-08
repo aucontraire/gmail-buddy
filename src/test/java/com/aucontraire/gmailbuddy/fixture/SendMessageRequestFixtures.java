@@ -73,7 +73,10 @@ public final class SendMessageRequestFixtures {
                 null,   // compact constructor normalises to List.of()
                 VALID_SUBJECT,
                 VALID_TEXT_BODY,
-                null    // compact constructor defaults to "text"
+                null,   // compact constructor defaults to "text"
+                null,   // threadId — optional
+                null,   // inReplyToMessageId — optional
+                null    // attachments — compact constructor normalises to List.of()
         );
     }
 
@@ -94,7 +97,10 @@ public final class SendMessageRequestFixtures {
                 List.of("bcc-recipient@example.com"),
                 VALID_SUBJECT,
                 VALID_TEXT_BODY,
-                "text"
+                "text",
+                null,   // threadId — optional
+                null,   // inReplyToMessageId — optional
+                null    // attachments — compact constructor normalises to List.of()
         );
     }
 
@@ -117,7 +123,10 @@ public final class SendMessageRequestFixtures {
                 null,
                 VALID_SUBJECT,
                 VALID_HTML_BODY,
-                "html"
+                "html",
+                null,   // threadId — optional
+                null,   // inReplyToMessageId — optional
+                null    // attachments — compact constructor normalises to List.of()
         );
     }
 
@@ -148,7 +157,10 @@ public final class SendMessageRequestFixtures {
                 null,
                 "Legitimate Subject\r\nX-Injected-Header: malicious",
                 VALID_TEXT_BODY,
-                "text"
+                "text",
+                null,   // threadId — optional
+                null,   // inReplyToMessageId — optional
+                null    // attachments — compact constructor normalises to List.of()
         );
     }
 
@@ -170,7 +182,10 @@ public final class SendMessageRequestFixtures {
                 null,
                 VALID_SUBJECT,
                 VALID_TEXT_BODY,
-                "text"
+                "text",
+                null,   // threadId — optional
+                null,   // inReplyToMessageId — optional
+                null    // attachments — compact constructor normalises to List.of()
         );
     }
 
@@ -197,7 +212,10 @@ public final class SendMessageRequestFixtures {
                 null,
                 VALID_SUBJECT,
                 oversizedBody,
-                "text"
+                "text",
+                null,   // threadId — optional
+                null,   // inReplyToMessageId — optional
+                null    // attachments — compact constructor normalises to List.of()
         );
     }
 }

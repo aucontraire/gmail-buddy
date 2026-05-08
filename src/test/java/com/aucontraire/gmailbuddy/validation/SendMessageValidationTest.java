@@ -117,7 +117,10 @@ class SendMessageValidationTest {
                 null,
                 "Valid Subject",
                 "Valid body content",
-                "text"
+                "text",
+                null,
+                null,
+                null
         );
         String body = objectMapper.writeValueAsString(dto);
 
@@ -148,7 +151,10 @@ class SendMessageValidationTest {
                 null,
                 "Valid Subject",
                 "Valid body content",
-                "text"
+                "text",
+                null,
+                null,
+                null
         );
         String body = objectMapper.writeValueAsString(dto);
 
@@ -182,7 +188,10 @@ class SendMessageValidationTest {
                 null,
                 oversizedSubject,
                 "Valid body content",
-                "text"
+                "text",
+                null,
+                null,
+                null
         );
         String body = objectMapper.writeValueAsString(dto);
 
@@ -312,7 +321,10 @@ class SendMessageValidationTest {
                 null,
                 "Valid Subject",
                 "Valid body content",
-                "text"
+                "text",
+                null,
+                null,
+                null
         );
         String body = objectMapper.writeValueAsString(dto);
 
@@ -343,7 +355,10 @@ class SendMessageValidationTest {
                 null,
                 "Valid Subject",
                 "Valid body content",
-                "markdown"
+                "markdown",
+                null,
+                null,
+                null
         );
         String body = objectMapper.writeValueAsString(dto);
 

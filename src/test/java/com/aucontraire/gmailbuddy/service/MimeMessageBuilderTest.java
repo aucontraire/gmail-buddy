@@ -173,7 +173,10 @@ class MimeMessageBuilderTest {
                 null,
                 "Réponse à votre annonce – Développeur",
                 "Body text",
-                "text"
+                "text",
+                null,
+                null,
+                null
         );
 
         // Act
@@ -307,7 +310,10 @@ class MimeMessageBuilderTest {
                 null,
                 "Test Subject",
                 "<p>Hello</p>",
-                "HTML"   // uppercase — should still map to text/html
+                "HTML",   // uppercase — should still map to text/html
+                null,
+                null,
+                null
         );
 
         // Act
@@ -331,7 +337,10 @@ class MimeMessageBuilderTest {
                 null,
                 "Test Subject",
                 "Body text",
-                null  // compact constructor defaults to "text"
+                null,  // compact constructor defaults to "text"
+                null,
+                null,
+                null
         );
 
         // Act

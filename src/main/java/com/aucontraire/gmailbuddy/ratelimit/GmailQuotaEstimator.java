@@ -168,4 +168,30 @@ public class GmailQuotaEstimator {
         logger.debug("Estimated quota for sending draft: {} units", DRAFTS_SEND_QUOTA);
         return DRAFTS_SEND_QUOTA;
     }
+
+    /**
+     * Estimates quota usage for a threaded message send (users.messages.send with
+     * a prior users.messages.get metadata lookup).
+     * ~5 (lookup) + ~100 (send) = ~105 units.
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateThreadedSendMessageQuota() {
+        int quota = MESSAGES_GET_QUOTA + MESSAGES_SEND_QUOTA;
+        logger.debug("Estimated quota for threaded send message: {} units", quota);
+        return quota;
+    }
+
+    /**
+     * Estimates quota usage for a threaded draft creation (users.drafts.create with
+     * a prior users.messages.get metadata lookup).
+     * ~5 (lookup) + ~10 (draft create) = ~15 units.
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateThreadedCreateDraftQuota() {
+        int quota = MESSAGES_GET_QUOTA + DRAFTS_CREATE_QUOTA;
+        logger.debug("Estimated quota for threaded create draft: {} units", quota);
+        return quota;
+    }
 }

@@ -197,7 +197,7 @@ class GmailBuddyPropertiesTest {
                 properties.security(),
                 properties.environment(),
                 properties.applicationRateLimit(),
-                new GmailBuddyProperties.Send(DataSize.ofMegabytes(10), 500, 998)
+                new GmailBuddyProperties.Send(DataSize.ofMegabytes(10), 500, 998, DataSize.ofMegabytes(25))
         );
 
         Set<ConstraintViolation<GmailBuddyProperties>> violations = validator.validate(invalidProperties);
@@ -226,7 +226,7 @@ class GmailBuddyPropertiesTest {
                 properties.security(),
                 properties.environment(),
                 properties.applicationRateLimit(),
-                new GmailBuddyProperties.Send(DataSize.ofMegabytes(10), 500, 998)
+                new GmailBuddyProperties.Send(DataSize.ofMegabytes(10), 500, 998, DataSize.ofMegabytes(25))
         );
 
         Set<ConstraintViolation<GmailBuddyProperties>> violations = validator.validate(invalidProperties);
@@ -261,7 +261,7 @@ class GmailBuddyPropertiesTest {
                 properties.security(),
                 properties.environment(),
                 properties.applicationRateLimit(),
-                new GmailBuddyProperties.Send(DataSize.ofMegabytes(10), 500, 998)
+                new GmailBuddyProperties.Send(DataSize.ofMegabytes(10), 500, 998, DataSize.ofMegabytes(25))
         );
 
         Set<ConstraintViolation<GmailBuddyProperties>> violations = validator.validate(invalidProperties);

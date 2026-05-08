@@ -8,8 +8,10 @@ import com.aucontraire.gmailbuddy.exception.AuthorizationException;
 import com.aucontraire.gmailbuddy.exception.InvalidRecipientException;
 import com.aucontraire.gmailbuddy.exception.MessageSendException;
 import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
+import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
 import com.aucontraire.gmailbuddy.exception.RateLimitException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
+import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
 import com.aucontraire.gmailbuddy.exception.ValidationException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
@@ -606,5 +608,11 @@ public class GmailRepositoryImpl implements GmailRepository {
                     new MessageSendException(
                             "Gmail send failed with reason: " + reason, e);
         };
+    }
+
+    @Override
+    public OriginalMessageLookup getMessageHeaders(String userId, String messageId) throws IOException {
+        // Stub — real implementation lands in T033 (Phase 3, US1).
+        throw new UnsupportedOperationException("getMessageHeaders not yet implemented (T033)");
     }
 }
