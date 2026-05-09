@@ -40,7 +40,9 @@ import jakarta.validation.constraints.Size;
 public record Attachment(
 
     @Schema(
-        description = "Attachment display name, max 255 UTF-8 chars, no path separators or line terminators",
+        description = "Attachment display name, max 255 UTF-8 chars, no path separators (/, \\, ..), " +
+                      "no line terminator characters. RFC 2047 encoding for non-ASCII characters is " +
+                      "applied at MIME generation time.",
         example = "resume.pdf",
         requiredMode = Schema.RequiredMode.REQUIRED
     )
@@ -50,7 +52,8 @@ public record Attachment(
     String filename,
 
     @Schema(
-        description = "RFC 6838 type/subtype, no whitelist enforced",
+        description = "RFC 6838 type/subtype (e.g. application/pdf, image/jpeg). Well-formedness is " +
+                      "validated against the RFC 6838 token character set; no content-type whitelist is enforced.",
         example = "application/pdf",
         requiredMode = Schema.RequiredMode.REQUIRED
     )
@@ -59,7 +62,8 @@ public record Attachment(
     String mimeType,
 
     @Schema(
-        description = "Standard Base64 encoding, not URL-safe",
+        description = "Standard Base64 encoding of the attachment binary content (not URL-safe Base64). " +
+                      "The value is decoded server-side using java.util.Base64.getDecoder().",
         example = "JVBERi0xLjQK...",
         requiredMode = Schema.RequiredMode.REQUIRED
     )

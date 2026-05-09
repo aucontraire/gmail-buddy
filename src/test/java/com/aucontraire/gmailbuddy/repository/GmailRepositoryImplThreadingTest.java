@@ -427,4 +427,82 @@ class GmailRepositoryImplThreadingTest {
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("Security exception creating Gmail service");
     }
+
+    // =========================================================================
+    // T057 coverage gaps — mapGmailLookupError
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // 400 Bad Request → GmailApiException (lines 834-835 false branch + 842)
+    // A 4xx that is not 404, 403, or 429 falls through to the final default
+    // return after the if (statusCode >= 500) check evaluates to false.
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getMessageHeaders_gmail400Response_throwsGmailApiException (line 834 false branch)")
+    void getMessageHeaders_gmail400Response_throwsGmailApiException() throws Exception {
+        // Arrange: Gmail returns 400 — unexpected client error from API
+        GoogleJsonResponseException e400 = buildGoogleJsonException(400);
+        givenGmailMessageGetChainThrows(e400);
+
+        // Act & Assert: 400 (not 404, 403, 429, or 5xx) maps to GmailApiException
+        assertThatThrownBy(() -> repository.getMessageHeaders(TEST_USER_ID, TEST_MESSAGE_ID))
+                .isInstanceOf(GmailApiException.class)
+                .hasMessageContaining("400");
+    }
+
+    // -------------------------------------------------------------------------
+    // Retry-After header parsing — Long.parseLong (line 821)
+    // The existing 429 test (T027) sets the header via HttpHeaders.set() but
+    // getFirstHeaderStringValue() may return null depending on the key casing
+    // used by the mock. This test uses a mocked GoogleJsonResponseException where
+    // getHeaders().getFirstHeaderStringValue("Retry-After") is directly stubbed
+    // to return a non-null value, guaranteeing the parseLong path executes.
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getMessageHeaders_gmail429WithParsedRetryAfter_parsesRetryAfterSecondsCorrectly (line 821)")
+    void getMessageHeaders_gmail429WithParsedRetryAfter_parsesRetryAfterSecondsCorrectly() throws Exception {
+        // Arrange: mock GoogleJsonResponseException where getHeaders() returns a mock
+        // HttpHeaders that directly stubs getFirstHeaderStringValue to return "45"
+        // so that Long.parseLong("45") is executed.
+        GoogleJsonResponseException e429 = mock(GoogleJsonResponseException.class);
+        when(e429.getStatusCode()).thenReturn(429);
+
+        HttpHeaders mockHeaders = mock(HttpHeaders.class);
+        when(mockHeaders.getFirstHeaderStringValue("Retry-After")).thenReturn("45");
+        when(e429.getHeaders()).thenReturn(mockHeaders);
+
+        givenGmailMessageGetChainThrows(e429);
+
+        // Act & Assert: RateLimitException with retryAfterSeconds == 45 (parsed from header)
+        assertThatThrownBy(() -> repository.getMessageHeaders(TEST_USER_ID, TEST_MESSAGE_ID))
+                .isInstanceOf(RateLimitException.class)
+                .satisfies(ex -> {
+                    RateLimitException rle = (RateLimitException) ex;
+                    assertThat(rle.getRetryAfterSeconds()).isEqualTo(45L);
+                });
+    }
+
+    @Test
+    @DisplayName("getMessageHeaders_gmail429WithMalformedRetryAfter_fallsBackToDefaultSeconds (line 821 catch block)")
+    void getMessageHeaders_gmail429WithMalformedRetryAfter_fallsBackToDefaultSeconds() throws Exception {
+        // Arrange: Retry-After header contains a non-numeric value — NumberFormatException is caught
+        GoogleJsonResponseException e429 = mock(GoogleJsonResponseException.class);
+        when(e429.getStatusCode()).thenReturn(429);
+
+        HttpHeaders mockHeaders = mock(HttpHeaders.class);
+        when(mockHeaders.getFirstHeaderStringValue("Retry-After")).thenReturn("not-a-number");
+        when(e429.getHeaders()).thenReturn(mockHeaders);
+
+        givenGmailMessageGetChainThrows(e429);
+
+        // Act & Assert: falls back to the 60s default when parse fails
+        assertThatThrownBy(() -> repository.getMessageHeaders(TEST_USER_ID, TEST_MESSAGE_ID))
+                .isInstanceOf(RateLimitException.class)
+                .satisfies(ex -> {
+                    RateLimitException rle = (RateLimitException) ex;
+                    assertThat(rle.getRetryAfterSeconds()).isEqualTo(60L);
+                });
+    }
 }

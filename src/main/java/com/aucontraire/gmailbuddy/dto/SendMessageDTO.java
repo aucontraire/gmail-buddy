@@ -3,6 +3,7 @@ package com.aucontraire.gmailbuddy.dto;
 import com.aucontraire.gmailbuddy.validation.MaxBodySize;
 import com.aucontraire.gmailbuddy.validation.NoHeaderInjection;
 import com.aucontraire.gmailbuddy.validation.OptionalEmail;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -86,6 +87,14 @@ public record SendMessageDTO(
      * format requirement (FR-001b) — no separate {@code @NoHeaderInjection} annotation
      * is needed.</p>
      */
+    @Schema(
+        description = "Optional Gmail short thread ID (16-32 hex chars). When supplied, the outgoing message is " +
+                      "placed in this thread. If inReplyToMessageId is also supplied and references a message in " +
+                      "a different thread, the original message's threadId wins.",
+        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+        nullable = true,
+        example = "1976a4bc3fe89d0c"
+    )
     @Pattern(regexp = "[0-9a-fA-F]{1,32}")
     String threadId,
 
@@ -101,6 +110,14 @@ public record SendMessageDTO(
      * {@link com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException}
      * (HTTP 422).</p>
      */
+    @Schema(
+        description = "Optional Gmail short message ID (16-32 hex chars). When supplied, gmail-buddy fetches the " +
+                      "original message and constructs In-Reply-To and References headers for proper RFC 5322 " +
+                      "threading. Returns 422 if the message doesn't exist.",
+        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+        nullable = true,
+        example = "1976a4bc3fe89d0c"
+    )
     @Pattern(regexp = "[0-9a-fA-F]{1,32}")
     String inReplyToMessageId,
 
@@ -110,6 +127,12 @@ public record SendMessageDTO(
      * Each element is validated via {@code @Valid} cascade using the constraints declared
      * on {@link Attachment} fields.
      */
+    @Schema(
+        description = "Optional list of base64-encoded attachments. When non-empty, the message is built as " +
+                      "multipart/mixed; total payload (body + attachments) capped at 25 MB.",
+        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+        nullable = true
+    )
     @Valid
     List<Attachment> attachments
 

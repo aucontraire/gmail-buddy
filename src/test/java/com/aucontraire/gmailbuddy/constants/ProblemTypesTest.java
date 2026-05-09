@@ -145,6 +145,49 @@ class ProblemTypesTest {
                 .isNotEqualTo(ProblemTypes.MESSAGE_TOO_LARGE);
     }
 
+    // -------------------------------------------------------------------------
+    // T057 coverage gaps — getDescription missing cases (lines 234-235, 238-239)
+    // The existing testGetDescription() covers VALIDATION_ERROR, MESSAGE_NOT_FOUND,
+    // RESOURCE_NOT_FOUND, AUTHENTICATION_FAILED, AUTHORIZATION_FAILED,
+    // RATE_LIMIT_EXCEEDED, and INTERNAL_ERROR.
+    // These tests add CONSTRAINT_VIOLATION and SERVICE_UNAVAILABLE.
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getDescription returns correct description for CONSTRAINT_VIOLATION (line 234-235)")
+    void testGetDescriptionForConstraintViolation() {
+        assertThat(ProblemTypes.getDescription(ProblemTypes.CONSTRAINT_VIOLATION))
+                .isEqualTo("Request violates a business rule or constraint");
+    }
+
+    @Test
+    @DisplayName("getDescription returns correct description for SERVICE_UNAVAILABLE (line 238-239)")
+    void testGetDescriptionForServiceUnavailable() {
+        assertThat(ProblemTypes.getDescription(ProblemTypes.SERVICE_UNAVAILABLE))
+                .isEqualTo("The Gmail Buddy service is temporarily unavailable");
+    }
+
+    @Test
+    @DisplayName("getDescription returns correct description for GMAIL_API_ERROR")
+    void testGetDescriptionForGmailApiError() {
+        assertThat(ProblemTypes.getDescription(ProblemTypes.GMAIL_API_ERROR))
+                .isEqualTo("Error occurred while communicating with Gmail API");
+    }
+
+    @Test
+    @DisplayName("getDescription returns correct description for QUOTA_EXCEEDED")
+    void testGetDescriptionForQuotaExceeded() {
+        assertThat(ProblemTypes.getDescription(ProblemTypes.QUOTA_EXCEEDED))
+                .isEqualTo("Gmail API quota has been exhausted");
+    }
+
+    @Test
+    @DisplayName("getDescription returns correct description for BATCH_OPERATION_ERROR")
+    void testGetDescriptionForBatchOperationError() {
+        assertThat(ProblemTypes.getDescription(ProblemTypes.BATCH_OPERATION_ERROR))
+                .isEqualTo("Error occurred during batch operation processing");
+    }
+
     @Test
     @DisplayName("ORIGINAL_MESSAGE_NOT_FOUND is distinct from all other existing constants")
     void testOriginalMessageNotFoundDistinctFromAllExistingConstants() {
