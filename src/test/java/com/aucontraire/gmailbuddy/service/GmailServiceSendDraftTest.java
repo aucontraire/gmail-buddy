@@ -1,11 +1,13 @@
 package com.aucontraire.gmailbuddy.service;
 
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.util.unit.DataSize;
 
 import java.io.IOException;
 
@@ -45,6 +47,8 @@ class GmailServiceSendDraftTest {
     private GmailQueryBuilder gmailQueryBuilder;
     private FilterCriteriaMapper filterCriteriaMapper;
     private MimeMessageBuilder mimeMessageBuilder;
+    private GmailBuddyProperties properties;
+    private GmailBuddyProperties.Send send;
     private GmailService gmailService;
 
     @BeforeEach
@@ -53,8 +57,12 @@ class GmailServiceSendDraftTest {
         gmailQueryBuilder    = mock(GmailQueryBuilder.class);
         filterCriteriaMapper = mock(FilterCriteriaMapper.class);
         mimeMessageBuilder   = mock(MimeMessageBuilder.class);
+        properties           = mock(GmailBuddyProperties.class);
+        send                 = mock(GmailBuddyProperties.Send.class);
+        when(properties.send()).thenReturn(send);
+        when(send.maxTotalPayloadSize()).thenReturn(DataSize.ofMegabytes(25));
         gmailService = new GmailService(
-                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder);
+                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder, properties);
     }
 
     // -------------------------------------------------------------------------

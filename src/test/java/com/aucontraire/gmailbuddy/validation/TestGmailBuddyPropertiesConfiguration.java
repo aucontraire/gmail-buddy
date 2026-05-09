@@ -64,7 +64,7 @@ public class TestGmailBuddyPropertiesConfiguration {
                 new GmailBuddyProperties.Environment.EnvFile("src/main/resources", ".env")
             ),
             new GmailBuddyProperties.ApplicationRateLimit(1000, 60),
-            new GmailBuddyProperties.Send(DataSize.ofMegabytes(10), 500, 998)
+            new GmailBuddyProperties.Send(DataSize.ofMegabytes(10), 500, 998, DataSize.ofMegabytes(25))
         );
     }
 }

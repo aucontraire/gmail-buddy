@@ -280,6 +280,41 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles OriginalMessageNotFoundException — the {@code inReplyToMessageId} supplied by
+     * the caller does not resolve to an accessible message in the authenticated user's account.
+     *
+     * <p>This is a <em>semantic</em> failure on a prerequisite resource, not a structural
+     * Bean Validation failure. The distinction is important for clients: a {@code 422} here
+     * means the request was well-formed and the {@code inReplyToMessageId} format was valid,
+     * but Gmail's {@code users.messages.get} returned 404 for that ID. The caller should
+     * retry with a valid message ID or omit the threading fields to send without threading.</p>
+     *
+     * Maps to RFC 7807 ProblemDetail with 422 Unprocessable Entity status and problem type
+     * {@link com.aucontraire.gmailbuddy.constants.ProblemTypes#ORIGINAL_MESSAGE_NOT_FOUND}.
+     */
+    @ExceptionHandler(OriginalMessageNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleOriginalMessageNotFoundException(OriginalMessageNotFoundException ex) {
+        String requestId = getRequestId();
+        HttpStatus status = HttpStatus.valueOf(ex.getHttpStatus());
+
+        ProblemDetail problem = ProblemDetail.builder()
+                .type(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND)
+                .title("Original Message Not Found")
+                .status(status.value())
+                .detail(ex.getMessage())
+                .instance(request.getRequestURI())
+                .requestId(requestId)
+                .retryable(false)
+                .category("CLIENT_ERROR")
+                .build();
+
+        logger.warn("Original message not found for threading [{}]: {} (correlation: {})",
+                ex.getErrorCode(), ex.getMessage(), requestId);
+
+        return buildProblemResponse(problem, status);
+    }
+
+    /**
      * Handles MessageTooLargeException (Gmail-side rejection of an assembled MIME payload
      * that exceeds Gmail's maximum allowed size, i.e. {@code reason='messageTooLarge'}).
      *
@@ -509,6 +544,7 @@ public class GlobalExceptionHandler {
             case "VALIDATION_ERROR" -> ProblemTypes.VALIDATION_ERROR;
             case "INVALID_RECIPIENT" -> ProblemTypes.INVALID_RECIPIENT;
             case "MESSAGE_TOO_LARGE" -> ProblemTypes.MESSAGE_TOO_LARGE;
+            case "ORIGINAL_MESSAGE_NOT_FOUND" -> ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND;
             case "RESOURCE_NOT_FOUND" -> ProblemTypes.RESOURCE_NOT_FOUND;
             case "AUTHENTICATION_ERROR" -> ProblemTypes.AUTHENTICATION_FAILED;
             case "AUTHORIZATION_ERROR" -> ProblemTypes.AUTHORIZATION_FAILED;

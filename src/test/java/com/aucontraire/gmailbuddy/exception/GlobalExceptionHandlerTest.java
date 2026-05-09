@@ -2,7 +2,9 @@ package com.aucontraire.gmailbuddy.exception;
 
 import com.aucontraire.gmailbuddy.constants.ProblemTypes;
 import com.aucontraire.gmailbuddy.dto.error.ProblemDetail;
+import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
@@ -280,5 +282,74 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.getHeaders().getContentType())
             .isEqualTo(MediaType.parseMediaType("application/problem+json"));
+    }
+
+    // -------------------------------------------------------------------------
+    // T057 coverage gaps — GlobalExceptionHandler
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("handleGmailBuddyException uses CLIENT_ERROR category and warn log for client exceptions (line 377)")
+    void testHandleGmailBuddyException_clientError_returnsClientErrorCategory() {
+        // Arrange: ValidationException is a client error (isClientError() == true)
+        ValidationException ex = new ValidationException("Bad input from caller");
+
+        // Act
+        ResponseEntity<ProblemDetail> response = handler.handleGmailBuddyException(ex);
+
+        // Assert: category must be CLIENT_ERROR and status matches the exception's HTTP code
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getCategory()).isEqualTo("CLIENT_ERROR");
+        assertThat(response.getStatusCode().value()).isEqualTo(ex.getHttpStatus());
+        assertThat(response.getBody().getType().toString()).isEqualTo(ProblemTypes.VALIDATION_ERROR);
+    }
+
+    @Test
+    @DisplayName("handleOriginalMessageNotFoundException returns 422 with ORIGINAL_MESSAGE_NOT_FOUND type (new handler, line 547)")
+    void testHandleOriginalMessageNotFoundException_returns422WithCorrectProblemType() {
+        // Arrange
+        OriginalMessageNotFoundException ex = new OriginalMessageNotFoundException(
+                "Original message not found for threading (messageId=1a2b3c4d5e6f)");
+
+        // Act
+        ResponseEntity<ProblemDetail> response = handler.handleOriginalMessageNotFoundException(ex);
+
+        // Assert: HTTP 422
+        assertThat(response.getStatusCode().value()).isEqualTo(422);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getType().toString()).isEqualTo(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND);
+        assertThat(response.getBody().getStatus()).isEqualTo(422);
+        assertThat(response.getBody().getCategory()).isEqualTo("CLIENT_ERROR");
+        assertThat(response.getBody().getRetryable()).isFalse();
+        assertThat(response.getBody().getDetail()).contains("Original message not found");
+    }
+
+    @Test
+    @DisplayName("handleOriginalMessageNotFoundException includes X-Request-ID header")
+    void testHandleOriginalMessageNotFoundException_includesRequestIdHeader() {
+        // Arrange
+        OriginalMessageNotFoundException ex = new OriginalMessageNotFoundException("not found");
+
+        // Act
+        ResponseEntity<ProblemDetail> response = handler.handleOriginalMessageNotFoundException(ex);
+
+        // Assert: request ID header must be present
+        assertThat(response.getHeaders().getFirst("X-Request-ID")).isNotNull();
+    }
+
+    @Test
+    @DisplayName("determineProblemType maps ORIGINAL_MESSAGE_NOT_FOUND error code to correct URI (line 547)")
+    void testHandleGmailBuddyException_originalMessageNotFoundErrorCode_mapsToCorrectProblemTypeUri() {
+        // Arrange: OriginalMessageNotFoundException has ERROR_CODE = "ORIGINAL_MESSAGE_NOT_FOUND"
+        OriginalMessageNotFoundException ex = new OriginalMessageNotFoundException(
+                "Threading prerequisite not found");
+
+        // Act: route through handleGmailBuddyException (catches GmailBuddyException supertype)
+        // OriginalMessageNotFoundException extends GmailBuddyClientException extends GmailBuddyException
+        ResponseEntity<ProblemDetail> response = handler.handleGmailBuddyException(ex);
+
+        // Assert: the determineProblemType switch must resolve the ORIGINAL_MESSAGE_NOT_FOUND case
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getType().toString()).isEqualTo(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND);
     }
 }

@@ -258,7 +258,8 @@ public record GmailBuddyProperties(
     public record Send(
         @NotNull DataSize maxBodySize,
         @Min(1) @Max(500) int maxRecipientsPerMessage,
-        @Min(1) @Max(998) int maxSubjectLength
+        @Min(1) @Max(998) int maxSubjectLength,
+        @NotNull DataSize maxTotalPayloadSize
     ) {
         // Default values are set in application.properties
     }

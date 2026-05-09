@@ -1,0 +1,1172 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "Gmail Buddy API",
+		"description": "Complete API collection for testing Gmail Buddy endpoints with OAuth2 authentication",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "oauth2",
+		"oauth2": [
+			{
+				"key": "tokenName",
+				"value": "Gmail Buddy Token",
+				"type": "string"
+			},
+			{
+				"key": "clientSecret",
+				"value": "{{GOOGLE_CLIENT_SECRET}}",
+				"type": "string"
+			},
+			{
+				"key": "clientId",
+				"value": "{{GOOGLE_CLIENT_ID}}",
+				"type": "string"
+			},
+			{
+				"key": "accessTokenUrl",
+				"value": "https://oauth2.googleapis.com/token",
+				"type": "string"
+			},
+			{
+				"key": "authUrl",
+				"value": "https://accounts.google.com/o/oauth2/v2/auth",
+				"type": "string"
+			},
+			{
+				"key": "useBrowser",
+				"value": true,
+				"type": "boolean"
+			},
+			{
+				"key": "grant_type",
+				"value": "authorization_code",
+				"type": "string"
+			},
+			{
+				"key": "scope",
+				"value": "email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://mail.google.com",
+				"type": "string"
+			},
+			{
+				"key": "redirectUrl",
+				"value": "https://oauth.pstmn.io/v1/callback",
+				"type": "string"
+			},
+			{
+				"key": "addTokenTo",
+				"value": "header",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Messages",
+			"item": [
+				{
+					"name": "Get All Messages",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages"
+							]
+						},
+						"description": "Retrieve all Gmail messages for the authenticated user"
+					}
+				},
+				{
+					"name": "Get Latest Messages",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/latest",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"latest"
+							]
+						},
+						"description": "Retrieve the latest 50 Gmail messages"
+					}
+				},
+				{
+					"name": "Filter Messages",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"from\": \"noreply@github.com\",\n    \"subject\": \"\",\n    \"hasAttachment\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/filter",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"filter"
+							]
+						},
+						"description": "Filter messages based on criteria like sender, subject, etc."
+					}
+				},
+				{
+					"name": "Get Message Body",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/{{messageId}}/body",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"{{messageId}}",
+								"body"
+							]
+						},
+						"description": "Get the body content of a specific message. Set messageId variable first."
+					}
+				},
+				{
+					"name": "Mark Message as Read",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/{{messageId}}/read",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"{{messageId}}",
+								"read"
+							]
+						},
+						"description": "Mark a specific message as read. Set messageId variable first."
+					}
+				}
+			],
+			"description": "Basic message operations"
+		},
+		{
+			"name": "Message Management",
+			"item": [
+				{
+					"name": "Delete Single Message",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/{{messageId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"{{messageId}}"
+							]
+						},
+						"description": "Delete a single message by ID. Set messageId variable first."
+					}
+				},
+				{
+					"name": "Bulk Delete Messages",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"from\": \"spam@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/filter",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"filter"
+							]
+						},
+						"description": "Delete multiple messages based on filter criteria"
+					}
+				},
+				{
+					"name": "Modify Labels",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"filterCriteria\": {\n        \"from\": \"important@example.com\"\n    },\n    \"labelsToAdd\": [\"IMPORTANT\"],\n    \"labelsToRemove\": [\"UNREAD\"]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/filter/modifyLabels",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"filter",
+								"modifyLabels"
+							]
+						},
+						"description": "Add or remove labels from messages matching filter criteria"
+					}
+				}
+			],
+			"description": "Advanced message management operations"
+		},
+		{
+			"name": "Send & Draft",
+			"item": [
+				{
+					"name": "Create Draft (Stage for Review)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"to\": [\"hiring-manager@bigcorp.example\"],\n    \"cc\": [\"referrer@example.com\"],\n    \"bcc\": [],\n    \"subject\": \"Application for Senior Backend Engineer — referred by Sam\",\n    \"body\": \"<p>Dear hiring team,</p><p>Sam suggested I reach out...</p>\",\n    \"bodyType\": \"html\",\n    \"threadId\": null,\n    \"inReplyToMessageId\": null,\n    \"attachments\": []\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/drafts",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"drafts"
+							]
+						},
+						"description": "Stages an email as a draft in the user's Gmail Drafts folder. Returns 201 Created with a Location header and a DraftResponse body. The draft is immediately visible in Gmail for review, editing, or discard. This is the recommended path for AI-personalized outreach content. Requires gmail.send scope (or mail.google.com).\n\nNew optional fields (feature 002):\n- threadId: Gmail short thread ID (hex). Places the draft in an existing thread. Omit or set null for new conversations.\n- inReplyToMessageId: Gmail short message ID of the message being replied to. Triggers a users.messages.get metadata lookup that populates In-Reply-To and References MIME headers. Returns 422 if the message doesn't exist.\n- attachments: Array of base64-encoded file attachments. Each element requires filename, mimeType, and base64Data. Total payload (body + attachments) capped at 25 MB."
+					},
+					"response": [
+						{
+							"name": "201 Created — Draft staged successfully",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [\"hiring-manager@bigcorp.example\"],\n    \"cc\": [\"referrer@example.com\"],\n    \"bcc\": [],\n    \"subject\": \"Application for Senior Backend Engineer — referred by Sam\",\n    \"body\": \"<p>Dear hiring team,</p><p>Sam suggested I reach out...</p>\",\n    \"bodyType\": \"html\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Location",
+									"value": "/api/v1/gmail/drafts/r-9876543210"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"body": "{\n    \"draftId\": \"r-9876543210\",\n    \"messageId\": \"19a2b3c4d5e6f7g8\",\n    \"threadId\": \"19a2b3c4d5e6f7g8\",\n    \"status\": \"DRAFT\"\n}"
+						},
+						{
+							"name": "400 Bad Request — Validation failure",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [\"not-an-email\"],\n    \"subject\": \"Should fail\",\n    \"body\": \"Body\",\n    \"bodyType\": \"text\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/validation-error\",\n    \"title\": \"Validation Error\",\n    \"status\": 400,\n    \"detail\": \"Request validation failed\",\n    \"instance\": \"/api/v1/gmail/drafts\",\n    \"extensions\": {\n        \"constraint:to[0].<list element>\": \"must be a valid email address\"\n    }\n}"
+						},
+						{
+							"name": "422 Unprocessable Entity — Original message not found",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [\"hiring-manager@bigcorp.example\"],\n    \"subject\": \"Re: Nonexistent thread\",\n    \"body\": \"This should fail.\",\n    \"bodyType\": \"text\",\n    \"inReplyToMessageId\": \"0000000000000000\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts"
+									]
+								}
+							},
+							"status": "Unprocessable Entity",
+							"code": 422,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/original-message-not-found\",\n    \"title\": \"Original Message Not Found\",\n    \"status\": 422,\n    \"detail\": \"The message referenced by inReplyToMessageId '0000000000000000' does not exist or is not accessible in the authenticated account\",\n    \"instance\": \"/api/v1/gmail/drafts\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Send Existing Draft",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/drafts/{{draftId}}/send",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"drafts",
+								"{{draftId}}",
+								"send"
+							]
+						},
+						"description": "Delivers a previously-created draft by its identifier. This is a state transition on an existing resource — the draft is consumed and the message appears in the Sent folder. Returns 200 OK (not 201) with no Location header. Naturally idempotent: a retry after successful send returns 404. Requires gmail.send scope (or mail.google.com). Set the draftId collection variable to the value returned by POST /drafts."
+					},
+					"response": [
+						{
+							"name": "200 OK — Draft sent successfully",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/r-9876543210/send",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"r-9876543210",
+										"send"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"body": "{\n    \"messageId\": \"19a2b3c4d5e6f7g8\",\n    \"threadId\": \"19a2b3c4d5e6f7g8\",\n    \"status\": \"SENT\"\n}"
+						},
+						{
+							"name": "404 Not Found — Draft already sent or discarded",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/r-9876543210/send",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"r-9876543210",
+										"send"
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/resource-not-found\",\n    \"title\": \"Resource Not Found\",\n    \"status\": 404,\n    \"detail\": \"Draft not found — already sent, discarded, or invalid draftId\",\n    \"instance\": \"/api/v1/gmail/drafts/r-9876543210/send\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Send Message Directly",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"to\": [\"recruiter@example.com\"],\n    \"cc\": [],\n    \"bcc\": [],\n    \"subject\": \"Following up on our conversation\",\n    \"body\": \"Hi,\\n\\nThanks for taking the time to chat yesterday...\\n\\nBest,\\nOmar\",\n    \"bodyType\": \"text\",\n    \"threadId\": null,\n    \"inReplyToMessageId\": null,\n    \"attachments\": []\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages"
+							]
+						},
+						"description": "Sends an email immediately via the Gmail API. Reserved for deterministic, pre-trusted templates — not the recommended path for AI-personalized content (use POST /drafts instead). Returns 201 Created with a Location header pointing to the message body endpoint. WARNING: callers must not auto-retry after a timeout — duplicate sends may result. Requires gmail.send scope (or mail.google.com).\n\nNew optional fields (feature 002):\n- threadId: Gmail short thread ID (hex). Places the message in an existing thread. Omit or set null for new conversations.\n- inReplyToMessageId: Gmail short message ID of the message being replied to. Triggers a users.messages.get metadata lookup that populates In-Reply-To and References MIME headers. Returns 422 if the message doesn't exist. Quota: ~105 units when supplied (vs 100 for non-threaded).\n- attachments: Array of base64-encoded file attachments. Each element requires filename, mimeType, and base64Data. Total payload (body + attachments) capped at 25 MB."
+					},
+					"response": [
+						{
+							"name": "201 Created — Message sent successfully",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [\"recruiter@example.com\"],\n    \"cc\": [],\n    \"bcc\": [],\n    \"subject\": \"Following up on our conversation\",\n    \"body\": \"Hi,\\n\\nThanks for taking the time to chat yesterday...\\n\\nBest,\\nOmar\",\n    \"bodyType\": \"text\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Location",
+									"value": "/api/v1/gmail/messages/19a2b3c4d5e6f7g8/body"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"body": "{\n    \"messageId\": \"19a2b3c4d5e6f7g8\",\n    \"threadId\": \"19a2b3c4d5e6f7g8\",\n    \"status\": \"SENT\"\n}"
+						},
+						{
+							"name": "400 Bad Request — Validation failure",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [],\n    \"subject\": \"Missing recipients\",\n    \"body\": \"Body\",\n    \"bodyType\": \"text\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/validation-error\",\n    \"title\": \"Validation Error\",\n    \"status\": 400,\n    \"detail\": \"Request validation failed\",\n    \"instance\": \"/api/v1/gmail/messages\",\n    \"extensions\": {\n        \"field:to\": \"must not be empty\"\n    }\n}"
+						},
+						{
+							"name": "422 Unprocessable Entity — Original message not found",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [\"recruiter@example.com\"],\n    \"subject\": \"Re: Our conversation\",\n    \"body\": \"Following up...\",\n    \"bodyType\": \"text\",\n    \"inReplyToMessageId\": \"0000000000000000\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages"
+									]
+								}
+							},
+							"status": "Unprocessable Entity",
+							"code": 422,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/original-message-not-found\",\n    \"title\": \"Original Message Not Found\",\n    \"status\": 422,\n    \"detail\": \"The message referenced by inReplyToMessageId '0000000000000000' does not exist or is not accessible in the authenticated account\",\n    \"instance\": \"/api/v1/gmail/messages\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Send Threaded Reply (Recipe 1)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"to\": [\"{{testRecipient}}\"],\n    \"subject\": \"Re: Our conversation\",\n    \"body\": \"<p>Hi,</p><p>Following up as discussed.</p>\",\n    \"bodyType\": \"html\",\n    \"threadId\": \"{{originalThreadId}}\",\n    \"inReplyToMessageId\": \"{{originalMsgId}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages"
+							]
+						},
+						"description": "Recipe 1 from quickstart.md — send a threaded reply that appears in the same Gmail conversation as the original message.\n\nBefore running:\n1. Set originalMsgId to a real Gmail short message ID from your mailbox (obtain via GET /api/v1/gmail/messages/latest).\n2. Set originalThreadId to the corresponding thread ID.\n3. Set testRecipient to an inbox you control.\n\nExpected: HTTP 201, X-Gmail-Quota-Used: 105 (5 lookup + 100 send).\nVerify: In Gmail, the reply is nested under the original thread. Gmail 'Show original' shows In-Reply-To and References headers."
+					},
+					"response": [
+						{
+							"name": "201 Created — Threaded reply sent (X-Gmail-Quota-Used: 105)",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [\"recruiter@example.com\"],\n    \"subject\": \"Re: Our conversation\",\n    \"body\": \"<p>Hi,</p><p>Following up as discussed.</p>\",\n    \"bodyType\": \"html\",\n    \"threadId\": \"1976a4bc3fe89d0c\",\n    \"inReplyToMessageId\": \"1976a4bc3fe89d0c\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Location",
+									"value": "/api/v1/gmail/messages/19a2b3c4d5e6f7g8/body"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "105"
+								}
+							],
+							"body": "{\n    \"messageId\": \"19a2b3c4d5e6f7g8\",\n    \"threadId\": \"1976a4bc3fe89d0c\",\n    \"status\": \"SENT\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Send Message with Attachment (Recipe 3)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"to\": [\"{{testRecipient}}\"],\n    \"subject\": \"Application for Backend Engineer role\",\n    \"body\": \"<p>Hi,</p><p>Please find my r\\u00e9sum\\u00e9 attached.</p>\",\n    \"bodyType\": \"html\",\n    \"attachments\": [\n        {\n            \"filename\": \"resume-2026.pdf\",\n            \"mimeType\": \"application/pdf\",\n            \"base64Data\": \"{{pdfBase64}}\"\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages"
+							]
+						},
+						"description": "Recipe 3 from quickstart.md — send a message with a PDF attachment (no threading).\n\nBefore running:\n1. Set testRecipient to an inbox you control.\n2. Set pdfBase64 to a valid standard Base64 string (not URL-safe). For a minimal test use JVBERi0xLjQK (a 9-byte PDF stub). For a real file: base64 -i resume.pdf | tr -d '\\n'.\n\nExpected: HTTP 201, X-Gmail-Quota-Used: 100 (attachments do not add quota cost).\nVerify: Recipient's inbox shows a paperclip icon; the attachment is downloadable and byte-for-byte identical to the source file."
+					},
+					"response": [
+						{
+							"name": "201 Created — Message with attachment sent (X-Gmail-Quota-Used: 100)",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [\"recruiter@example.com\"],\n    \"subject\": \"Application for Backend Engineer role\",\n    \"body\": \"<p>Hi,</p><p>Please find my r\\u00e9sum\\u00e9 attached.</p>\",\n    \"bodyType\": \"html\",\n    \"attachments\": [\n        {\n            \"filename\": \"resume-2026.pdf\",\n            \"mimeType\": \"application/pdf\",\n            \"base64Data\": \"JVBERi0xLjQK\"\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Location",
+									"value": "/api/v1/gmail/messages/19a2b3c4d5e6f7g9/body"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "100"
+								}
+							],
+							"body": "{\n    \"messageId\": \"19a2b3c4d5e6f7g9\",\n    \"threadId\": \"19a2b3c4d5e6f7g9\",\n    \"status\": \"SENT\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Send Threaded Reply with Attachment (Recipe 4)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"to\": [\"{{testRecipient}}\"],\n    \"subject\": \"Re: Your open role — updated r\\u00e9sum\\u00e9\",\n    \"body\": \"<p>Hi,</p><p>As discussed, attaching my updated r\\u00e9sum\\u00e9.</p>\",\n    \"bodyType\": \"html\",\n    \"threadId\": \"{{originalThreadId}}\",\n    \"inReplyToMessageId\": \"{{originalMsgId}}\",\n    \"attachments\": [\n        {\n            \"filename\": \"resume-2026-updated.pdf\",\n            \"mimeType\": \"application/pdf\",\n            \"base64Data\": \"{{pdfBase64}}\"\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages"
+							]
+						},
+						"description": "Recipe 4 from quickstart.md — threaded reply WITH an attachment (US3 combined scenario).\n\nBefore running:\n1. Set originalMsgId to a real Gmail short message ID from your mailbox (obtain via GET /api/v1/gmail/messages/latest).\n2. Set originalThreadId to the corresponding thread ID.\n3. Set testRecipient to an inbox you control.\n4. Set pdfBase64 to a valid standard Base64 string. Minimal test value: JVBERi0xLjQK\n\nExpected: HTTP 201, X-Gmail-Quota-Used: 105 (threading lookup costs 5 units; attachments do not add extra quota).\nVerify: The reply appears nested in the original thread (threading) AND has a paperclip icon (attachment). Gmail 'Show original' confirms both In-Reply-To/References headers and multipart/mixed content structure."
+					},
+					"response": [
+						{
+							"name": "201 Created — Threaded reply with attachment sent (X-Gmail-Quota-Used: 105)",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [\"recruiter@example.com\"],\n    \"subject\": \"Re: Your open role — updated r\\u00e9sum\\u00e9\",\n    \"body\": \"<p>Hi,</p><p>As discussed, attaching my updated r\\u00e9sum\\u00e9.</p>\",\n    \"bodyType\": \"html\",\n    \"threadId\": \"1976a4bc3fe89d0c\",\n    \"inReplyToMessageId\": \"1976a4bc3fe89d0c\",\n    \"attachments\": [\n        {\n            \"filename\": \"resume-2026-updated.pdf\",\n            \"mimeType\": \"application/pdf\",\n            \"base64Data\": \"JVBERi0xLjQK\"\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Location",
+									"value": "/api/v1/gmail/messages/19a2b3c4d5e6f7ga/body"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "105"
+								}
+							],
+							"body": "{\n    \"messageId\": \"19a2b3c4d5e6f7ga\",\n    \"threadId\": \"1976a4bc3fe89d0c\",\n    \"status\": \"SENT\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Send emails directly or stage them as drafts for review. All three endpoints require gmail.send scope (or the broader mail.google.com scope). POST /drafts is the recommended default path for AI-personalized outreach.\n\nFeature 002 (threading-attachments) adds three optional fields to POST /messages and POST /drafts:\n- threadId: places the outgoing message in an existing thread\n- inReplyToMessageId: triggers RFC 5322 In-Reply-To / References header construction (costs ~5 extra quota units)\n- attachments: base64-encoded file attachments; total payload capped at 25 MB"
+		},
+		{
+			"name": "Test Examples",
+			"item": [
+				{
+					"name": "Find GitHub Notifications",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"from\": \"notifications@github.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/filter",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"filter"
+							]
+						},
+						"description": "Example: Find all GitHub notification emails"
+					}
+				},
+				{
+					"name": "Find Emails with Attachments",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"hasAttachment\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/filter",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"filter"
+							]
+						},
+						"description": "Example: Find all emails that have attachments"
+					}
+				},
+				{
+					"name": "Mark Promotional Emails as Read",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"filterCriteria\": {\n        \"subject\": \"newsletter\"\n    },\n    \"labelsToRemove\": [\"UNREAD\"]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/filter/modifyLabels",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"filter",
+								"modifyLabels"
+							]
+						},
+						"description": "Example: Mark all newsletter emails as read"
+					}
+				}
+			],
+			"description": "Practical examples for common use cases"
+		},
+		{
+			"name": "Health Check",
+			"item": [
+				{
+					"name": "Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/dashboard",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"dashboard"
+							]
+						},
+						"description": "Simple health check endpoint (may require authentication)"
+					}
+				}
+			],
+			"description": "Basic health and connectivity checks"
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8020",
+			"type": "string"
+		},
+		{
+			"key": "GOOGLE_CLIENT_ID",
+			"value": "YOUR_GOOGLE_CLIENT_ID_HERE",
+			"type": "string",
+			"description": "Replace with your actual Google OAuth2 Client ID"
+		},
+		{
+			"key": "GOOGLE_CLIENT_SECRET",
+			"value": "YOUR_GOOGLE_CLIENT_SECRET_HERE",
+			"type": "string",
+			"description": "Replace with your actual Google OAuth2 Client Secret"
+		},
+		{
+			"key": "messageId",
+			"value": "",
+			"type": "string",
+			"description": "Set this to a message ID from other API calls"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string",
+			"description": "Bearer token for Authorization header. Paste your OAuth2 access token here (starts with ya29.). Obtain via OAuth2 Playground with gmail.send scope: https://developers.google.com/oauthplayground"
+		},
+		{
+			"key": "draftId",
+			"value": "",
+			"type": "string",
+			"description": "Set this to the draftId returned by POST /api/v1/gmail/drafts before calling POST /api/v1/gmail/drafts/{draftId}/send"
+		},
+		{
+			"key": "originalMsgId",
+			"value": "",
+			"type": "string",
+			"description": "Gmail short message ID of the original message for threading. Obtain via GET /api/v1/gmail/messages/latest. Used by Send Threaded Reply and Send Threaded Reply with Attachment requests."
+		},
+		{
+			"key": "originalThreadId",
+			"value": "",
+			"type": "string",
+			"description": "Gmail thread ID corresponding to originalMsgId. Usually the same value as the message ID for the first message in a thread. Used by Send Threaded Reply and Send Threaded Reply with Attachment requests."
+		},
+		{
+			"key": "testRecipient",
+			"value": "",
+			"type": "string",
+			"description": "An email address you control (inbox you own) for testing send/draft endpoints."
+		},
+		{
+			"key": "pdfBase64",
+			"value": "JVBERi0xLjQK",
+			"type": "string",
+			"description": "Standard Base64-encoded content of a test attachment. Default is a minimal 9-byte PDF stub (JVBERi0xLjQK). For a real file: base64 -i yourfile.pdf | tr -d '\\n'"
+		}
+	]
+}

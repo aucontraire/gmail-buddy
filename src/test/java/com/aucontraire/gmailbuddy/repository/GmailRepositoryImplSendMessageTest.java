@@ -343,6 +343,53 @@ class GmailRepositoryImplSendMessageTest {
     // GeneralSecurityException from getGmailService() wraps to IOException
     // -------------------------------------------------------------------------
 
+    // -------------------------------------------------------------------------
+    // T057 coverage gap — sendMessage(String, MimeMessage, String) with non-null threadId (line 456)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("sendMessage_withNonNullThreadId_setsThreadIdOnMessageBeforeSend (line 456 branch)")
+    void sendMessage_withNonNullThreadId_setsThreadIdOnMessageBeforeSend() throws Exception {
+        // Arrange: provide a non-null threadId to exercise the if (threadId != null) branch
+        MimeMessage mimeMessage = buildTestMimeMessage();
+        String threadId = "thread-abc123";
+        Message sentMessage = new Message().setId(TEST_MESSAGE_ID).setThreadId(threadId);
+
+        givenGmailMessageSendChainReturns(sentMessage);
+        when(gmailMessageMapper.toSentMessageResult(sentMessage))
+                .thenReturn(new com.aucontraire.gmailbuddy.service.SentMessageResult(TEST_MESSAGE_ID, threadId));
+
+        // Act: call the threaded overload
+        com.aucontraire.gmailbuddy.service.SentMessageResult result =
+                repository.sendMessage(TEST_USER_ID, mimeMessage, threadId);
+
+        // Assert: the threadId is applied (the Message passed to send will have it set)
+        assertThat(result).isNotNull();
+        assertThat(result.threadId()).isEqualTo(threadId);
+
+        // Verify: the Message argument passed to messages.send() had setThreadId called
+        ArgumentCaptor<Message> messageCaptor = ArgumentCaptor.forClass(Message.class);
+        verify(messages).send(eq(TEST_USER_ID), messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getThreadId()).isEqualTo(threadId);
+    }
+
+    @Test
+    @DisplayName("sendMessage_withThreadId_generalSecurityException_wrapsToIOException (line 471-472 coverage)")
+    void sendMessage_withThreadId_generalSecurityExceptionFromServiceCreation_wrapsToIOException()
+            throws Exception {
+        // Arrange: GeneralSecurityException thrown when creating Gmail service with threaded overload
+        MimeMessage mimeMessage = buildTestMimeMessage();
+
+        when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
+        when(gmailClient.createGmailService(TEST_ACCESS_TOKEN))
+                .thenThrow(new GeneralSecurityException("Key store failure in threaded send"));
+
+        // Act & Assert: GeneralSecurityException must be wrapped in IOException (lines 471-472)
+        assertThatThrownBy(() -> repository.sendMessage(TEST_USER_ID, mimeMessage, "thread-abc"))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("Security exception creating Gmail service");
+    }
+
     @Test
     @DisplayName("sendMessage_generalSecurityExceptionFromServiceCreation_wrapsToIOException")
     void sendMessage_generalSecurityExceptionFromServiceCreation_wrapsToIOException()

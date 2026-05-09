@@ -109,6 +109,19 @@ public final class ProblemTypes {
     public static final String MESSAGE_TOO_LARGE = BASE_URI + "/message-too-large";
 
     /**
+     * Original message not found — the {@code inReplyToMessageId} supplied by the caller
+     * does not resolve to an accessible message in the authenticated user's Gmail account.
+     * HTTP Status: 422 Unprocessable Entity
+     * Triggered when {@code users.messages.get} returns HTTP 404 for the specified
+     * {@code inReplyToMessageId}. The request was well-formed and passed all Bean
+     * Validation; the referenced prerequisite resource (the original message being
+     * replied to) does not exist or is not accessible.
+     * Example: The message was permanently deleted, or the ID belongs to a different
+     * user's account.
+     */
+    public static final String ORIGINAL_MESSAGE_NOT_FOUND = BASE_URI + "/original-message-not-found";
+
+    /**
      * Daily send limit exceeded - the authenticated user has reached their Gmail
      * daily sending limit (Google returns 403 dailySendLimitExceeded).
      * HTTP Status: 429 Too Many Requests

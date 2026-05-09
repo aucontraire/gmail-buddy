@@ -232,7 +232,8 @@ class MaxBodySizeValidatorTest {
                 new GmailBuddyProperties.Environment(
                         new GmailBuddyProperties.Environment.EnvFile("./", ".env")),
                 new GmailBuddyProperties.ApplicationRateLimit(1000, 60),
-                new GmailBuddyProperties.Send(maxBodySize, 500, 998)
+                new GmailBuddyProperties.Send(maxBodySize, 500, 998,
+                        org.springframework.util.unit.DataSize.ofMegabytes(25))
         );
     }
 

@@ -117,7 +117,10 @@ class SendMessageValidationTest {
                 null,
                 "Valid Subject",
                 "Valid body content",
-                "text"
+                "text",
+                null,
+                null,
+                null
         );
         String body = objectMapper.writeValueAsString(dto);
 
@@ -148,7 +151,10 @@ class SendMessageValidationTest {
                 null,
                 "Valid Subject",
                 "Valid body content",
-                "text"
+                "text",
+                null,
+                null,
+                null
         );
         String body = objectMapper.writeValueAsString(dto);
 
@@ -182,7 +188,10 @@ class SendMessageValidationTest {
                 null,
                 oversizedSubject,
                 "Valid body content",
-                "text"
+                "text",
+                null,
+                null,
+                null
         );
         String body = objectMapper.writeValueAsString(dto);
 
@@ -312,7 +321,10 @@ class SendMessageValidationTest {
                 null,
                 "Valid Subject",
                 "Valid body content",
-                "text"
+                "text",
+                null,
+                null,
+                null
         );
         String body = objectMapper.writeValueAsString(dto);
 
@@ -343,7 +355,10 @@ class SendMessageValidationTest {
                 null,
                 "Valid Subject",
                 "Valid body content",
-                "markdown"
+                "markdown",
+                null,
+                null,
+                null
         );
         String body = objectMapper.writeValueAsString(dto);
 
@@ -355,5 +370,387 @@ class SendMessageValidationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.type").value("/problems/validation-error"))
                 .andExpect(jsonPath("$.extensions['field:bodyType']").exists());
+    }
+
+    // =========================================================================
+    // T040 — Attachment DTO field-level constraint validation (Phase 4 US2)
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // @NotBlank on filename — blank/null filename must be rejected
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser
+    @DisplayName("postDraft_blankAttachmentFilename_returns400WithValidationError")
+    void postDraft_blankAttachmentFilename_returns400WithValidationError() throws Exception {
+        // Arrange: attachment with blank filename — @NotBlank must fire
+        String rawJson = """
+                {
+                  "to": ["recruiter@example.com"],
+                  "subject": "Valid Subject",
+                  "body": "Valid body",
+                  "bodyType": "text",
+                  "attachments": [
+                    {
+                      "filename": "",
+                      "mimeType": "application/pdf",
+                      "base64Data": "JVBERi0xLjQK"
+                    }
+                  ]
+                }
+                """;
+
+        // Act & Assert
+        mockMvc.perform(post(DRAFTS_ENDPOINT)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    // -------------------------------------------------------------------------
+    // @NotBlank on mimeType — blank/null mimeType must be rejected
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser
+    @DisplayName("postDraft_blankAttachmentMimeType_returns400WithValidationError")
+    void postDraft_blankAttachmentMimeType_returns400WithValidationError() throws Exception {
+        // Arrange: attachment with blank mimeType — @NotBlank must fire
+        String rawJson = """
+                {
+                  "to": ["recruiter@example.com"],
+                  "subject": "Valid Subject",
+                  "body": "Valid body",
+                  "bodyType": "text",
+                  "attachments": [
+                    {
+                      "filename": "resume.pdf",
+                      "mimeType": "",
+                      "base64Data": "JVBERi0xLjQK"
+                    }
+                  ]
+                }
+                """;
+
+        // Act & Assert
+        mockMvc.perform(post(DRAFTS_ENDPOINT)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    // -------------------------------------------------------------------------
+    // @NotBlank on base64Data — blank/null base64Data must be rejected
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser
+    @DisplayName("postDraft_blankAttachmentBase64Data_returns400WithValidationError")
+    void postDraft_blankAttachmentBase64Data_returns400WithValidationError() throws Exception {
+        // Arrange: attachment with blank base64Data — @NotBlank must fire
+        String rawJson = """
+                {
+                  "to": ["recruiter@example.com"],
+                  "subject": "Valid Subject",
+                  "body": "Valid body",
+                  "bodyType": "text",
+                  "attachments": [
+                    {
+                      "filename": "resume.pdf",
+                      "mimeType": "application/pdf",
+                      "base64Data": ""
+                    }
+                  ]
+                }
+                """;
+
+        // Act & Assert
+        mockMvc.perform(post(DRAFTS_ENDPOINT)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    // -------------------------------------------------------------------------
+    // @Size(max=255) on filename — oversized filename must be rejected
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser
+    @DisplayName("postDraft_oversizedAttachmentFilename_returns400WithValidationError")
+    void postDraft_oversizedAttachmentFilename_returns400WithValidationError() throws Exception {
+        // Arrange: filename of 256 characters exceeds @Size(max=255) limit
+        String longFilename = "a".repeat(256) + ".pdf";
+
+        String rawJson = String.format("""
+                {
+                  "to": ["recruiter@example.com"],
+                  "subject": "Valid Subject",
+                  "body": "Valid body",
+                  "bodyType": "text",
+                  "attachments": [
+                    {
+                      "filename": "%s",
+                      "mimeType": "application/pdf",
+                      "base64Data": "JVBERi0xLjQK"
+                    }
+                  ]
+                }
+                """, longFilename);
+
+        // Act & Assert
+        mockMvc.perform(post(DRAFTS_ENDPOINT)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    // -------------------------------------------------------------------------
+    // @SafeFilename — path-traversal in filename must be rejected
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser
+    @DisplayName("postDraft_dotDotInFilename_returns400WithSafeFilenameViolation")
+    void postDraft_dotDotInFilename_returns400WithSafeFilenameViolation() throws Exception {
+        // Arrange: ".." in filename is a path-traversal pattern that @SafeFilename must reject
+        String rawJson = """
+                {
+                  "to": ["recruiter@example.com"],
+                  "subject": "Valid Subject",
+                  "body": "Valid body",
+                  "bodyType": "text",
+                  "attachments": [
+                    {
+                      "filename": "../../etc/passwd",
+                      "mimeType": "application/pdf",
+                      "base64Data": "JVBERi0xLjQK"
+                    }
+                  ]
+                }
+                """;
+
+        // Act & Assert
+        mockMvc.perform(post(DRAFTS_ENDPOINT)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("postDraft_forwardSlashInFilename_returns400")
+    void postDraft_forwardSlashInFilename_returns400() throws Exception {
+        // Arrange: "/" in filename is a path separator — @SafeFilename must reject it
+        String rawJson = """
+                {
+                  "to": ["recruiter@example.com"],
+                  "subject": "Valid Subject",
+                  "body": "Valid body",
+                  "bodyType": "text",
+                  "attachments": [
+                    {
+                      "filename": "/etc/hosts",
+                      "mimeType": "text/plain",
+                      "base64Data": "JVBERi0xLjQK"
+                    }
+                  ]
+                }
+                """;
+
+        // Act & Assert
+        mockMvc.perform(post(DRAFTS_ENDPOINT)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    // -------------------------------------------------------------------------
+    // @ValidMimeType — malformed MIME type must be rejected
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser
+    @DisplayName("postDraft_malformedMimeTypeNoSlash_returns400WithValidationError")
+    void postDraft_malformedMimeTypeNoSlash_returns400WithValidationError() throws Exception {
+        // Arrange: "application" lacks "/" separator — @ValidMimeType must reject it
+        String rawJson = """
+                {
+                  "to": ["recruiter@example.com"],
+                  "subject": "Valid Subject",
+                  "body": "Valid body",
+                  "bodyType": "text",
+                  "attachments": [
+                    {
+                      "filename": "resume.pdf",
+                      "mimeType": "application",
+                      "base64Data": "JVBERi0xLjQK"
+                    }
+                  ]
+                }
+                """;
+
+        // Act & Assert
+        mockMvc.perform(post(DRAFTS_ENDPOINT)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("postDraft_mimeTypeWithSpaces_returns400WithValidationError")
+    void postDraft_mimeTypeWithSpaces_returns400WithValidationError() throws Exception {
+        // Arrange: whitespace in MIME type is not RFC 6838 compliant
+        String rawJson = """
+                {
+                  "to": ["recruiter@example.com"],
+                  "subject": "Valid Subject",
+                  "body": "Valid body",
+                  "bodyType": "text",
+                  "attachments": [
+                    {
+                      "filename": "resume.pdf",
+                      "mimeType": "application /pdf",
+                      "base64Data": "JVBERi0xLjQK"
+                    }
+                  ]
+                }
+                """;
+
+        // Act & Assert
+        mockMvc.perform(post(DRAFTS_ENDPOINT)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    // -------------------------------------------------------------------------
+    // @ValidBase64 — invalid base64 encoding must be rejected
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser
+    @DisplayName("postDraft_invalidBase64Data_returns400WithValidationError")
+    void postDraft_invalidBase64Data_returns400WithValidationError() throws Exception {
+        // Arrange: "not-valid-base64!!!" contains invalid characters — @ValidBase64 must reject
+        String rawJson = """
+                {
+                  "to": ["recruiter@example.com"],
+                  "subject": "Valid Subject",
+                  "body": "Valid body",
+                  "bodyType": "text",
+                  "attachments": [
+                    {
+                      "filename": "resume.pdf",
+                      "mimeType": "application/pdf",
+                      "base64Data": "not-valid-base64!!!"
+                    }
+                  ]
+                }
+                """;
+
+        // Act & Assert
+        mockMvc.perform(post(DRAFTS_ENDPOINT)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("postDraft_base64WithInvalidCharacters_returns400WithValidationError")
+    void postDraft_base64WithInvalidCharacters_returns400WithValidationError() throws Exception {
+        // Arrange: use URL-safe alphabet characters ('-' and '_') which are NOT in the
+        // standard Base64 alphabet ('+' and '/' are standard; '-' and '_' are URL-safe only).
+        // The standard decoder (Base64.getDecoder()) ALWAYS rejects '-' and '_' characters.
+        // "SGVsbG8-V29ybGQ_" contains '-' and '_' which are definitively invalid for standard decoder.
+        String rawJson = """
+                {
+                  "to": ["recruiter@example.com"],
+                  "subject": "Valid Subject",
+                  "body": "Valid body",
+                  "bodyType": "text",
+                  "attachments": [
+                    {
+                      "filename": "resume.pdf",
+                      "mimeType": "application/pdf",
+                      "base64Data": "SGVsbG8-V29ybGQ_"
+                    }
+                  ]
+                }
+                """;
+
+        // Act & Assert: standard decoder must reject '-' and '_' characters
+        mockMvc.perform(post(DRAFTS_ENDPOINT)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("/problems/validation-error"))
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    // -------------------------------------------------------------------------
+    // T040 — Valid attachment passes all constraints (positive case)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @WithMockUser
+    @DisplayName("postDraft_validAttachment_passesAllAttachmentConstraints")
+    void postDraft_validAttachment_passesAllAttachmentConstraints() throws Exception {
+        // Arrange: a fully valid attachment — all constraints should pass, request reaches service
+        String rawJson = """
+                {
+                  "to": ["recruiter@example.com"],
+                  "subject": "Valid Subject",
+                  "body": "Valid body",
+                  "bodyType": "text",
+                  "attachments": [
+                    {
+                      "filename": "resume.pdf",
+                      "mimeType": "application/pdf",
+                      "base64Data": "JVBERi0xLjQK"
+                    }
+                  ]
+                }
+                """;
+
+        // Act: validation should not reject this request with a 400
+        mockMvc.perform(post(DRAFTS_ENDPOINT)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(rawJson))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    // Valid attachment should NOT be rejected by validation (not 400)
+                    assert status != 400 : "Valid attachment rejected with 400 — constraint misfired";
+                });
     }
 }

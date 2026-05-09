@@ -313,6 +313,24 @@ class GmailRepositoryImplCreateDraftTest {
                 .hasMessageContaining("Security exception creating Gmail service");
     }
 
+    @Test
+    @DisplayName("createDraft_withThreadId_generalSecurityException_wrapsToIOException (line 544-545 coverage)")
+    void createDraft_withThreadId_generalSecurityExceptionFromServiceCreation_wrapsToIOException()
+            throws Exception {
+        // Arrange: GeneralSecurityException thrown when creating Gmail service with threaded overload
+        // This covers lines 544-545 in GmailRepositoryImpl.createDraft(String, MimeMessage, String)
+        MimeMessage mimeMessage = buildTestMimeMessage();
+
+        when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
+        when(gmailClient.createGmailService(TEST_ACCESS_TOKEN))
+                .thenThrow(new GeneralSecurityException("Key store failure in threaded draft"));
+
+        // Act & Assert: GeneralSecurityException must be wrapped in IOException (lines 544-545)
+        assertThatThrownBy(() -> repository.createDraft(TEST_USER_ID, mimeMessage, "thread-xyz"))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("Security exception creating Gmail service");
+    }
+
     // -------------------------------------------------------------------------
     // Verify the correct Gmail API chain is invoked
     // -------------------------------------------------------------------------
@@ -340,5 +358,37 @@ class GmailRepositoryImplCreateDraftTest {
         verify(users).drafts();
         verify(drafts).create(eq(TEST_USER_ID), any(Draft.class));
         verify(draftsCreate).execute();
+    }
+
+    // -------------------------------------------------------------------------
+    // T057 coverage gap — createDraft(String, MimeMessage, String) with non-null threadId (line 529)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("createDraft_withNonNullThreadId_setsThreadIdOnDraftMessageBeforeCreate (line 529 branch)")
+    void createDraft_withNonNullThreadId_setsThreadIdOnDraftMessageBeforeCreate() throws Exception {
+        // Arrange: provide a non-null threadId to exercise the if (threadId != null) branch (line 529)
+        MimeMessage mimeMessage = buildTestMimeMessage();
+        String resolvedThreadId = "thread-xyz-resolved";
+
+        Message nestedMessage = new Message().setId(TEST_MESSAGE_ID).setThreadId(resolvedThreadId);
+        Draft createdDraft = new Draft().setId(TEST_DRAFT_ID).setMessage(nestedMessage);
+
+        givenGmailDraftChainReturns(createdDraft);
+        DraftCreationResult expectedResult = new DraftCreationResult(TEST_DRAFT_ID, TEST_MESSAGE_ID, resolvedThreadId);
+        when(gmailMessageMapper.toDraftCreationResult(createdDraft)).thenReturn(expectedResult);
+
+        // Act: call the threaded overload with a non-null threadId
+        DraftCreationResult result = repository.createDraft(TEST_USER_ID, mimeMessage, resolvedThreadId);
+
+        // Assert: result maps to the expected draft IDs
+        assertThat(result).isNotNull();
+        assertThat(result.draftId()).isEqualTo(TEST_DRAFT_ID);
+        assertThat(result.threadId()).isEqualTo(resolvedThreadId);
+
+        // Verify: the Draft's nested Message had setThreadId called
+        ArgumentCaptor<Draft> draftCaptor = ArgumentCaptor.forClass(Draft.class);
+        verify(drafts).create(eq(TEST_USER_ID), draftCaptor.capture());
+        assertThat(draftCaptor.getValue().getMessage().getThreadId()).isEqualTo(resolvedThreadId);
     }
 }

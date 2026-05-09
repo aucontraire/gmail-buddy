@@ -95,4 +95,117 @@ class ProblemTypesTest {
         assertThat(ProblemTypes.RATE_LIMIT_EXCEEDED).isNotEqualTo(ProblemTypes.QUOTA_EXCEEDED);
         assertThat(ProblemTypes.GMAIL_API_ERROR).isNotEqualTo(ProblemTypes.SERVICE_UNAVAILABLE);
     }
+
+    // -------------------------------------------------------------------------
+    // ORIGINAL_MESSAGE_NOT_FOUND — T025
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("ORIGINAL_MESSAGE_NOT_FOUND URI equals /problems/original-message-not-found")
+    void testOriginalMessageNotFoundUri() {
+        // Assert: the URI must match exactly so the GlobalExceptionHandler and clients
+        // can rely on a stable, documented constant.
+        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND)
+                .isEqualTo("/problems/original-message-not-found");
+    }
+
+    @Test
+    @DisplayName("ORIGINAL_MESSAGE_NOT_FOUND URI starts with /problems/")
+    void testOriginalMessageNotFoundHasCorrectBase() {
+        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND).startsWith("/problems/");
+    }
+
+    @Test
+    @DisplayName("ORIGINAL_MESSAGE_NOT_FOUND is distinct from VALIDATION_ERROR")
+    void testOriginalMessageNotFoundDistinctFromValidationError() {
+        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND)
+                .isNotEqualTo(ProblemTypes.VALIDATION_ERROR);
+    }
+
+    @Test
+    @DisplayName("ORIGINAL_MESSAGE_NOT_FOUND is distinct from MESSAGE_NOT_FOUND")
+    void testOriginalMessageNotFoundDistinctFromMessageNotFound() {
+        // MESSAGE_NOT_FOUND is for the primary resource (the email being operated on),
+        // while ORIGINAL_MESSAGE_NOT_FOUND is for the threading prerequisite resource.
+        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND)
+                .isNotEqualTo(ProblemTypes.MESSAGE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("ORIGINAL_MESSAGE_NOT_FOUND is distinct from INVALID_RECIPIENT")
+    void testOriginalMessageNotFoundDistinctFromInvalidRecipient() {
+        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND)
+                .isNotEqualTo(ProblemTypes.INVALID_RECIPIENT);
+    }
+
+    @Test
+    @DisplayName("ORIGINAL_MESSAGE_NOT_FOUND is distinct from MESSAGE_TOO_LARGE")
+    void testOriginalMessageNotFoundDistinctFromMessageTooLarge() {
+        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND)
+                .isNotEqualTo(ProblemTypes.MESSAGE_TOO_LARGE);
+    }
+
+    // -------------------------------------------------------------------------
+    // T057 coverage gaps — getDescription missing cases (lines 234-235, 238-239)
+    // The existing testGetDescription() covers VALIDATION_ERROR, MESSAGE_NOT_FOUND,
+    // RESOURCE_NOT_FOUND, AUTHENTICATION_FAILED, AUTHORIZATION_FAILED,
+    // RATE_LIMIT_EXCEEDED, and INTERNAL_ERROR.
+    // These tests add CONSTRAINT_VIOLATION and SERVICE_UNAVAILABLE.
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("getDescription returns correct description for CONSTRAINT_VIOLATION (line 234-235)")
+    void testGetDescriptionForConstraintViolation() {
+        assertThat(ProblemTypes.getDescription(ProblemTypes.CONSTRAINT_VIOLATION))
+                .isEqualTo("Request violates a business rule or constraint");
+    }
+
+    @Test
+    @DisplayName("getDescription returns correct description for SERVICE_UNAVAILABLE (line 238-239)")
+    void testGetDescriptionForServiceUnavailable() {
+        assertThat(ProblemTypes.getDescription(ProblemTypes.SERVICE_UNAVAILABLE))
+                .isEqualTo("The Gmail Buddy service is temporarily unavailable");
+    }
+
+    @Test
+    @DisplayName("getDescription returns correct description for GMAIL_API_ERROR")
+    void testGetDescriptionForGmailApiError() {
+        assertThat(ProblemTypes.getDescription(ProblemTypes.GMAIL_API_ERROR))
+                .isEqualTo("Error occurred while communicating with Gmail API");
+    }
+
+    @Test
+    @DisplayName("getDescription returns correct description for QUOTA_EXCEEDED")
+    void testGetDescriptionForQuotaExceeded() {
+        assertThat(ProblemTypes.getDescription(ProblemTypes.QUOTA_EXCEEDED))
+                .isEqualTo("Gmail API quota has been exhausted");
+    }
+
+    @Test
+    @DisplayName("getDescription returns correct description for BATCH_OPERATION_ERROR")
+    void testGetDescriptionForBatchOperationError() {
+        assertThat(ProblemTypes.getDescription(ProblemTypes.BATCH_OPERATION_ERROR))
+                .isEqualTo("Error occurred during batch operation processing");
+    }
+
+    @Test
+    @DisplayName("ORIGINAL_MESSAGE_NOT_FOUND is distinct from all other existing constants")
+    void testOriginalMessageNotFoundDistinctFromAllExistingConstants() {
+        // Explicit regression check: adding a new constant must not collide with any
+        // existing constant. This test enumerates all constants that existed before T009.
+        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND)
+                .isNotEqualTo(ProblemTypes.RESOURCE_NOT_FOUND)
+                .isNotEqualTo(ProblemTypes.AUTHENTICATION_FAILED)
+                .isNotEqualTo(ProblemTypes.AUTHORIZATION_FAILED)
+                .isNotEqualTo(ProblemTypes.RATE_LIMIT_EXCEEDED)
+                .isNotEqualTo(ProblemTypes.CONSTRAINT_VIOLATION)
+                .isNotEqualTo(ProblemTypes.HEADER_INJECTION_DETECTED)
+                .isNotEqualTo(ProblemTypes.DAILY_SEND_LIMIT_EXCEEDED)
+                .isNotEqualTo(ProblemTypes.GMAIL_API_ERROR)
+                .isNotEqualTo(ProblemTypes.MESSAGE_SEND_FAILED)
+                .isNotEqualTo(ProblemTypes.SERVICE_UNAVAILABLE)
+                .isNotEqualTo(ProblemTypes.INTERNAL_ERROR)
+                .isNotEqualTo(ProblemTypes.QUOTA_EXCEEDED)
+                .isNotEqualTo(ProblemTypes.BATCH_OPERATION_ERROR);
+    }
 }
