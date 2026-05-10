@@ -5,6 +5,7 @@ import com.aucontraire.gmailbuddy.config.ResponseHeaderFilter;
 import com.aucontraire.gmailbuddy.exception.AuthorizationException;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
 import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
 import com.aucontraire.gmailbuddy.ratelimit.GmailQuotaEstimator;
 import com.aucontraire.gmailbuddy.ratelimit.RateLimitInfo;
@@ -90,6 +91,7 @@ class ThreadingControllerTest {
     @MockitoBean private ResponseMapper responseMapper;
     @MockitoBean private RateLimitService rateLimitService;
     @MockitoBean private GmailQuotaEstimator gmailQuotaEstimator;
+    @MockitoBean private GmailMessageMapper gmailMessageMapper;
 
     // -------------------------------------------------------------------------
     // Helper: build the minimal valid send-message JSON with threading fields

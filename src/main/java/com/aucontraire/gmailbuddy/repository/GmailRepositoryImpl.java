@@ -17,6 +17,8 @@ import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
 import com.aucontraire.gmailbuddy.exception.ValidationException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
+import com.aucontraire.gmailbuddy.service.DraftDetailResult;
+import com.aucontraire.gmailbuddy.service.DraftListResult;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
@@ -390,6 +392,179 @@ public class GmailRepositoryImpl implements GmailRepository {
             return result;
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Draft CRUD — listDrafts, getDraft, deleteDraft, updateDraft
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns a paginated list of drafts. For each draft ID in the
+     * {@code users.drafts.list} response, fetches the full draft via
+     * {@code users.drafts.get(format=FULL)} and maps it to a
+     * {@link DraftDetailResult} via {@link GmailMessageMapper#toDraftDetailResult}.
+     *
+     * @param userId    the Gmail user identifier; typically {@code "me"}
+     * @param pageToken opaque pagination token, or null for the first page
+     * @param limit     maximum number of items to return (1–50)
+     * @return a {@link DraftListResult} with enriched drafts and pagination state
+     * @throws IOException on Gmail API communication failure
+     */
+    @Override
+    public DraftListResult listDrafts(String userId, String pageToken, int limit) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+
+            com.google.api.services.gmail.Gmail.Users.Drafts.List listRequest =
+                    gmail.users().drafts().list(userId)
+                            .setMaxResults((long) limit);
+            if (pageToken != null) {
+                listRequest.setPageToken(pageToken);
+            }
+
+            com.google.api.services.gmail.model.ListDraftsResponse listResponse = listRequest.execute();
+
+            java.util.List<com.google.api.services.gmail.model.Draft> draftStubs =
+                    listResponse.getDrafts();
+            String nextPageToken = listResponse.getNextPageToken();
+            Integer totalCount = listResponse.getResultSizeEstimate() != null
+                    ? listResponse.getResultSizeEstimate().intValue() : null;
+
+            java.util.List<DraftDetailResult> drafts = new java.util.ArrayList<>();
+            if (draftStubs != null) {
+                for (com.google.api.services.gmail.model.Draft stub : draftStubs) {
+                    com.google.api.services.gmail.model.Draft fullDraft =
+                            gmail.users().drafts().get(userId, stub.getId())
+                                    .setFormat("full")
+                                    .execute();
+                    drafts.add(gmailMessageMapper.toDraftDetailResult(fullDraft));
+                }
+            }
+
+            logger.info("Listed drafts: op=list, count={}", drafts.size());
+            return new DraftListResult(
+                    drafts.isEmpty() ? java.util.List.of() : java.util.List.copyOf(drafts),
+                    nextPageToken,
+                    totalCount
+            );
+
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    /**
+     * Fetches the full content of a single draft via
+     * {@code users.drafts.get(format=FULL)} and maps it to a
+     * {@link DraftDetailResult}.
+     *
+     * @param userId  the Gmail user identifier; typically {@code "me"}
+     * @param draftId the Gmail draft identifier
+     * @return a {@link DraftDetailResult} with all fields populated
+     * @throws ResourceNotFoundException if the draft does not exist (Gmail 404)
+     * @throws IOException on Gmail API communication failure
+     */
+    @Override
+    public DraftDetailResult getDraft(String userId, String draftId) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+
+            com.google.api.services.gmail.model.Draft draft =
+                    gmail.users().drafts().get(userId, draftId)
+                            .setFormat("full")
+                            .execute();
+
+            logger.info("Got draft: op=get, draftId={}", draftId);
+            return gmailMessageMapper.toDraftDetailResult(draft);
+
+        } catch (GoogleJsonResponseException e) {
+            if (e.getStatusCode() == 404) {
+                throw new ResourceNotFoundException(
+                        "Draft not found: " + draftId, e);
+            }
+            logger.error("Gmail API error getting draft draftId={}: status={}, message={}",
+                    draftId, e.getStatusCode(), e.getMessage());
+            throw e;
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    /**
+     * Permanently deletes the specified draft via {@code users.drafts.delete}.
+     *
+     * @param userId  the Gmail user identifier; typically {@code "me"}
+     * @param draftId the Gmail draft identifier
+     * @throws ResourceNotFoundException if the draft does not exist (Gmail 404)
+     * @throws IOException on Gmail API communication failure
+     */
+    @Override
+    public void deleteDraft(String userId, String draftId) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+
+            gmail.users().drafts().delete(userId, draftId).execute();
+            logger.info("Deleted draft: op=delete, draftId={}", draftId);
+
+        } catch (GoogleJsonResponseException e) {
+            if (e.getStatusCode() == 404) {
+                throw new ResourceNotFoundException(
+                        "Draft not found: " + draftId, e);
+            }
+            logger.error("Gmail API error deleting draft draftId={}: status={}, message={}",
+                    draftId, e.getStatusCode(), e.getMessage());
+            throw e;
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    /**
+     * Replaces the content of the specified draft with the provided MimeMessage
+     * via {@code users.drafts.update}.
+     *
+     * @param userId      the Gmail user identifier; typically {@code "me"}
+     * @param draftId     the Gmail draft identifier
+     * @param mimeMessage the fully-constructed replacement MIME message
+     * @return a {@link DraftCreationResult} with the updated draft's identifiers
+     * @throws ResourceNotFoundException if the draft does not exist (Gmail 404)
+     * @throws IOException on Gmail API communication failure
+     */
+    @Override
+    public DraftCreationResult updateDraft(String userId, String draftId, MimeMessage mimeMessage) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            mimeMessage.writeTo(buffer);
+            String encodedRaw = Base64.getUrlEncoder().encodeToString(buffer.toByteArray());
+
+            com.google.api.services.gmail.model.Message rawMessage =
+                    new com.google.api.services.gmail.model.Message().setRaw(encodedRaw);
+            com.google.api.services.gmail.model.Draft draftWrapper =
+                    new com.google.api.services.gmail.model.Draft()
+                            .setId(draftId)
+                            .setMessage(rawMessage);
+
+            com.google.api.services.gmail.model.Draft updatedDraft =
+                    gmail.users().drafts().update(userId, draftId, draftWrapper).execute();
+
+            logger.info("Updated draft: op=update, draftId={}", draftId);
+            return gmailMessageMapper.toDraftCreationResult(updatedDraft);
+
+        } catch (GoogleJsonResponseException e) {
+            if (e.getStatusCode() == 404) {
+                throw new ResourceNotFoundException(
+                        "Draft not found: " + draftId, e);
+            }
+            logger.error("Gmail API error updating draft draftId={}: status={}, message={}",
+                    draftId, e.getStatusCode(), e.getMessage());
+            throw mapGmailSendError(e);
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        } catch (jakarta.mail.MessagingException e) {
+            throw new IOException("Failed to serialize MimeMessage for draft update", e);
         }
     }
 

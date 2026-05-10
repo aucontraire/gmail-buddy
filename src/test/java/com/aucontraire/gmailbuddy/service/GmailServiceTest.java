@@ -4,10 +4,16 @@ import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.dto.DeleteResult;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
+import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
+import com.aucontraire.gmailbuddy.service.DraftCreationResult;
+import com.aucontraire.gmailbuddy.service.DraftDetailResult;
+import com.aucontraire.gmailbuddy.service.DraftListResult;
+import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
 import com.google.api.services.gmail.model.FilterCriteria;
 import com.google.api.services.gmail.model.Message;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +40,7 @@ class GmailServiceTest {
     private GmailQueryBuilder gmailQueryBuilder;
     private FilterCriteriaMapper filterCriteriaMapper;
     private MimeMessageBuilder mimeMessageBuilder;
+    private GmailMessageMapper gmailMessageMapper;
     private GmailBuddyProperties properties;
     private GmailBuddyProperties.Send send;
     private GmailService gmailService;
@@ -44,11 +51,13 @@ class GmailServiceTest {
         gmailQueryBuilder = mock(GmailQueryBuilder.class);
         filterCriteriaMapper = mock(FilterCriteriaMapper.class);
         mimeMessageBuilder = mock(MimeMessageBuilder.class);
+        gmailMessageMapper = mock(GmailMessageMapper.class);
         properties = mock(GmailBuddyProperties.class);
         send = mock(GmailBuddyProperties.Send.class);
         when(properties.send()).thenReturn(send);
         when(send.maxTotalPayloadSize()).thenReturn(DataSize.ofMegabytes(25));
-        gmailService = new GmailService(gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder, properties);
+        gmailService = new GmailService(gmailRepository, gmailQueryBuilder, filterCriteriaMapper,
+                mimeMessageBuilder, gmailMessageMapper, properties);
     }
 
     @Test
@@ -599,5 +608,221 @@ class GmailServiceTest {
         verify(gmailQueryBuilder).query("label:Inbox");
         verify(gmailQueryBuilder).negatedQuery("label:Spam");
         verify(gmailRepository).deleteMessagesByFilterCriteria(userId, expectedQuery);
+    }
+
+    // =========================================================================
+    // T009 — listDrafts() and getDraft() service method tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("listDrafts() should return DraftListResult from repository on success")
+    void listDrafts_success_returnsDraftListResult() throws IOException {
+        String userId = "test-user";
+        DraftListResult expected = new DraftListResult(List.of(), null, null);
+        when(gmailRepository.listDrafts(userId, null, 25)).thenReturn(expected);
+
+        DraftListResult result = gmailService.listDrafts(userId, null, 25);
+
+        assertThat(result).isEqualTo(expected);
+        verify(gmailRepository).listDrafts(userId, null, 25);
+    }
+
+    @Test
+    @DisplayName("listDrafts() should wrap IOException as GmailApiException")
+    void listDrafts_ioException_throwsGmailApiException() throws IOException {
+        String userId = "test-user";
+        IOException ioException = new IOException("API failure");
+        when(gmailRepository.listDrafts(userId, null, 25)).thenThrow(ioException);
+
+        GmailApiException ex = assertThrows(GmailApiException.class,
+                () -> gmailService.listDrafts(userId, null, 25));
+
+        assertThat(ex.getMessage()).contains("Failed to list drafts for user: test-user");
+        assertThat(ex.getCause()).isEqualTo(ioException);
+    }
+
+    @Test
+    @DisplayName("getDraft() should return DraftDetailResult from repository on success")
+    void getDraft_success_returnsDraftDetailResult() throws IOException {
+        String userId = "test-user";
+        String draftId = "draft-abc123";
+        DraftDetailResult expected = new DraftDetailResult(
+                draftId, "msg-1", null, List.of(), List.of(), List.of(),
+                null, null, null, "text", null, List.of()
+        );
+        when(gmailRepository.getDraft(userId, draftId)).thenReturn(expected);
+
+        DraftDetailResult result = gmailService.getDraft(userId, draftId);
+
+        assertThat(result).isEqualTo(expected);
+        verify(gmailRepository).getDraft(userId, draftId);
+    }
+
+    @Test
+    @DisplayName("getDraft() should propagate ResourceNotFoundException from repository")
+    void getDraft_resourceNotFoundException_propagates() throws IOException {
+        String userId = "test-user";
+        String draftId = "draft-not-found";
+        ResourceNotFoundException notFound = new ResourceNotFoundException("Draft not found");
+        when(gmailRepository.getDraft(userId, draftId)).thenThrow(notFound);
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> gmailService.getDraft(userId, draftId));
+    }
+
+    @Test
+    @DisplayName("getDraft() should wrap IOException as GmailApiException")
+    void getDraft_ioException_throwsGmailApiException() throws IOException {
+        String userId = "test-user";
+        String draftId = "draft-abc";
+        IOException ioException = new IOException("Timeout");
+        when(gmailRepository.getDraft(userId, draftId)).thenThrow(ioException);
+
+        GmailApiException ex = assertThrows(GmailApiException.class,
+                () -> gmailService.getDraft(userId, draftId));
+
+        assertThat(ex.getCause()).isEqualTo(ioException);
+    }
+
+    // =========================================================================
+    // T022 — deleteDraft() service method tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("deleteDraft() should delegate to repository and return void on success")
+    void deleteDraft_success_doesNotThrow() throws IOException {
+        String userId = "test-user";
+        String draftId = "draft-del-001";
+        doNothing().when(gmailRepository).deleteDraft(userId, draftId);
+
+        assertDoesNotThrow(() -> gmailService.deleteDraft(userId, draftId));
+        verify(gmailRepository).deleteDraft(userId, draftId);
+    }
+
+    @Test
+    @DisplayName("deleteDraft() should propagate ResourceNotFoundException from repository")
+    void deleteDraft_resourceNotFoundException_propagates() throws IOException {
+        String userId = "test-user";
+        String draftId = "draft-not-found";
+        ResourceNotFoundException notFound = new ResourceNotFoundException("Not found");
+        doThrow(notFound).when(gmailRepository).deleteDraft(userId, draftId);
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> gmailService.deleteDraft(userId, draftId));
+    }
+
+    @Test
+    @DisplayName("deleteDraft() should wrap IOException as GmailApiException")
+    void deleteDraft_ioException_throwsGmailApiException() throws IOException {
+        String userId = "test-user";
+        String draftId = "draft-del-io";
+        IOException ioException = new IOException("Network error");
+        doThrow(ioException).when(gmailRepository).deleteDraft(userId, draftId);
+
+        GmailApiException ex = assertThrows(GmailApiException.class,
+                () -> gmailService.deleteDraft(userId, draftId));
+
+        assertThat(ex.getCause()).isEqualTo(ioException);
+    }
+
+    // =========================================================================
+    // T032 — updateDraft() service method tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("updateDraft() should return updated DraftDetailResult on success")
+    void updateDraft_success_returnsUpdatedDraftDetailResult() throws Exception {
+        String userId = "test-user";
+        String draftId = "draft-upd-001";
+        SendMessageDTO dto = mock(SendMessageDTO.class);
+        when(dto.inReplyToMessageId()).thenReturn(null);
+        when(dto.to()).thenReturn(List.of("to@example.com"));
+        when(dto.cc()).thenReturn(List.of());
+        when(dto.bcc()).thenReturn(List.of());
+        when(dto.attachments()).thenReturn(List.of());
+        when(dto.subject()).thenReturn("Subject");
+        when(dto.body()).thenReturn("Body text");
+
+        jakarta.mail.internet.MimeMessage mimeMessage = mock(jakarta.mail.internet.MimeMessage.class);
+        when(mimeMessageBuilder.build(eq(dto), eq(null))).thenReturn(mimeMessage);
+
+        DraftCreationResult updateResult = new DraftCreationResult(draftId, "msg-upd-1", null);
+        when(gmailRepository.updateDraft(userId, draftId, mimeMessage)).thenReturn(updateResult);
+
+        DraftDetailResult detailResult = new DraftDetailResult(
+                draftId, "msg-upd-1", null, List.of("to@example.com"), List.of(), List.of(),
+                "Subject", null, "Body text", "text", null, List.of()
+        );
+        when(gmailRepository.getDraft(userId, draftId)).thenReturn(detailResult);
+
+        DraftDetailResult result = gmailService.updateDraft(userId, draftId, dto);
+
+        assertThat(result).isEqualTo(detailResult);
+        verify(gmailRepository).updateDraft(userId, draftId, mimeMessage);
+        verify(gmailRepository).getDraft(userId, draftId);
+    }
+
+    @Test
+    @DisplayName("updateDraft() should propagate ResourceNotFoundException from repository")
+    void updateDraft_resourceNotFoundException_propagates() throws Exception {
+        String userId = "test-user";
+        String draftId = "draft-not-found";
+        SendMessageDTO dto = mock(SendMessageDTO.class);
+        when(dto.inReplyToMessageId()).thenReturn(null);
+        when(dto.to()).thenReturn(List.of("to@example.com"));
+        when(dto.cc()).thenReturn(List.of());
+        when(dto.bcc()).thenReturn(List.of());
+        when(dto.attachments()).thenReturn(List.of());
+        when(dto.subject()).thenReturn("S");
+        when(dto.body()).thenReturn("B");
+
+        jakarta.mail.internet.MimeMessage mimeMessage = mock(jakarta.mail.internet.MimeMessage.class);
+        when(mimeMessageBuilder.build(eq(dto), eq(null))).thenReturn(mimeMessage);
+
+        ResourceNotFoundException notFound = new ResourceNotFoundException("Draft not found");
+        when(gmailRepository.updateDraft(userId, draftId, mimeMessage)).thenThrow(notFound);
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> gmailService.updateDraft(userId, draftId, dto));
+    }
+
+    @Test
+    @DisplayName("updateDraft() with threading should perform lookup before update")
+    void updateDraft_withInReplyToMessageId_performsLookupFirst() throws Exception {
+        String userId = "test-user";
+        String draftId = "draft-threaded";
+        String replyToId = "original-msg-id";
+        SendMessageDTO dto = mock(SendMessageDTO.class);
+        when(dto.inReplyToMessageId()).thenReturn(replyToId);
+        when(dto.to()).thenReturn(List.of("to@example.com"));
+        when(dto.cc()).thenReturn(List.of());
+        when(dto.bcc()).thenReturn(List.of());
+        when(dto.attachments()).thenReturn(List.of());
+        when(dto.subject()).thenReturn("Re: Subject");
+        when(dto.body()).thenReturn("Reply body");
+
+        OriginalMessageLookup lookup = new OriginalMessageLookup(replyToId, "thread-1", "<msg-id@mail.gmail.com>");
+        when(gmailRepository.getMessageHeaders(userId, replyToId)).thenReturn(lookup);
+
+        jakarta.mail.internet.MimeMessage mimeMessage = mock(jakarta.mail.internet.MimeMessage.class);
+        when(mimeMessageBuilder.build(eq(dto), eq(lookup))).thenReturn(mimeMessage);
+
+        DraftCreationResult updateResult = new DraftCreationResult(draftId, "msg-1", "thread-1");
+        when(gmailRepository.updateDraft(userId, draftId, mimeMessage)).thenReturn(updateResult);
+
+        DraftDetailResult detailResult = new DraftDetailResult(
+                draftId, "msg-1", "thread-1", List.of("to@example.com"), List.of(), List.of(),
+                "Re: Subject", null, "Reply body", "text", replyToId, List.of()
+        );
+        when(gmailRepository.getDraft(userId, draftId)).thenReturn(detailResult);
+
+        DraftDetailResult result = gmailService.updateDraft(userId, draftId, dto);
+
+        // Verify lookup happened BEFORE the update
+        var inOrder = inOrder(gmailRepository);
+        inOrder.verify(gmailRepository).getMessageHeaders(userId, replyToId);
+        inOrder.verify(gmailRepository).updateDraft(userId, draftId, mimeMessage);
+
+        assertThat(result.inReplyToMessageId()).isEqualTo(replyToId);
     }
 }

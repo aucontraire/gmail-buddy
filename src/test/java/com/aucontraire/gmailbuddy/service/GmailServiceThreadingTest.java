@@ -6,6 +6,7 @@ import com.aucontraire.gmailbuddy.exception.GmailApiException;
 import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
 import com.aucontraire.gmailbuddy.fixture.SendMessageRequestFixtures;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
@@ -76,7 +77,8 @@ class GmailServiceThreadingTest {
         when(properties.send()).thenReturn(send);
         when(send.maxTotalPayloadSize()).thenReturn(DataSize.ofMegabytes(25));
         gmailService = new GmailService(
-                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder, properties);
+                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder,
+                mock(GmailMessageMapper.class), properties);
     }
 
     // -------------------------------------------------------------------------

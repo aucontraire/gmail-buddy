@@ -2,6 +2,8 @@ package com.aucontraire.gmailbuddy.repository;
 
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
+import com.aucontraire.gmailbuddy.service.DraftDetailResult;
+import com.aucontraire.gmailbuddy.service.DraftListResult;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
@@ -119,6 +121,57 @@ public interface GmailRepository {
      *                              on other Gmail send failures
      */
     SentMessageResult sendDraft(String userId, String draftId) throws IOException;
+
+    /**
+     * Returns a paginated list of drafts for the specified user.
+     * Internally calls users.drafts.list followed by users.drafts.get per item
+     * to populate recipient, subject, and snippet fields.
+     *
+     * @param userId    the Gmail user identifier; typically "me"
+     * @param pageToken opaque token from a prior response, or null for the first page
+     * @param limit     maximum number of items to return (1–50)
+     * @return a DraftListResult containing enriched draft summaries and pagination state
+     * @throws IOException on Gmail API communication failure
+     */
+    DraftListResult listDrafts(String userId, String pageToken, int limit) throws IOException;
+
+    /**
+     * Returns the full content of the specified draft.
+     *
+     * @param userId  the Gmail user identifier; typically "me"
+     * @param draftId the Gmail draft identifier
+     * @return a DraftDetailResult with all parsed fields
+     * @throws com.aucontraire.gmailbuddy.exception.ResourceNotFoundException
+     *         if the draft does not exist (Gmail 404)
+     * @throws IOException on Gmail API communication failure
+     */
+    DraftDetailResult getDraft(String userId, String draftId) throws IOException;
+
+    /**
+     * Permanently deletes the specified draft.
+     * users.drafts.delete is a hard delete; no trash or soft-delete option.
+     *
+     * @param userId  the Gmail user identifier; typically "me"
+     * @param draftId the Gmail draft identifier
+     * @throws com.aucontraire.gmailbuddy.exception.ResourceNotFoundException
+     *         if the draft does not exist (Gmail 404)
+     * @throws IOException on Gmail API communication failure
+     */
+    void deleteDraft(String userId, String draftId) throws IOException;
+
+    /**
+     * Replaces the content of the specified draft with the provided MimeMessage.
+     * Uses users.drafts.update — full replacement, no partial update.
+     *
+     * @param userId      the Gmail user identifier; typically "me"
+     * @param draftId     the Gmail draft identifier
+     * @param mimeMessage the fully-constructed replacement MIME message
+     * @return the updated draft's identifiers (draftId, messageId, threadId)
+     * @throws com.aucontraire.gmailbuddy.exception.ResourceNotFoundException
+     *         if the draft does not exist (Gmail 404)
+     * @throws IOException on Gmail API communication failure
+     */
+    DraftCreationResult updateDraft(String userId, String draftId, MimeMessage mimeMessage) throws IOException;
 
     /**
      * Fetches the RFC 5322 {@code Message-ID} header and {@code threadId} from the

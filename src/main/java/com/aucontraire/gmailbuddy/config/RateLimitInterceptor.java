@@ -50,6 +50,9 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
     private static final Logger logger = LoggerFactory.getLogger(RateLimitInterceptor.class);
 
+    /** Default page size for pre-execution quota estimate on GET /drafts. */
+    static final int DEFAULT_DRAFT_LIST_LIMIT = 25;
+
     private final RateLimitService rateLimitService;
     private final GmailQuotaEstimator quotaEstimator;
 
@@ -181,6 +184,19 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             // Threading headers are baked into the draft at creation time; this call
             // always costs the same regardless of whether the draft is threaded (Decision 13).
             return quotaEstimator.estimateSendDraftQuota();
+        } else if (uri.matches(".*/drafts/[^/]+") && "GET".equals(method)) {
+            // GET /drafts/{id} — get draft detail
+            return quotaEstimator.estimateGetDraftQuota();
+        } else if (uri.matches(".*/drafts/[^/]+") && "DELETE".equals(method)) {
+            // DELETE /drafts/{id}
+            return quotaEstimator.estimateDeleteDraftQuota();
+        } else if (uri.matches(".*/drafts/[^/]+") && "PUT".equals(method)) {
+            // PUT /drafts/{id} — update draft
+            return quotaEstimator.estimateUpdateDraftQuota();
+        } else if (uri.endsWith("/drafts") && "GET".equals(method)) {
+            // GET /drafts — list; pre-execution estimate using DEFAULT_DRAFT_LIST_LIMIT
+            // Controller updates the request attribute post-execution with the actual item count
+            return quotaEstimator.estimateListDraftsQuota(DEFAULT_DRAFT_LIST_LIMIT);
         } else if (uri.endsWith("/messages") || uri.endsWith("/messages/latest")) {
             // GET /messages or /messages/latest - list messages
             return quotaEstimator.estimateListMessagesQuota(0); // Can't know count yet

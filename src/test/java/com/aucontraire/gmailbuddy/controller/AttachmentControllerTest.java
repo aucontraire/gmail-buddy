@@ -1,6 +1,7 @@
 package com.aucontraire.gmailbuddy.controller;
 
 import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
 import com.aucontraire.gmailbuddy.ratelimit.GmailQuotaEstimator;
 import com.aucontraire.gmailbuddy.ratelimit.RateLimitInfo;
@@ -72,6 +73,7 @@ class AttachmentControllerTest {
     @MockitoBean private ResponseMapper responseMapper;
     @MockitoBean private RateLimitService rateLimitService;
     @MockitoBean private GmailQuotaEstimator gmailQuotaEstimator;
+    @MockitoBean private GmailMessageMapper gmailMessageMapper;
 
     // -------------------------------------------------------------------------
     // Helper: build the request body JSON

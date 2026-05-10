@@ -983,9 +983,855 @@
 							"body": "{\n    \"messageId\": \"19a2b3c4d5e6f7ga\",\n    \"threadId\": \"1976a4bc3fe89d0c\",\n    \"status\": \"SENT\"\n}"
 						}
 					]
+				},
+				{
+					"name": "List Drafts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/drafts?limit=25",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"drafts"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "25",
+									"description": "Items per page. Min 1, max 50. Default 25."
+								},
+								{
+									"key": "pageToken",
+									"value": "",
+									"description": "Opaque pagination token from a prior response's nextPageToken. Omit for the first page.",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns a paginated list of pending drafts for the authenticated user. Each item in `results` is a DraftListItem summary (id, recipients, subject, snippet, threadId, attachmentCount). Use `nextPageToken` to fetch subsequent pages. An empty Drafts folder returns HTTP 200 with an empty `results` array — not 404.\n\nQuota cost: 1 unit (list call) + N×5 units (per-item get calls). For a full page of 25 items: 126 units.\n\nFeature 003 (drafts-crud). Requires gmail.modify scope (already in the project scope set)."
+					},
+					"response": [
+						{
+							"name": "200 OK — Drafts listed successfully",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts?limit=25",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "25"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "11"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "250"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "239"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746835200"
+								}
+							],
+							"body": "{\n    \"results\": [\n        {\n            \"id\": \"1a2b3c4d5e6f7890\",\n            \"to\": [\"hiring-manager@bigcorp.example\"],\n            \"cc\": [],\n            \"bcc\": [],\n            \"subject\": \"Following up \\u2014 Senior Backend Engineer application\",\n            \"snippet\": \"Hi, I wanted to follow up on my application...\",\n            \"threadId\": \"1976a4bc3fe89d0c\",\n            \"attachmentCount\": 1\n        },\n        {\n            \"id\": \"2b3c4d5e6f789012\",\n            \"to\": [\"recruiter@startupco.example\"],\n            \"cc\": [],\n            \"bcc\": [],\n            \"subject\": \"Introduction \\u2014 Backend Engineer\",\n            \"snippet\": \"Hi Sarah, I saw your posting on LinkedIn...\",\n            \"threadId\": null,\n            \"attachmentCount\": 0\n        }\n    ],\n    \"nextPageToken\": \"eyJwYWdlVG9rZW4i...\",\n    \"totalCount\": 15\n}"
+						},
+						{
+							"name": "200 OK — Empty drafts queue",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts?limit=25",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "25"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "1"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "250"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "249"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746835200"
+								}
+							],
+							"body": "{\n    \"results\": [],\n    \"nextPageToken\": null,\n    \"totalCount\": 0\n}"
+						},
+						{
+							"name": "400 Bad Request — Invalid limit parameter",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts?limit=99",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "99"
+										}
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/validation-error\",\n    \"title\": \"Validation Error\",\n    \"status\": 400,\n    \"detail\": \"Request validation failed\",\n    \"instance\": \"/api/v1/gmail/drafts\",\n    \"extensions\": {\n        \"constraint:listDrafts.limit\": \"must be less than or equal to 50\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Draft Detail",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/drafts/:draftId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"drafts",
+								":draftId"
+							],
+							"variable": [
+								{
+									"key": "draftId",
+									"value": "1a2b3c4d5e6f7890",
+									"description": "Gmail draft ID. Must match [0-9a-fA-F]{1,32}. Obtain from the id field in List Drafts response."
+								}
+							]
+						},
+						"description": "Retrieves the full content of a single draft including body text, all recipients, threading metadata (threadId, inReplyToMessageId), and attachment metadata (filename, mimeType, sizeBytes — binary data is NOT returned). Use this endpoint after List Drafts to inspect a specific draft before sending, updating, or deleting it.\n\nQuota cost: 5 units per call (users.drafts.get with format=FULL).\n\nFeature 003 (drafts-crud). Requires gmail.modify scope."
+					},
+					"response": [
+						{
+							"name": "200 OK — Full draft detail with attachment",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/1a2b3c4d5e6f7890",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"1a2b3c4d5e6f7890"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "5"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "250"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "245"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746835200"
+								}
+							],
+							"body": "{\n    \"id\": \"1a2b3c4d5e6f7890\",\n    \"to\": [\"hiring-manager@bigcorp.example\"],\n    \"cc\": [],\n    \"bcc\": [],\n    \"subject\": \"Following up \\u2014 Senior Backend Engineer application\",\n    \"body\": \"<p>Hi,</p><p>I wanted to follow up on my application for the Senior Backend Engineer role.</p>\",\n    \"bodyType\": \"html\",\n    \"threadId\": \"1976a4bc3fe89d0c\",\n    \"inReplyToMessageId\": \"1976a4bc3fe89d0c\",\n    \"attachments\": [\n        {\n            \"filename\": \"resume-2026.pdf\",\n            \"mimeType\": \"application/pdf\",\n            \"sizeBytes\": 245760\n        }\n    ]\n}"
+						},
+						{
+							"name": "200 OK — Plain draft (no threading, no attachments)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/2b3c4d5e6f789012",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"2b3c4d5e6f789012"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "5"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "250"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "245"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746835200"
+								}
+							],
+							"body": "{\n    \"id\": \"2b3c4d5e6f789012\",\n    \"to\": [\"recruiter@startupco.example\"],\n    \"cc\": [],\n    \"bcc\": [],\n    \"subject\": \"Introduction \\u2014 Backend Engineer\",\n    \"body\": \"Hi Sarah,\\n\\nI saw your posting on LinkedIn and wanted to reach out.\",\n    \"bodyType\": \"text\",\n    \"threadId\": null,\n    \"inReplyToMessageId\": null,\n    \"attachments\": []\n}"
+						},
+						{
+							"name": "404 Not Found — Draft does not exist or already sent",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/0000000000000000",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"0000000000000000"
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/resource-not-found\",\n    \"title\": \"Resource Not Found\",\n    \"status\": 404,\n    \"detail\": \"Draft '0000000000000000' was not found or has already been sent\",\n    \"instance\": \"/api/v1/gmail/drafts/0000000000000000\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						},
+						{
+							"name": "400 Bad Request — Invalid draft ID format",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/not-valid-id!",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"not-valid-id!"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/validation-error\",\n    \"title\": \"Validation Error\",\n    \"status\": 400,\n    \"detail\": \"Request validation failed\",\n    \"instance\": \"/api/v1/gmail/drafts/not-valid-id!\",\n    \"extensions\": {\n        \"constraint:getDraft.draftId\": \"must match \\\"[0-9a-fA-F]{1,32}\\\"\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Draft",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/drafts/:draftId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"drafts",
+								":draftId"
+							],
+							"variable": [
+								{
+									"key": "draftId",
+									"value": "1a2b3c4d5e6f7890",
+									"description": "Gmail draft ID. Must match [0-9a-fA-F]{1,32}. Obtain from the id field in List Drafts response."
+								}
+							]
+						},
+						"description": "Permanently removes a draft from the authenticated user's Gmail Drafts folder. There is no trash or soft-delete — the draft is gone immediately. Returns 204 No Content with an empty response body on success.\n\nIdempotency note: a 404 response indicates the draft is already absent (sent, previously deleted, or never existed). Cleanup workflows may treat 404 as success-equivalent per the contract spec.\n\nQuota cost: 10 units per call (users.drafts.delete).\n\nFeature 003 (drafts-crud). Requires gmail.modify scope."
+					},
+					"response": [
+						{
+							"name": "204 No Content — Draft deleted successfully",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/1a2b3c4d5e6f7890",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"1a2b3c4d5e6f7890"
+									]
+								}
+							},
+							"status": "No Content",
+							"code": 204,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "10"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "250"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "240"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746835200"
+								}
+							],
+							"body": ""
+						},
+						{
+							"name": "404 Not Found — Draft already deleted, sent, or never existed",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/0000000000000000",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"0000000000000000"
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/resource-not-found\",\n    \"title\": \"Resource Not Found\",\n    \"status\": 404,\n    \"detail\": \"Draft '0000000000000000' was not found or has already been sent\",\n    \"instance\": \"/api/v1/gmail/drafts/0000000000000000\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						},
+						{
+							"name": "400 Bad Request — Invalid draft ID format",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/not-valid-id!",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"not-valid-id!"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/validation-error\",\n    \"title\": \"Validation Error\",\n    \"status\": 400,\n    \"detail\": \"Request validation failed\",\n    \"instance\": \"/api/v1/gmail/drafts/not-valid-id!\",\n    \"extensions\": {\n        \"constraint:deleteDraft.draftId\": \"must match \\\"[0-9a-fA-F]{1,32}\\\"\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Draft",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"to\": [\"hiring-manager@bigcorp.example\"],\n    \"cc\": [],\n    \"bcc\": [],\n    \"subject\": \"Following up \\u2014 Senior Backend Engineer application (revised)\",\n    \"body\": \"<p>Hi,</p><p>I wanted to follow up and share a revised cover letter.</p>\",\n    \"bodyType\": \"html\",\n    \"threadId\": null,\n    \"inReplyToMessageId\": null,\n    \"attachments\": []\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/drafts/:draftId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"drafts",
+								":draftId"
+							],
+							"variable": [
+								{
+									"key": "draftId",
+									"value": "1a2b3c4d5e6f7890",
+									"description": "Gmail draft ID. Must match [0-9a-fA-F]{1,32}. Obtain from the id field in List Drafts response."
+								}
+							]
+						},
+						"description": "Replaces the entire content of an existing draft with a new SendMessageDTO payload. PUT semantics: the new content fully replaces the old content — no partial update. If attachments are omitted from the request body, the updated draft will have no attachments even if the original had some.\n\nThe request body accepts the same SendMessageDTO shape as POST /api/v1/gmail/drafts, including all optional fields: cc, bcc, threadId, inReplyToMessageId, and attachments (base64-encoded). All the same validation rules apply (email format, size limits, header injection checks, 25 MB payload cap).\n\nReturns 200 OK with a DraftDetailResponse showing the post-update state — the same shape as GET /api/v1/gmail/drafts/{id}. No follow-up GET call is needed.\n\nQuota cost: 15 units (users.drafts.update). Add 5 extra units if inReplyToMessageId is supplied (threading metadata lookup).\n\nFeature 003 (drafts-crud). Requires gmail.modify scope."
+					},
+					"response": [
+						{
+							"name": "200 OK — Draft updated (subject + body, no attachments)",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [\"hiring-manager@bigcorp.example\"],\n    \"subject\": \"Following up \\u2014 Senior Backend Engineer application (revised)\",\n    \"body\": \"<p>Hi,</p><p>I wanted to follow up and share a revised cover letter.</p>\",\n    \"bodyType\": \"html\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/1a2b3c4d5e6f7890",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"1a2b3c4d5e6f7890"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "15"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "250"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "235"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746835200"
+								}
+							],
+							"body": "{\n    \"id\": \"1a2b3c4d5e6f7890\",\n    \"to\": [\"hiring-manager@bigcorp.example\"],\n    \"cc\": [],\n    \"bcc\": [],\n    \"subject\": \"Following up \\u2014 Senior Backend Engineer application (revised)\",\n    \"body\": \"<p>Hi,</p><p>I wanted to follow up and share a revised cover letter.</p>\",\n    \"bodyType\": \"html\",\n    \"threadId\": null,\n    \"inReplyToMessageId\": null,\n    \"attachments\": []\n}"
+						},
+						{
+							"name": "200 OK — Draft updated with attachment",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [\"hiring-manager@bigcorp.example\"],\n    \"subject\": \"Application \\u2014 Senior Backend Engineer (r\\u00e9sum\\u00e9 attached)\",\n    \"body\": \"<p>Hi,</p><p>Please find my r\\u00e9sum\\u00e9 attached.</p>\",\n    \"bodyType\": \"html\",\n    \"attachments\": [\n        {\n            \"filename\": \"resume-2026-v2.pdf\",\n            \"mimeType\": \"application/pdf\",\n            \"base64Data\": \"JVBERi0xLjQKMSAwIG9iago...\"\n        }\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/1a2b3c4d5e6f7890",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"1a2b3c4d5e6f7890"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "15"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "250"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "235"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746835200"
+								}
+							],
+							"body": "{\n    \"id\": \"1a2b3c4d5e6f7890\",\n    \"to\": [\"hiring-manager@bigcorp.example\"],\n    \"cc\": [],\n    \"bcc\": [],\n    \"subject\": \"Application \\u2014 Senior Backend Engineer (r\\u00e9sum\\u00e9 attached)\",\n    \"body\": \"<p>Hi,</p><p>Please find my r\\u00e9sum\\u00e9 attached.</p>\",\n    \"bodyType\": \"html\",\n    \"threadId\": null,\n    \"inReplyToMessageId\": null,\n    \"attachments\": [\n        {\n            \"filename\": \"resume-2026-v2.pdf\",\n            \"mimeType\": \"application/pdf\",\n            \"sizeBytes\": 249856\n        }\n    ]\n}"
+						},
+						{
+							"name": "404 Not Found — Draft does not exist",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [\"hiring-manager@bigcorp.example\"],\n    \"subject\": \"Updated subject\",\n    \"body\": \"Updated body.\",\n    \"bodyType\": \"text\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/0000000000000000",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"0000000000000000"
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/resource-not-found\",\n    \"title\": \"Resource Not Found\",\n    \"status\": 404,\n    \"detail\": \"Draft '0000000000000000' was not found or has already been sent\",\n    \"instance\": \"/api/v1/gmail/drafts/0000000000000000\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						},
+						{
+							"name": "400 Bad Request — Validation failure (missing recipients)",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [],\n    \"subject\": \"Missing recipients\",\n    \"body\": \"Body text.\",\n    \"bodyType\": \"text\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/1a2b3c4d5e6f7890",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"1a2b3c4d5e6f7890"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/validation-error\",\n    \"title\": \"Validation Error\",\n    \"status\": 400,\n    \"detail\": \"Request validation failed\",\n    \"instance\": \"/api/v1/gmail/drafts/1a2b3c4d5e6f7890\",\n    \"extensions\": {\n        \"field:to\": \"must not be empty\"\n    }\n}"
+						},
+						{
+							"name": "422 Unprocessable Entity — inReplyToMessageId references non-existent message",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"to\": [\"hiring-manager@bigcorp.example\"],\n    \"subject\": \"Re: Nonexistent thread\",\n    \"body\": \"This should fail.\",\n    \"bodyType\": \"text\",\n    \"inReplyToMessageId\": \"0000000000000000\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/drafts/1a2b3c4d5e6f7890",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"drafts",
+										"1a2b3c4d5e6f7890"
+									]
+								}
+							},
+							"status": "Unprocessable Entity",
+							"code": 422,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/original-message-not-found\",\n    \"title\": \"Original Message Not Found\",\n    \"status\": 422,\n    \"detail\": \"The message referenced by inReplyToMessageId '0000000000000000' does not exist or is not accessible in the authenticated account\",\n    \"instance\": \"/api/v1/gmail/drafts/1a2b3c4d5e6f7890\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						}
+					]
 				}
 			],
-			"description": "Send emails directly or stage them as drafts for review. All three endpoints require gmail.send scope (or the broader mail.google.com scope). POST /drafts is the recommended default path for AI-personalized outreach.\n\nFeature 002 (threading-attachments) adds three optional fields to POST /messages and POST /drafts:\n- threadId: places the outgoing message in an existing thread\n- inReplyToMessageId: triggers RFC 5322 In-Reply-To / References header construction (costs ~5 extra quota units)\n- attachments: base64-encoded file attachments; total payload capped at 25 MB"
+			"description": "Send emails directly or stage them as drafts for review. All three endpoints require gmail.send scope (or the broader mail.google.com scope). POST /drafts is the recommended default path for AI-personalized outreach.\n\nFeature 002 (threading-attachments) adds three optional fields to POST /messages and POST /drafts:\n- threadId: places the outgoing message in an existing thread\n- inReplyToMessageId: triggers RFC 5322 In-Reply-To / References header construction (costs ~5 extra quota units)\n- attachments: base64-encoded file attachments; total payload capped at 25 MB\n\nFeature 003 (drafts-crud) adds four endpoints for managing existing drafts: GET /drafts (list), GET /drafts/{id} (detail), DELETE /drafts/{id} (cancel), PUT /drafts/{id} (replace content). All four require gmail.modify scope."
 		},
 		{
 			"name": "Test Examples",
