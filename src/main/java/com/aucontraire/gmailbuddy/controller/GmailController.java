@@ -15,6 +15,8 @@ import com.aucontraire.gmailbuddy.dto.response.DraftListResponse;
 import com.aucontraire.gmailbuddy.dto.response.DraftResponse;
 import com.aucontraire.gmailbuddy.dto.response.LabelModificationResponse;
 import com.aucontraire.gmailbuddy.dto.response.SendMessageResponse;
+import com.aucontraire.gmailbuddy.validation.GmailDraftId;
+import com.aucontraire.gmailbuddy.validation.GmailMessageId;
 import com.aucontraire.gmailbuddy.dto.response.MessageListResponse;
 import com.aucontraire.gmailbuddy.dto.response.MessageSummary;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
@@ -39,7 +41,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -259,7 +260,7 @@ public class GmailController {
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<DeleteOperationResult> deleteMessage(
             @Parameter(description = "The ID of the message to delete", required = true)
-            @PathVariable String messageId) {
+            @PathVariable @GmailMessageId String messageId) {
         long startTime = System.currentTimeMillis();
         String userId = properties.gmailApi().defaultUserId();
 
@@ -370,7 +371,7 @@ public class GmailController {
     @GetMapping(value = "/messages/{messageId}/body", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> getMessageBody(
             @Parameter(description = "The ID of the message", required = true)
-            @PathVariable String messageId) {
+            @PathVariable @GmailMessageId String messageId) {
         long startTime = System.currentTimeMillis();
         String userId = properties.gmailApi().defaultUserId();
 
@@ -405,7 +406,7 @@ public class GmailController {
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<LabelModificationResponse> markMessageAsRead(
             @Parameter(description = "The ID of the message to mark as read", required = true)
-            @PathVariable String messageId) {
+            @PathVariable @GmailMessageId String messageId) {
         String userId = properties.gmailApi().defaultUserId();
         BulkOperationResult result = gmailService.markMessageAsRead(userId, messageId);
 
@@ -519,7 +520,7 @@ public class GmailController {
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<SendMessageResponse> sendDraft(
             @Parameter(description = "The Gmail-assigned draft identifier returned by POST /drafts", required = true)
-            @PathVariable String draftId) {
+            @PathVariable @GmailDraftId String draftId) {
 
         String userId = properties.gmailApi().defaultUserId();
 
@@ -670,7 +671,7 @@ public class GmailController {
     @GetMapping(value = "/drafts/{draftId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<DraftDetailResponse> getDraft(
             @Parameter(description = "The Gmail-assigned draft identifier", required = true)
-            @PathVariable @Pattern(regexp = "[A-Za-z0-9_-]{1,128}") String draftId) {
+            @PathVariable @GmailDraftId String draftId) {
 
         String userId = properties.gmailApi().defaultUserId();
         DraftDetailResult result = gmailService.getDraft(userId, draftId);
@@ -710,7 +711,7 @@ public class GmailController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ResponseEntity<Void> deleteDraft(
             @Parameter(description = "The Gmail-assigned draft identifier", required = true)
-            @PathVariable @Pattern(regexp = "[A-Za-z0-9_-]{1,128}") String draftId) {
+            @PathVariable @GmailDraftId String draftId) {
 
         String userId = properties.gmailApi().defaultUserId();
         gmailService.deleteDraft(userId, draftId);
@@ -759,7 +760,7 @@ public class GmailController {
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<DraftDetailResponse> updateDraft(
             @Parameter(description = "The Gmail-assigned draft identifier", required = true)
-            @PathVariable @Pattern(regexp = "[A-Za-z0-9_-]{1,128}") String draftId,
+            @PathVariable @GmailDraftId String draftId,
             @Valid @RequestBody SendMessageDTO dto,
             HttpServletRequest request) {
 

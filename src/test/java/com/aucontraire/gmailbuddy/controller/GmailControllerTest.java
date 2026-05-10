@@ -469,4 +469,44 @@ public class GmailControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadGateway());
     }
+
+    // ---------------------------------------------------------------------------
+    // R-023 gap-fill: pre-existing path variables that previously had no @Pattern
+    // validation now reject malformed IDs at the controller layer (HTTP 400)
+    // before the request reaches the service. Uses "bad.id" — period is URL-safe
+    // (passes through URI parsing) but rejected by both [0-9a-fA-F]{1,32} and
+    // [A-Za-z0-9_-]{1,128}.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    public void deleteMessage_400ForMalformedMessageId() throws Exception {
+        mockMvc.perform(delete("/api/v1/gmail/messages/{messageId}", "bad.id")
+                        .accept(MediaType.APPLICATION_JSON)
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void getMessageBody_400ForMalformedMessageId() throws Exception {
+        mockMvc.perform(get("/api/v1/gmail/messages/{messageId}/body", "bad.id")
+                        .accept(MediaType.TEXT_HTML)
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void markMessageAsRead_400ForMalformedMessageId() throws Exception {
+        mockMvc.perform(put("/api/v1/gmail/messages/{messageId}/read", "bad.id")
+                        .accept(MediaType.APPLICATION_JSON)
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void sendDraft_400ForMalformedDraftId() throws Exception {
+        mockMvc.perform(post("/api/v1/gmail/drafts/{draftId}/send", "bad.id")
+                        .accept(MediaType.APPLICATION_JSON)
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+    }
 }

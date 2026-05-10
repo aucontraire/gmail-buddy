@@ -1,5 +1,6 @@
 package com.aucontraire.gmailbuddy.dto;
 
+import com.aucontraire.gmailbuddy.validation.GmailMessageId;
 import com.aucontraire.gmailbuddy.validation.MaxBodySize;
 import com.aucontraire.gmailbuddy.validation.NoHeaderInjection;
 import com.aucontraire.gmailbuddy.validation.OptionalEmail;
@@ -95,7 +96,7 @@ public record SendMessageDTO(
         nullable = true,
         example = "1976a4bc3fe89d0c"
     )
-    @Pattern(regexp = "[0-9a-fA-F]{1,32}")
+    @GmailMessageId
     String threadId,
 
     /**
@@ -118,7 +119,7 @@ public record SendMessageDTO(
         nullable = true,
         example = "1976a4bc3fe89d0c"
     )
-    @Pattern(regexp = "[0-9a-fA-F]{1,32}")
+    @GmailMessageId
     String inReplyToMessageId,
 
     /**
