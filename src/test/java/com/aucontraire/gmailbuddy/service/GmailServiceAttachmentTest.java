@@ -9,6 +9,7 @@ import com.aucontraire.gmailbuddy.dto.Attachment;
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
@@ -139,13 +140,15 @@ class GmailServiceAttachmentTest {
     /** Builds a GmailService with the mocked MimeMessageBuilder (for size-check tests). */
     private GmailService serviceWithMockedBuilder() {
         return new GmailService(
-                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder, properties);
+                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder,
+                mock(GmailMessageMapper.class), properties);
     }
 
     /** Builds a GmailService with the REAL MimeMessageBuilder (for log-compliance tests). */
     private GmailService serviceWithRealBuilder() {
         return new GmailService(
-                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, realMimeMessageBuilder, properties);
+                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, realMimeMessageBuilder,
+                mock(GmailMessageMapper.class), properties);
     }
 
     /** Creates a small base64 payload that will exceed the given byte limit. */

@@ -174,4 +174,53 @@ class GmailQuotaEstimatorTest {
         assertEquals(15, quota,
                 "Threaded create draft should cost 15 quota units (5 lookup + 10 draft create)");
     }
+
+    // -------------------------------------------------------------------------
+    // T008 — Draft CRUD quota methods
+    // -------------------------------------------------------------------------
+
+    @Test
+    void estimateListDraftsQuota_zeroItems_returnsOne() {
+        // 1 (list call) + 0 * 5 = 1
+        assertEquals(1, estimator.estimateListDraftsQuota(0),
+                "Zero items: only the list call costs 1 unit");
+    }
+
+    @Test
+    void estimateListDraftsQuota_tenItems_returns51() {
+        // 1 + 10 * 5 = 51
+        assertEquals(51, estimator.estimateListDraftsQuota(10));
+    }
+
+    @Test
+    void estimateListDraftsQuota_twentyFiveItems_returns126() {
+        // 1 + 25 * 5 = 126
+        assertEquals(126, estimator.estimateListDraftsQuota(25));
+    }
+
+    @Test
+    void estimateListDraftsQuota_fiftyItems_returns251() {
+        // 1 + 50 * 5 = 251
+        assertEquals(251, estimator.estimateListDraftsQuota(50));
+    }
+
+    @Test
+    void estimateGetDraftQuota_returnsFive() {
+        assertEquals(5, estimator.estimateGetDraftQuota(),
+                "Get draft should cost 5 quota units");
+    }
+
+    // T021 — Delete draft quota
+    @Test
+    void estimateDeleteDraftQuota_returnsTen() {
+        assertEquals(10, estimator.estimateDeleteDraftQuota(),
+                "Delete draft should cost 10 quota units");
+    }
+
+    // T031 — Update draft quota
+    @Test
+    void estimateUpdateDraftQuota_returnsFifteen() {
+        assertEquals(15, estimator.estimateUpdateDraftQuota(),
+                "Update draft should cost 15 quota units");
+    }
 }

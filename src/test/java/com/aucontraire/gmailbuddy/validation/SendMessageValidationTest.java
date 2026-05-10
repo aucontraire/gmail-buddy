@@ -3,6 +3,7 @@ package com.aucontraire.gmailbuddy.validation;
 import com.aucontraire.gmailbuddy.controller.GmailController;
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.fixture.SendMessageRequestFixtures;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
 import com.aucontraire.gmailbuddy.ratelimit.GmailQuotaEstimator;
 import com.aucontraire.gmailbuddy.ratelimit.RateLimitService;
@@ -80,6 +81,9 @@ class SendMessageValidationTest {
 
     @MockitoBean
     private GmailQuotaEstimator gmailQuotaEstimator;
+
+    @MockitoBean
+    private GmailMessageMapper gmailMessageMapper;
 
     // -------------------------------------------------------------------------
     // Recipient list — empty / missing

@@ -2,6 +2,7 @@ package com.aucontraire.gmailbuddy.dto;
 
 import com.aucontraire.gmailbuddy.controller.GmailController;
 import com.aucontraire.gmailbuddy.fixture.AttachmentFixtures;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
 import com.aucontraire.gmailbuddy.ratelimit.GmailQuotaEstimator;
 import com.aucontraire.gmailbuddy.ratelimit.RateLimitService;
@@ -203,6 +204,9 @@ class SendMessageDTOThreadingAttachmentTest {
 
         @MockitoBean
         private GmailQuotaEstimator gmailQuotaEstimator;
+
+        @MockitoBean
+        private GmailMessageMapper gmailMessageMapper;
 
         // -------------------------------------------------------------------------
         // threadId — @Pattern validation via controller endpoint

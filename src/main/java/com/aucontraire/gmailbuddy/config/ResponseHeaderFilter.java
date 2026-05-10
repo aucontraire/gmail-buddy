@@ -170,6 +170,15 @@ public class ResponseHeaderFilter implements Filter {
             // Execute the rest of the filter chain with wrapped response
             chain.doFilter(request, responseWrapper);
 
+            // For no-body responses (e.g. 204 No Content), none of getOutputStream(),
+            // getWriter(), sendError(), sendRedirect(), or flushBuffer() is invoked by
+            // the framework, so addHeadersIfNeeded() inside the wrapper is never
+            // triggered. Calling flushBuffer() here ensures headers are committed even
+            // when the response body is empty (FR-019).
+            if (!responseWrapper.isCommitted()) {
+                responseWrapper.flushBuffer();
+            }
+
             logger.debug("ResponseHeaderFilter: Completed request {} - committed: {}",
                         httpRequest.getRequestURI(), responseWrapper.isCommitted());
 

@@ -1,6 +1,7 @@
 package com.aucontraire.gmailbuddy.controller;
 
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
+import com.aucontraire.gmailbuddy.config.ResponseHeaderFilter;
 import com.aucontraire.gmailbuddy.dto.DeleteResult;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
@@ -9,14 +10,19 @@ import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
 import com.aucontraire.gmailbuddy.dto.error.ErrorResponse;
 import com.aucontraire.gmailbuddy.dto.response.BulkDeleteResponse;
 import com.aucontraire.gmailbuddy.dto.response.DeleteOperationResult;
+import com.aucontraire.gmailbuddy.dto.response.DraftDetailResponse;
+import com.aucontraire.gmailbuddy.dto.response.DraftListResponse;
 import com.aucontraire.gmailbuddy.dto.response.DraftResponse;
 import com.aucontraire.gmailbuddy.dto.response.LabelModificationResponse;
 import com.aucontraire.gmailbuddy.dto.response.SendMessageResponse;
 import com.aucontraire.gmailbuddy.dto.response.MessageListResponse;
 import com.aucontraire.gmailbuddy.dto.response.MessageSummary;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
+import com.aucontraire.gmailbuddy.service.DraftDetailResult;
+import com.aucontraire.gmailbuddy.service.DraftListResult;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
@@ -29,10 +35,17 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -40,8 +53,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import jakarta.validation.Valid;
 
 import java.net.URI;
 import java.util.Collections;
@@ -51,21 +64,25 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/gmail")
 @Tag(name = "Gmail", description = "Gmail message management operations")
+@Validated
 public class GmailController {
 
     private final GmailService gmailService;
     private final OAuth2AuthorizedClientService authorizedClientService;
     private final GmailBuddyProperties properties;
     private final ResponseMapper responseMapper;
+    private final GmailMessageMapper gmailMessageMapper;
     private final Logger logger = LoggerFactory.getLogger(GmailController.class);
 
     @Autowired
     public GmailController(GmailService gmailService, OAuth2AuthorizedClientService authorizedClientService,
-                          GmailBuddyProperties properties, ResponseMapper responseMapper) {
+                          GmailBuddyProperties properties, ResponseMapper responseMapper,
+                          GmailMessageMapper gmailMessageMapper) {
         this.gmailService = gmailService;
         this.authorizedClientService = authorizedClientService;
         this.properties = properties;
         this.responseMapper = responseMapper;
+        this.gmailMessageMapper = gmailMessageMapper;
     }
 
     /**
@@ -570,6 +587,192 @@ public class GmailController {
 
         URI location = URI.create("/api/v1/gmail/messages/" + result.messageId() + "/body");
         return ResponseEntity.created(location).body(SendMessageResponse.sent(result.messageId(), result.threadId()));
+    }
+
+    /**
+     * GET /drafts — List pending drafts with pagination.
+     *
+     * <p>Calls {@code users.drafts.list} then fetches each draft with
+     * {@code users.drafts.get(format=FULL)} to populate recipients, subject,
+     * and snippet. Updates the {@code X-Gmail-Quota-Used} request attribute
+     * post-execution with the actual cost: {@code 1 + N * 5}.</p>
+     */
+    @Operation(
+        summary = "List pending drafts",
+        description = "Returns a paginated list of draft summaries. Each item includes recipients, subject, snippet, " +
+                      "thread ID, and attachment count. Internally calls users.drafts.get per item for enrichment."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved drafts",
+            content = @Content(schema = @Schema(implementation = DraftListResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid query parameters",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions (requires gmail.modify scope)",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping(value = "/drafts", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<DraftListResponse> listDrafts(
+            @Parameter(description = "Pagination token from a prior response (max 255 chars)")
+            @RequestParam(required = false) @Size(max = 255) String pageToken,
+            @Parameter(description = "Maximum number of drafts to return (1–50, default 25)")
+            @RequestParam(defaultValue = "25") @Min(1) @Max(50) int limit,
+            HttpServletRequest request) {
+
+        String userId = properties.gmailApi().defaultUserId();
+        DraftListResult result = gmailService.listDrafts(userId, pageToken, limit);
+
+        // Update actual quota: 1 (list call) + N * 5 (per-item get calls)
+        int actualQuota = 1 + result.drafts().size() * 5;
+        request.setAttribute(ResponseHeaderFilter.ATTR_GMAIL_QUOTA_USED, actualQuota);
+
+        DraftListResponse response = gmailMessageMapper.toDraftListResponse(result);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /drafts/{draftId} — Get full content of a single draft.
+     *
+     * <p>Calls {@code users.drafts.get(format=FULL)} and returns the full
+     * {@link DraftDetailResponse} including recipients, subject, body,
+     * threading fields, and attachment metadata.</p>
+     */
+    @Operation(
+        summary = "Get draft detail",
+        description = "Returns the full contents of a single draft including recipients, subject, body, " +
+                      "threading fields, and attachment metadata. No binary content is returned."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Draft retrieved successfully",
+            content = @Content(schema = @Schema(implementation = DraftDetailResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid draft ID format",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions (requires gmail.modify scope)",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Draft not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping(value = "/drafts/{draftId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<DraftDetailResponse> getDraft(
+            @Parameter(description = "The Gmail-assigned draft identifier", required = true)
+            @PathVariable @Pattern(regexp = "[A-Za-z0-9_-]{1,128}") String draftId) {
+
+        String userId = properties.gmailApi().defaultUserId();
+        DraftDetailResult result = gmailService.getDraft(userId, draftId);
+        DraftDetailResponse response = gmailMessageMapper.toDraftDetailResponse(result);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * DELETE /drafts/{draftId} — Permanently delete a draft.
+     *
+     * <p>Calls {@code users.drafts.delete}. Hard delete — the draft does not go
+     * to Trash. Returns 204 No Content on success.</p>
+     */
+    @Operation(
+        summary = "Delete a draft",
+        description = "Permanently deletes a draft. The draft is hard-deleted (not moved to Trash). " +
+                      "Returns 204 No Content on success. If the draft does not exist, returns 404."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Draft deleted successfully (empty response body)"),
+        @ApiResponse(responseCode = "400", description = "Invalid draft ID format",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions (requires gmail.modify scope)",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Draft not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @DeleteMapping(value = "/drafts/{draftId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public ResponseEntity<Void> deleteDraft(
+            @Parameter(description = "The Gmail-assigned draft identifier", required = true)
+            @PathVariable @Pattern(regexp = "[A-Za-z0-9_-]{1,128}") String draftId) {
+
+        String userId = properties.gmailApi().defaultUserId();
+        gmailService.deleteDraft(userId, draftId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * PUT /drafts/{draftId} — Replace the content of an existing draft.
+     *
+     * <p>Full replacement via {@code users.drafts.update}. All fields (recipients,
+     * subject, body, threading, attachments) are replaced by the request body.
+     * Omitted optional fields (cc, bcc, attachments, threading) are cleared.
+     * Returns the updated {@link DraftDetailResponse}.</p>
+     */
+    @Operation(
+        summary = "Update a draft",
+        description = "Replaces the content of an existing draft (full replacement — not a partial update). " +
+                      "Omitted optional fields (cc, bcc, attachments, inReplyToMessageId) are cleared. " +
+                      "Returns the updated draft detail. When inReplyToMessageId is present, a threading " +
+                      "lookup is performed first (total ~20 quota units instead of 15)."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Draft updated successfully",
+            content = @Content(schema = @Schema(implementation = DraftDetailResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid request - validation failure or header-injection detected",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions (requires gmail.modify scope)",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Draft not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "413", description = "Payload too large - assembled MIME exceeds 25 MB",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "422", description = "Unprocessable entity - invalid recipient or inReplyToMessageId not found",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PutMapping(value = "/drafts/{draftId}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<DraftDetailResponse> updateDraft(
+            @Parameter(description = "The Gmail-assigned draft identifier", required = true)
+            @PathVariable @Pattern(regexp = "[A-Za-z0-9_-]{1,128}") String draftId,
+            @Valid @RequestBody SendMessageDTO dto,
+            HttpServletRequest request) {
+
+        String userId = properties.gmailApi().defaultUserId();
+        DraftDetailResult result = gmailService.updateDraft(userId, draftId, dto);
+
+        // If threading lookup was performed, quota is 15 (update) + 5 (lookup) = 20
+        if (dto.inReplyToMessageId() != null) {
+            request.setAttribute(ResponseHeaderFilter.ATTR_GMAIL_QUOTA_USED, 20);
+        }
+
+        DraftDetailResponse response = gmailMessageMapper.toDraftDetailResponse(result);
+        return ResponseEntity.ok(response);
     }
 
     @Operation(

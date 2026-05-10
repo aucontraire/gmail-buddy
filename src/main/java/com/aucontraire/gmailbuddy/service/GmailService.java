@@ -9,6 +9,7 @@ import com.aucontraire.gmailbuddy.exception.GmailApiException;
 import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.google.api.services.gmail.model.FilterCriteria;
@@ -33,17 +34,20 @@ public class GmailService {
     private final GmailQueryBuilder gmailQueryBuilder;
     private final FilterCriteriaMapper filterCriteriaMapper;
     private final MimeMessageBuilder mimeMessageBuilder;
+    private final GmailMessageMapper gmailMessageMapper;
     private final GmailBuddyProperties properties;
     private final Logger logger = LoggerFactory.getLogger(GmailService.class);
 
     @Autowired
     public GmailService(GmailRepository gmailRepository, GmailQueryBuilder gmailQueryBuilder,
                         FilterCriteriaMapper filterCriteriaMapper, MimeMessageBuilder mimeMessageBuilder,
+                        GmailMessageMapper gmailMessageMapper,
                         GmailBuddyProperties properties) {
         this.gmailRepository = gmailRepository;
         this.gmailQueryBuilder = gmailQueryBuilder;
         this.filterCriteriaMapper = filterCriteriaMapper;
         this.mimeMessageBuilder = mimeMessageBuilder;
+        this.gmailMessageMapper = gmailMessageMapper;
         this.properties = properties;
     }
 
@@ -499,6 +503,125 @@ public class GmailService {
             logger.error("Failed to send message for user: {}", userId, e);
             throw new GmailApiException(
                     String.format("Failed to send message for user: %s", userId), e
+            );
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Draft CRUD — listDrafts, getDraft, deleteDraft, updateDraft
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Returns a paginated list of drafts for the specified user.
+     *
+     * @param userId    the Gmail user identifier; typically {@code "me"}
+     * @param pageToken opaque pagination token, or null for the first page
+     * @param limit     maximum number of items to return (1–50)
+     * @return a {@link DraftListResult} with enriched draft summaries
+     * @throws GmailApiException if the Gmail API returns an error
+     */
+    public DraftListResult listDrafts(String userId, String pageToken, int limit) throws GmailApiException {
+        try {
+            DraftListResult result = gmailRepository.listDrafts(userId, pageToken, limit);
+            logger.info("Draft operation: op=list, count={}", result.drafts().size());
+            return result;
+        } catch (IOException e) {
+            logger.error("Failed to list drafts for user: {}", userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to list drafts for user: %s", userId), e
+            );
+        }
+    }
+
+    /**
+     * Returns the full content of the specified draft.
+     *
+     * @param userId  the Gmail user identifier; typically {@code "me"}
+     * @param draftId the Gmail draft identifier
+     * @return a {@link DraftDetailResult} with all parsed fields
+     * @throws ResourceNotFoundException if the draft does not exist
+     * @throws GmailApiException if the Gmail API returns an error
+     */
+    public DraftDetailResult getDraft(String userId, String draftId) throws GmailApiException {
+        try {
+            DraftDetailResult result = gmailRepository.getDraft(userId, draftId);
+            logger.info("Draft operation: op=get, draftId={}, attachmentCount={}",
+                    draftId, result.attachments().size());
+            return result;
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (IOException e) {
+            logger.error("Failed to get draft draftId={} for user: {}", draftId, userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to get draft %s for user: %s", draftId, userId), e
+            );
+        }
+    }
+
+    /**
+     * Permanently deletes the specified draft.
+     *
+     * @param userId  the Gmail user identifier; typically {@code "me"}
+     * @param draftId the Gmail draft identifier
+     * @throws ResourceNotFoundException if the draft does not exist
+     * @throws GmailApiException if the Gmail API returns an error
+     */
+    public void deleteDraft(String userId, String draftId) throws GmailApiException {
+        try {
+            gmailRepository.deleteDraft(userId, draftId);
+            logger.info("Draft operation: op=delete, draftId={}", draftId);
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (IOException e) {
+            logger.error("Failed to delete draft draftId={} for user: {}", draftId, userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to delete draft %s for user: %s", draftId, userId), e
+            );
+        }
+    }
+
+    /**
+     * Replaces the content of the specified draft. Performs a threading lookup when
+     * {@code dto.inReplyToMessageId()} is present, then builds a {@link MimeMessage}
+     * and calls the repository's {@code updateDraft}.
+     *
+     * @param userId  the Gmail user identifier; typically {@code "me"}
+     * @param draftId the Gmail draft identifier
+     * @param dto     the validated update request
+     * @return a {@link DraftDetailResult} reflecting the updated draft state
+     * @throws ResourceNotFoundException if the draft does not exist
+     * @throws GmailApiException if the Gmail API or MIME construction fails
+     */
+    public DraftDetailResult updateDraft(String userId, String draftId, SendMessageDTO dto) throws GmailApiException {
+        try {
+            boolean hasThreading = dto.inReplyToMessageId() != null;
+            OriginalMessageLookup lookup = null;
+            if (hasThreading) {
+                lookup = gmailRepository.getMessageHeaders(userId, dto.inReplyToMessageId());
+            }
+
+            MimeMessage mimeMessage = mimeMessageBuilder.build(dto, lookup);
+
+            DraftCreationResult updateResult = gmailRepository.updateDraft(userId, draftId, mimeMessage);
+
+            // Fetch the updated draft to return the full DraftDetailResult
+            DraftDetailResult result = gmailRepository.getDraft(userId, updateResult.draftId());
+
+            logger.info("Draft operation: op=update, draftId={}, attachmentCount={}, hasThreading={}",
+                    draftId, result.attachments().size(), hasThreading);
+            return result;
+
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (MessageTooLargeException e) {
+            throw e;
+        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
+            logger.error("Failed to build MimeMessage for draft update draftId={}: {}", draftId, e.getMessage());
+            throw new GmailApiException("Failed to construct email message for draft update", e);
+        } catch (IOException e) {
+            logger.error("Failed to update draft draftId={} for user: {}", draftId, userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to update draft %s for user: %s", draftId, userId), e
             );
         }
     }

@@ -1,6 +1,7 @@
 package com.aucontraire.gmailbuddy.controller;
 
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
 import com.aucontraire.gmailbuddy.ratelimit.GmailQuotaEstimator;
 import com.aucontraire.gmailbuddy.ratelimit.RateLimitService;
@@ -72,6 +73,9 @@ class SendDraftControllerTest {
 
     @MockitoBean
     private GmailQuotaEstimator gmailQuotaEstimator;
+
+    @MockitoBean
+    private GmailMessageMapper gmailMessageMapper;
 
     // -------------------------------------------------------------------------
     // 200 OK — correct status code (NOT 201)

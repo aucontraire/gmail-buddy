@@ -2,6 +2,7 @@ package com.aucontraire.gmailbuddy.controller;
 
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.fixture.SendMessageRequestFixtures;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
 import com.aucontraire.gmailbuddy.ratelimit.GmailQuotaEstimator;
 import com.aucontraire.gmailbuddy.ratelimit.RateLimitService;
@@ -83,6 +84,9 @@ class CreateDraftControllerTest {
 
     @MockitoBean
     private GmailQuotaEstimator gmailQuotaEstimator;
+
+    @MockitoBean
+    private GmailMessageMapper gmailMessageMapper;
 
     // -------------------------------------------------------------------------
     // 201 Created — response body contract

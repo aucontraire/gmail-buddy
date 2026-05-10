@@ -33,6 +33,10 @@ public class GmailQuotaEstimator {
     private static final int MESSAGES_SEND_QUOTA = 100;
     private static final int DRAFTS_CREATE_QUOTA = 10;
     private static final int DRAFTS_SEND_QUOTA = 100;
+    private static final int DRAFTS_LIST_QUOTA = 1;
+    private static final int DRAFTS_GET_QUOTA = 5;
+    private static final int DRAFTS_DELETE_QUOTA = 10;
+    private static final int DRAFTS_UPDATE_QUOTA = 15;
 
     /**
      * Estimates quota usage for listing messages.
@@ -193,5 +197,51 @@ public class GmailQuotaEstimator {
         int quota = MESSAGES_GET_QUOTA + DRAFTS_CREATE_QUOTA;
         logger.debug("Estimated quota for threaded create draft: {} units", quota);
         return quota;
+    }
+
+    /**
+     * Estimates quota for a list-drafts page call.
+     * Actual cost: 1 (list call) + itemCount × 5 (per-item get calls).
+     *
+     * @param itemCount number of items actually returned on this page
+     * @return estimated quota units for this page
+     */
+    public int estimateListDraftsQuota(int itemCount) {
+        int quota = DRAFTS_LIST_QUOTA + (itemCount * DRAFTS_GET_QUOTA);
+        logger.debug("Estimated quota for listing {} drafts: {} units", itemCount, quota);
+        return quota;
+    }
+
+    /**
+     * Estimates quota for a single-draft get (users.drafts.get, format=FULL).
+     * ~5 units.
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateGetDraftQuota() {
+        logger.debug("Estimated quota for getting draft: {} units", DRAFTS_GET_QUOTA);
+        return DRAFTS_GET_QUOTA;
+    }
+
+    /**
+     * Estimates quota for a draft delete (users.drafts.delete).
+     * ~10 units.
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateDeleteDraftQuota() {
+        logger.debug("Estimated quota for deleting draft: {} units", DRAFTS_DELETE_QUOTA);
+        return DRAFTS_DELETE_QUOTA;
+    }
+
+    /**
+     * Estimates quota for a draft update (users.drafts.update).
+     * ~15 units (5 internal read + 10 write).
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateUpdateDraftQuota() {
+        logger.debug("Estimated quota for updating draft: {} units", DRAFTS_UPDATE_QUOTA);
+        return DRAFTS_UPDATE_QUOTA;
     }
 }

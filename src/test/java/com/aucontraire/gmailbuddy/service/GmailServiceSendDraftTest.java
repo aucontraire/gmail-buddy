@@ -3,6 +3,7 @@ package com.aucontraire.gmailbuddy.service;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,7 +63,8 @@ class GmailServiceSendDraftTest {
         when(properties.send()).thenReturn(send);
         when(send.maxTotalPayloadSize()).thenReturn(DataSize.ofMegabytes(25));
         gmailService = new GmailService(
-                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder, properties);
+                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder,
+                mock(GmailMessageMapper.class), properties);
     }
 
     // -------------------------------------------------------------------------
