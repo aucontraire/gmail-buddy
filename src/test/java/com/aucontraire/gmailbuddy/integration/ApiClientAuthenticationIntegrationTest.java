@@ -120,7 +120,7 @@ class ApiClientAuthenticationIntegrationTest {
         void shouldAuthenticateAndAccessSpecificGmailMessageEndpoint() throws Exception {
             // Given
             mockValidTokenResponse();
-            String messageId = "1a2b3c4d5e6f7g8h";
+            String messageId = "1a2b3c4d5e6f7890"; // valid hex per @GmailMessageId
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages/" + messageId + "/body")
@@ -325,7 +325,7 @@ class ApiClientAuthenticationIntegrationTest {
         void shouldDisableCsrfForApiPutRequestsWithValidBearerToken() throws Exception {
             // Given
             mockValidTokenResponse();
-            String messageId = "1a2b3c4d5e6f7g8h";
+            String messageId = "1a2b3c4d5e6f7890"; // valid hex per @GmailMessageId
 
             // When & Then - PUT request should work without CSRF token
             mockMvc.perform(put(API_BASE_PATH + "/messages/" + messageId + "/read")
