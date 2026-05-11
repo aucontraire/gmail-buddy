@@ -8,6 +8,7 @@ import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
 import com.aucontraire.gmailbuddy.dto.error.ErrorResponse;
+import com.aucontraire.gmailbuddy.dto.response.AttachmentListResponse;
 import com.aucontraire.gmailbuddy.dto.response.BulkDeleteResponse;
 import com.aucontraire.gmailbuddy.dto.response.DeleteOperationResult;
 import com.aucontraire.gmailbuddy.dto.response.DraftDetailResponse;
@@ -15,8 +16,21 @@ import com.aucontraire.gmailbuddy.dto.response.DraftListResponse;
 import com.aucontraire.gmailbuddy.dto.response.DraftResponse;
 import com.aucontraire.gmailbuddy.dto.response.LabelModificationResponse;
 import com.aucontraire.gmailbuddy.dto.response.SendMessageResponse;
+import com.aucontraire.gmailbuddy.dto.response.LabelDetailResponse;
+import com.aucontraire.gmailbuddy.dto.response.LabelListResponse;
+import com.aucontraire.gmailbuddy.dto.response.MessageDetailResponse;
+import com.aucontraire.gmailbuddy.dto.response.ThreadDetailResponse;
+import com.aucontraire.gmailbuddy.dto.response.ThreadListResponse;
+import com.aucontraire.gmailbuddy.exception.ValidationException;
+import com.aucontraire.gmailbuddy.service.AttachmentListResult;
+import com.aucontraire.gmailbuddy.service.LabelDetailResult;
+import com.aucontraire.gmailbuddy.service.LabelListResult;
+import com.aucontraire.gmailbuddy.service.MessageDetailResult;
+import com.aucontraire.gmailbuddy.validation.GmailAttachmentId;
 import com.aucontraire.gmailbuddy.validation.GmailDraftId;
+import com.aucontraire.gmailbuddy.validation.GmailLabelId;
 import com.aucontraire.gmailbuddy.validation.GmailMessageId;
+import jakarta.validation.constraints.Pattern;
 import com.aucontraire.gmailbuddy.dto.response.MessageListResponse;
 import com.aucontraire.gmailbuddy.dto.response.MessageSummary;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
@@ -28,6 +42,8 @@ import com.aucontraire.gmailbuddy.service.DraftListResult;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
+import com.aucontraire.gmailbuddy.service.ThreadDetailResult;
+import com.aucontraire.gmailbuddy.service.ThreadListResult;
 import com.aucontraire.gmailbuddy.util.LinkHeaderBuilder;
 import com.google.api.services.gmail.model.Message;
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,6 +72,7 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.net.URI;
 import java.util.Collections;
@@ -774,6 +791,462 @@ public class GmailController {
 
         DraftDetailResponse response = gmailMessageMapper.toDraftDetailResponse(result);
         return ResponseEntity.ok(response);
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 004 — US1: Thread endpoints (T026)
+    // -------------------------------------------------------------------------
+
+    /**
+     * GET /threads — List conversation threads with optional filtering and pagination.
+     *
+     * <p>Returns a paginated list of thread summaries. Each item includes only the fields
+     * returned by Gmail's {@code users.threads.list} stub: {@code id}, {@code snippet},
+     * and {@code historyId}. No per-item enrichment is performed; quota is flat 10 units
+     * regardless of page size (Clarifications Q1).</p>
+     *
+     * <p>The same 6 structured filter parameters as {@code POST /messages/filter} are
+     * accepted as individual query parameters (Decision 2 in research.md).</p>
+     */
+    @Operation(
+        summary = "List conversation threads",
+        description = "Returns a paginated list of thread summaries (id, snippet, historyId). " +
+                      "Supports the same structured filter query parameters as POST /messages/filter. " +
+                      "Quota cost: flat 10 units regardless of page size (no per-item enrichment)."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved threads",
+            content = @Content(schema = @Schema(implementation = ThreadListResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid query parameters",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class)))
+    })
+    @GetMapping(value = "/threads", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ThreadListResponse> listThreads(
+            @Parameter(description = "Pagination token from a prior response (max 255 chars)")
+            @RequestParam(required = false) @Size(max = 255) String pageToken,
+            @Parameter(description = "Maximum number of threads to return (1–100, default 50)")
+            @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit,
+            @Parameter(description = "Filter by sender email address")
+            @RequestParam(required = false) @Size(max = 255) String from,
+            @Parameter(description = "Filter by recipient email address")
+            @RequestParam(required = false) @Size(max = 255) String to,
+            @Parameter(description = "Filter by subject fragment")
+            @RequestParam(required = false) @Size(max = 255) String subject,
+            @Parameter(description = "Raw Gmail search syntax")
+            @RequestParam(required = false) @Size(max = 500) String query,
+            @Parameter(description = "Exclusion query")
+            @RequestParam(required = false) @Size(max = 500) String negatedQuery,
+            @Parameter(description = "Filter for threads with attachments")
+            @RequestParam(required = false) Boolean hasAttachment) {
+
+        String userId = properties.gmailApi().defaultUserId();
+
+        // Build FilterCriteriaDTO from individual query params (Decision 2 in research.md)
+        FilterCriteriaDTO filterCriteria = new FilterCriteriaDTO();
+        filterCriteria.setFrom(from);
+        filterCriteria.setTo(to);
+        filterCriteria.setSubject(subject);
+        filterCriteria.setQuery(query);
+        filterCriteria.setNegatedQuery(negatedQuery);
+        filterCriteria.setHasAttachment(hasAttachment);
+
+        ThreadListResult result = gmailService.listThreads(userId, filterCriteria, pageToken, limit);
+        ThreadListResponse response = gmailMessageMapper.toThreadListResponse(result);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /threads/{threadId} — Retrieve full content of a conversation thread.
+     *
+     * <p>Returns the full thread including all nested messages in chronological ascending
+     * order (oldest first). Each message includes headers (9 whitelisted RFC 5322 names),
+     * snippet, body, bodyType, labelIds, and attachment metadata. The thread's overall
+     * {@code labelIds} is the union across all messages. Quota: 10 units.</p>
+     */
+    @Operation(
+        summary = "Get thread detail",
+        description = "Returns the full contents of a conversation thread including all nested messages. " +
+                      "Messages are in chronological ascending order (oldest first). " +
+                      "labelIds at the thread level is the union across all messages. " +
+                      "Returns 404 if the thread does not exist."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Thread retrieved successfully",
+            content = @Content(schema = @Schema(implementation = ThreadDetailResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid thread ID format",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Thread not found - deleted or never existed",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class)))
+    })
+    @GetMapping(value = "/threads/{threadId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ThreadDetailResponse> getThread(
+            @Parameter(description = "The Gmail-assigned thread identifier (hex format)", required = true)
+            @PathVariable @GmailMessageId String threadId) {
+
+        String userId = properties.gmailApi().defaultUserId();
+        ThreadDetailResult result = gmailService.getThread(userId, threadId);
+        ThreadDetailResponse response = gmailMessageMapper.toThreadDetailResponse(result);
+        return ResponseEntity.ok(response);
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 004 — US2: Message detail endpoint (T036)
+    // -------------------------------------------------------------------------
+
+    /**
+     * GET /messages/{messageId} — Retrieve the full structured detail of a message.
+     *
+     * <p>Accepts an optional {@code ?format=} query parameter:</p>
+     * <ul>
+     *   <li>{@code full} (default) — returns the full message including body (10 quota units)</li>
+     *   <li>{@code metadata} — returns only the 9 whitelisted headers; body is null (5 quota units)</li>
+     * </ul>
+     *
+     * <p>The {@code format} parameter is case-insensitive: {@code Full}, {@code FULL},
+     * and {@code full} all map to the full-format request. Any other value (e.g., {@code raw},
+     * {@code minimal}) returns HTTP 400 via Bean Validation (FR-014). The normalized
+     * (lowercase) value is forwarded to the service layer.</p>
+     */
+    @Operation(
+        summary = "Get message detail",
+        description = "Returns the full structured detail of a message including headers, body, labelIds, and " +
+                      "attachment metadata (no binary content). Use ?format=metadata for a cheaper headers-only " +
+                      "response (5 quota units vs 10 for format=full). " +
+                      "Returns 404 if the message does not exist."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Message retrieved successfully",
+            content = @Content(schema = @Schema(implementation = MessageDetailResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid message ID format or unsupported format parameter",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Message not found - deleted or never existed",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class)))
+    })
+    @GetMapping(value = "/messages/{messageId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MessageDetailResponse> getMessageDetail(
+            @Parameter(description = "The Gmail-assigned message identifier (hex format)", required = true)
+            @PathVariable @GmailMessageId String messageId,
+            @Parameter(description = "Response format: 'full' (default, includes body) or 'metadata' (headers only, lower quota cost)")
+            @RequestParam(defaultValue = "full")
+            @Pattern(regexp = "(?i)full|metadata",
+                     message = "format must be 'full' or 'metadata'")
+            String format) {
+
+        String userId = properties.gmailApi().defaultUserId();
+        // Normalize to lowercase per Edge Cases (Full/FULL → full; Metadata/METADATA → metadata)
+        String normalizedFormat = format.toLowerCase();
+        MessageDetailResult result = gmailService.getMessageDetail(userId, messageId, normalizedFormat);
+        MessageDetailResponse response = gmailMessageMapper.toMessageDetailResponse(result);
+        return ResponseEntity.ok(response);
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 004 — US3: Label endpoints (T053)
+    // -------------------------------------------------------------------------
+
+    @Operation(
+        summary = "List all labels",
+        description = "Returns all visible labels (system + user-created) for the authenticated user. " +
+                      "Gmail does not paginate labels, so the full set is returned in a single response. " +
+                      "Costs 1 Gmail API quota unit."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved labels",
+            content = @Content(schema = @Schema(implementation = LabelListResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class)))
+    })
+    @GetMapping(value = "/labels", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<LabelListResponse> listLabels() {
+        String userId = properties.gmailApi().defaultUserId();
+        LabelListResult result = gmailService.listLabels(userId);
+        LabelListResponse response = gmailMessageMapper.toLabelListResponse(result);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+        summary = "Get label detail",
+        description = "Returns the full detail of a single Gmail label, including message/thread counts " +
+                      "and color settings (if configured). Costs 1 Gmail API quota unit."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved label detail",
+            content = @Content(schema = @Schema(implementation = LabelDetailResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid label ID format (hyphens, slashes, or spaces rejected)",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Label not found",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class)))
+    })
+    @GetMapping(value = "/labels/{labelId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<LabelDetailResponse> getLabel(
+            @Parameter(description = "The Gmail label identifier (e.g., INBOX, Label_42)", required = true)
+            @PathVariable @GmailLabelId String labelId) {
+        String userId = properties.gmailApi().defaultUserId();
+        LabelDetailResult result = gmailService.getLabel(userId, labelId);
+        LabelDetailResponse response = gmailMessageMapper.toLabelDetailResponse(result);
+        return ResponseEntity.ok(response);
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 004 — US4: Attachment endpoints (T068)
+    // -------------------------------------------------------------------------
+
+    /**
+     * GET /messages/{messageId}/attachments — List attachment metadata on a message.
+     *
+     * <p>Returns a list of attachment metadata (filename, mimeType, sizeBytes,
+     * attachmentId) for all attachments found on the specified message.
+     * When the message has no attachments, returns HTTP 200 with an empty
+     * {@code results} list — NOT 404 (FR-024).</p>
+     *
+     * <p>The {@code attachmentId} field in each result item is the Gmail-opaque
+     * identifier required for the binary download endpoint.</p>
+     */
+    @Operation(
+        summary = "List attachments on a message",
+        description = "Returns metadata for all attachments on the specified message. " +
+                      "Returns HTTP 200 with empty results when the message has no attachments (not 404). " +
+                      "Costs 5 Gmail API quota units (one users.messages.get with format=FULL)."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Attachment list retrieved successfully",
+            content = @Content(schema = @Schema(implementation = AttachmentListResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid message ID format",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Message not found - deleted or never existed",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class)))
+    })
+    @GetMapping(value = "/messages/{messageId}/attachments", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<AttachmentListResponse> listAttachments(
+            @Parameter(description = "The Gmail-assigned message identifier (hex format)", required = true)
+            @PathVariable @GmailMessageId String messageId) {
+
+        String userId = properties.gmailApi().defaultUserId();
+        AttachmentListResult result = gmailService.listAttachments(userId, messageId);
+        List<com.aucontraire.gmailbuddy.dto.response.MessageAttachmentMetadata> items = result.attachments();
+        AttachmentListResponse response = new AttachmentListResponse(items, items.size());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /messages/{messageId}/attachments/{attachmentId} — Download attachment binary.
+     *
+     * <p>Returns the raw binary content of the specified attachment, decoded from Gmail's
+     * base64url encoding. The response is streamed via {@link StreamingResponseBody} —
+     * no full buffering in JVM heap (FR-027).</p>
+     *
+     * <p>Optional query parameters {@code ?filename=} and {@code ?mimeType=} allow the
+     * caller (typically TJS, after calling {@code listAttachments} first) to provide
+     * the attachment's filename and MIME type for {@code Content-Disposition} and
+     * {@code Content-Type} header construction without an additional API call
+     * (research.md Decision 7 — keeps quota cost at 5 units, FR-030).</p>
+     *
+     * <p><strong>FR-026a — filename sanitization</strong>: the {@code ?filename=} query
+     * parameter is user-controlled and untrusted. Any value containing CR ({@code \r}),
+     * LF ({@code \n}), NUL ({@code \0}), or other Unicode line-terminators is rejected
+     * with HTTP 400 to prevent header injection attacks.</p>
+     *
+     * <p>Safe defaults when query params are absent:
+     * {@code Content-Type: application/octet-stream},
+     * {@code Content-Disposition: attachment; filename="attachment"}.</p>
+     */
+    @Operation(
+        summary = "Download attachment binary",
+        description = "Returns the raw binary content of the specified attachment, decoded from Gmail's base64url encoding. " +
+                      "Use optional ?filename= and ?mimeType= query params (from a prior listAttachments call) to get " +
+                      "correct Content-Disposition and Content-Type headers without an extra API call. " +
+                      "The ?filename= value is sanitized: CR/LF/NUL/Unicode line-terminators rejected with 400. " +
+                      "Costs 5 Gmail API quota units (one users.messages.attachments.get call)."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Attachment binary content streamed successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid message ID or attachment ID format, or unsafe filename",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Message or attachment not found",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class)))
+    })
+    @GetMapping(value = "/messages/{messageId}/attachments/{attachmentId}")
+    public ResponseEntity<byte[]> getAttachment(
+            @Parameter(description = "The Gmail-assigned message identifier (hex format)", required = true)
+            @PathVariable @GmailMessageId String messageId,
+            @Parameter(description = "The Gmail-assigned attachment identifier", required = true)
+            @PathVariable @GmailAttachmentId String attachmentId,
+            @Parameter(description = "Original filename for Content-Disposition header (optional; from listAttachments response)")
+            @RequestParam(required = false) String filename,
+            @Parameter(description = "MIME type for Content-Type header (optional; from listAttachments response)")
+            @RequestParam(required = false) String mimeType) {
+
+        // FR-026a: sanitize the caller-supplied filename before writing it into
+        // the Content-Disposition header. Reject any value containing CR, LF, NUL,
+        // or Unicode line-terminators (receive-side analog of @SafeFilename from PR #16).
+        if (filename != null) {
+            sanitizeFilename(filename);
+        }
+
+        String userId = properties.gmailApi().defaultUserId();
+
+        // Resolve safe defaults (FR-026)
+        String effectiveMimeType = (mimeType != null && !mimeType.isBlank())
+                ? mimeType
+                : "application/octet-stream";
+        String effectiveFilename = (filename != null && !filename.isBlank())
+                ? filename
+                : "attachment";
+
+        // Per research.md Decision 6 (Option A), the repository performs the Gmail
+        // attachments.get call synchronously and returns a StreamingResponseBody
+        // lambda that closes over the already-decoded byte array. We need the bytes
+        // in hand here for two reasons:
+        //   (1) accurate Content-Length per FR-026 — caller cannot stream-decode size
+        //   (2) avoid Servlet 3.0+ async dispatch which double-runs ResponseHeaderFilter
+        //       and RateLimitInterceptor on the ASYNC dispatch type, causing
+        //       IllegalStateException on the already-committed response and dropping
+        //       the connection mid-write (curl: HTTP/0.9). Returning byte[] keeps the
+        //       response synchronous and the filter chain runs exactly once.
+        StreamingResponseBody body = gmailService.getAttachment(userId, messageId, attachmentId);
+        byte[] decoded;
+        try {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            body.writeTo(baos);
+            decoded = baos.toByteArray();
+        } catch (java.io.IOException e) {
+            throw new com.aucontraire.gmailbuddy.exception.GmailApiException(
+                    "Failed to materialise attachment bytes for messageId=" + messageId
+                            + ", attachmentId=" + attachmentId, e);
+        }
+
+        // Build response headers per FR-026.
+        // MediaType.parseMediaType throws InvalidMediaTypeException on malformed
+        // input (e.g., a `+` in the query string decoded as a space → bad subtype).
+        // Surface that as a 400 validation error rather than letting it bubble to 500.
+        HttpHeaders headers = new HttpHeaders();
+        try {
+            headers.setContentType(MediaType.parseMediaType(effectiveMimeType));
+        } catch (org.springframework.http.InvalidMediaTypeException e) {
+            throw new ValidationException(
+                    "mimeType query parameter is not a valid MIME type: " + effectiveMimeType
+                            + ". Use percent-encoding for special characters (e.g., '+' as %2B).");
+        }
+        headers.set("Content-Disposition", "attachment; filename=\"" + effectiveFilename + "\"");
+        headers.set("X-Content-Type-Options", "nosniff");
+        headers.setContentLength(decoded.length);
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(decoded);
+    }
+
+    /**
+     * Validates the caller-supplied filename for use in a {@code Content-Disposition}
+     * header value. Throws {@link ValidationException} (→ HTTP 400) if the value
+     * contains any character that could enable header injection:
+     * <ul>
+     *   <li>CR ({@code \r}, U+000D)</li>
+     *   <li>LF ({@code \n}, U+000A)</li>
+     *   <li>NUL ({@code \0}, U+0000)</li>
+     *   <li>Vertical Tab (U+000B)</li>
+     *   <li>Form Feed (U+000C)</li>
+     *   <li>Next Line (U+0085)</li>
+     *   <li>Line Separator (U+2028)</li>
+     *   <li>Paragraph Separator (U+2029)</li>
+     *   <li>DEL (U+007F)</li>
+     *   <li>C1 control characters (U+0080–U+009F)</li>
+     * </ul>
+     *
+     * <p>This is the receive-side analog of {@code @SafeFilename} from PR #16 (FR-026a).
+     * The check is intentionally manual (not a Bean Validation annotation) because it
+     * is endpoint-specific and the forbidden set covers control characters beyond those
+     * in {@code @SafeFilename}.</p>
+     *
+     * @param filename the caller-supplied filename value; must not be null
+     * @throws ValidationException if the filename contains any forbidden character
+     */
+    private void sanitizeFilename(String filename) {
+        for (int i = 0; i < filename.length(); i++) {
+            char c = filename.charAt(i);
+            // Line-terminator characters (header-injection defence — same set as SafeFilenameValidator)
+            if (c == '\n'              // U+000A LINE FEED
+                    || c == ''   // U+000B VERTICAL TAB
+                    || c == ''   // U+000C FORM FEED
+                    || c == '\r'       // U+000D CARRIAGE RETURN
+                    || c == ''   // U+0085 NEXT LINE
+                    || c == ' '   // U+2028 LINE SEPARATOR
+                    || c == ' '   // U+2029 PARAGRAPH SEPARATOR
+                    || c == ' '   // U+0000 NUL BYTE
+                    || c == ''   // U+007F DEL
+                    || (c >= '' && c <= '')) { // C1 control characters
+                throw new ValidationException(
+                        "Filename contains forbidden characters (line-terminators, NUL, or control characters)");
+            }
+        }
     }
 
     @Operation(

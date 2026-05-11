@@ -1834,6 +1834,1343 @@
 			"description": "Send emails directly or stage them as drafts for review. All three endpoints require gmail.send scope (or the broader mail.google.com scope). POST /drafts is the recommended default path for AI-personalized outreach.\n\nFeature 002 (threading-attachments) adds three optional fields to POST /messages and POST /drafts:\n- threadId: places the outgoing message in an existing thread\n- inReplyToMessageId: triggers RFC 5322 In-Reply-To / References header construction (costs ~5 extra quota units)\n- attachments: base64-encoded file attachments; total payload capped at 25 MB\n\nFeature 003 (drafts-crud) adds four endpoints for managing existing drafts: GET /drafts (list), GET /drafts/{id} (detail), DELETE /drafts/{id} (cancel), PUT /drafts/{id} (replace content). All four require gmail.modify scope."
 		},
 		{
+			"name": "Read API",
+			"item": [
+				{
+					"name": "List Threads",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/threads?limit=10",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"threads"
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page. Min 1, max 100. Default 50."
+								},
+								{
+									"key": "pageToken",
+									"value": "",
+									"description": "Opaque pagination token from a prior response's nextPageToken. Omit for the first page.",
+									"disabled": true
+								},
+								{
+									"key": "from",
+									"value": "",
+									"description": "Filter by sender email address (optional, max 255 chars).",
+									"disabled": true
+								},
+								{
+									"key": "to",
+									"value": "",
+									"description": "Filter by recipient email address (optional, max 255 chars).",
+									"disabled": true
+								},
+								{
+									"key": "subject",
+									"value": "",
+									"description": "Filter by subject fragment (optional, max 255 chars).",
+									"disabled": true
+								},
+								{
+									"key": "query",
+									"value": "",
+									"description": "Raw Gmail search syntax (optional, max 500 chars).",
+									"disabled": true
+								},
+								{
+									"key": "negatedQuery",
+									"value": "",
+									"description": "Exclusion query in Gmail search syntax (optional, max 500 chars).",
+									"disabled": true
+								},
+								{
+									"key": "hasAttachment",
+									"value": "true",
+									"description": "Filter for threads that include attachments (optional boolean).",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns a paginated list of conversation threads for the authenticated user. All filter parameters are optional and can be combined. The response always returns HTTP 200 — empty results (no matching threads) return `{results: [], nextPageToken: null, totalCount: 0}`, never 404.\n\nQuota cost: 10 units flat (one `users.threads.list` call regardless of page size — no N+1).\n\nValidation rules:\n- `limit`: 1–100 (default 50)\n- `pageToken`: max 255 characters\n- `from` / `to`: valid email format, max 255 characters\n- `subject`: max 255 characters\n- `query` / `negatedQuery`: max 500 characters, valid Gmail search syntax\n\nFeature 004 (read-api-completeness). Requires gmail.readonly scope (already covered by gmail.modify)."
+					},
+					"response": [
+						{
+							"name": "200 OK — Threads listed with results",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/threads?limit=10",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"threads"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "10"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "10"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "25000"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "24990"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746921600"
+								}
+							],
+							"body": "{\n    \"results\": [\n        {\n            \"id\": \"1a2b3c4d5e6f7890\",\n            \"snippet\": \"Hi, I wanted to follow up regarding the Backend Engineer position we discussed...\",\n            \"historyId\": \"987654\"\n        },\n        {\n            \"id\": \"2b3c4d5e6f789012\",\n            \"snippet\": \"Your application for Senior Engineer has been received. Please find attached...\",\n            \"historyId\": \"987655\"\n        }\n    ],\n    \"nextPageToken\": \"eyJwYWdlVG9rZW4i...\",\n    \"totalCount\": 14\n}"
+						},
+						{
+							"name": "200 OK — Empty results (no matching threads)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/threads?from=nobody@nowhere.example",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"threads"
+									],
+									"query": [
+										{
+											"key": "from",
+											"value": "nobody@nowhere.example"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "10"
+								}
+							],
+							"body": "{\n    \"results\": [],\n    \"nextPageToken\": null,\n    \"totalCount\": 0\n}"
+						},
+						{
+							"name": "400 Bad Request — Invalid limit parameter",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/threads?limit=200",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"threads"
+									],
+									"query": [
+										{
+											"key": "limit",
+											"value": "200"
+										}
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/validation-error\",\n    \"title\": \"Validation Error\",\n    \"status\": 400,\n    \"detail\": \"Request validation failed\",\n    \"instance\": \"/api/v1/gmail/threads\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Thread Detail",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/threads/:threadId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"threads",
+								":threadId"
+							],
+							"variable": [
+								{
+									"key": "threadId",
+									"value": "1a2b3c4d5e6f7890",
+									"description": "Gmail thread ID. Must match [0-9a-fA-F]{1,32}. Obtain from the id field in List Threads response."
+								}
+							]
+						},
+						"description": "Retrieves all messages in a conversation thread, including headers, body, label IDs, and attachment metadata for each message. Messages are returned in chronological ascending order (oldest first — matches Gmail UI's conversation view).\n\nResponse shape notes:\n- `labelIds` at the thread level is the UNION of all per-message label sets (deduplicated).\n- Each message's `headers` contains only the 9 whitelisted RFC 5322 canonical headers that are present in the source message (missing headers are absent from the map, not null).\n- Quota cost: 10 units per call (`users.threads.get` with `format=FULL`).\n\nPath parameter validation: `threadId` must match `[0-9a-fA-F]{1,32}` (same hex format as message IDs). A non-hex or oversized ID returns 400.\n\nFeature 004 (read-api-completeness). Requires gmail.readonly scope."
+					},
+					"response": [
+						{
+							"name": "200 OK — Full thread with nested messages",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/threads/1a2b3c4d5e6f7890",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"threads",
+										"1a2b3c4d5e6f7890"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "10"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "25000"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "24980"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746921600"
+								}
+							],
+							"body": "{\n    \"threadId\": \"1a2b3c4d5e6f7890\",\n    \"labelIds\": [\"INBOX\", \"CATEGORY_PERSONAL\", \"Label_42\"],\n    \"messages\": [\n        {\n            \"id\": \"1a2b3c4d5e6f7891\",\n            \"threadId\": \"1a2b3c4d5e6f7890\",\n            \"headers\": {\n                \"From\": \"recruiter@bigcorp.example\",\n                \"To\": \"you@example.com\",\n                \"Subject\": \"Backend Engineer opportunity at BigCorp\",\n                \"Date\": \"Mon, 05 May 2026 10:00:00 -0700\",\n                \"Message-ID\": \"<CABc123xyz@mail.gmail.com>\"\n            },\n            \"snippet\": \"Hi, I wanted to reach out about an exciting opportunity...\",\n            \"body\": \"<p>Hi,</p><p>I wanted to reach out about a Backend Engineer opportunity at BigCorp...</p>\",\n            \"bodyType\": \"html\",\n            \"labelIds\": [\"INBOX\", \"CATEGORY_PERSONAL\"],\n            \"attachments\": []\n        },\n        {\n            \"id\": \"1a2b3c4d5e6f7892\",\n            \"threadId\": \"1a2b3c4d5e6f7890\",\n            \"headers\": {\n                \"From\": \"recruiter@bigcorp.example\",\n                \"To\": \"you@example.com\",\n                \"Subject\": \"Re: Backend Engineer opportunity at BigCorp\",\n                \"Date\": \"Wed, 07 May 2026 14:23:00 -0700\",\n                \"In-Reply-To\": \"<CABc123xyz@mail.gmail.com>\",\n                \"References\": \"<CABc123xyz@mail.gmail.com>\",\n                \"Message-ID\": \"<CABc456abc@mail.gmail.com>\"\n            },\n            \"snippet\": \"Following up \\u2014 please find the job description attached.\",\n            \"body\": \"<p>Following up \\u2014 please find the job description attached.</p>\",\n            \"bodyType\": \"html\",\n            \"labelIds\": [\"INBOX\", \"CATEGORY_PERSONAL\", \"Label_42\"],\n            \"attachments\": [\n                {\n                    \"attachmentId\": \"ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz\",\n                    \"filename\": \"BigCorp-JD-Backend-Engineer.pdf\",\n                    \"mimeType\": \"application/pdf\",\n                    \"sizeBytes\": 183296\n                }\n            ]\n        }\n    ]\n}"
+						},
+						{
+							"name": "404 Not Found — Thread does not exist",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/threads/0000000000000000",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"threads",
+										"0000000000000000"
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/resource-not-found\",\n    \"title\": \"Resource Not Found\",\n    \"status\": 404,\n    \"detail\": \"Thread '0000000000000000' was not found or has been deleted\",\n    \"instance\": \"/api/v1/gmail/threads/0000000000000000\",\n    \"requestId\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						},
+						{
+							"name": "400 Bad Request — Invalid thread ID format",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/threads/not-a-valid-hex-id!",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"threads",
+										"not-a-valid-hex-id!"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/validation-error\",\n    \"title\": \"Validation Error\",\n    \"status\": 400,\n    \"detail\": \"Request validation failed\",\n    \"instance\": \"/api/v1/gmail/threads/not-a-valid-hex-id!\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Message Detail",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/:messageId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								":messageId"
+							],
+							"query": [
+								{
+									"key": "format",
+									"value": "full",
+									"description": "Response format: 'full' (default, 10 quota units — body + headers + attachments) or 'metadata' (5 quota units — headers + labels only, body=null). Case-insensitive. Values other than 'full' or 'metadata' return 400.",
+									"disabled": true
+								}
+							],
+							"variable": [
+								{
+									"key": "messageId",
+									"value": "1a2b3c4d5e6f7892",
+									"description": "Gmail message ID. Must match [0-9a-fA-F]{1,32}. Obtain from List Threads or Get Thread Detail responses."
+								}
+							]
+						},
+						"description": "Retrieves full structured detail for a single message including headers, body, label IDs, and attachment metadata. The optional `?format=` query parameter controls the level of detail and the Gmail API quota cost:\n\n- `format=full` (default): returns body text, all 9 whitelisted RFC 5322 headers, and attachment metadata. Costs 10 quota units.\n- `format=metadata`: returns only the 9 whitelisted headers and label IDs. `body` and `bodyType` are null; `attachments` is empty. Costs 5 quota units — use for quick label/header checks.\n\nNote: This endpoint is distinct from the legacy `GET /messages/{id}/body` endpoint (which returns raw body text only). This endpoint returns the full structured `MessageDetailResponse` shape.\n\nPath parameter validation: `messageId` must match `[0-9a-fA-F]{1,32}`.\nQuery parameter validation: `format` must be `full` or `metadata` (case-insensitive). `?format=raw` returns 400.\n\nFeature 004 (read-api-completeness). Requires gmail.readonly scope."
+					},
+					"response": [
+						{
+							"name": "200 OK — Full message detail (format=full, default)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages/1a2b3c4d5e6f7892",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages",
+										"1a2b3c4d5e6f7892"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "10"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "25000"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "24970"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746921600"
+								}
+							],
+							"body": "{\n    \"id\": \"1a2b3c4d5e6f7892\",\n    \"threadId\": \"1a2b3c4d5e6f7890\",\n    \"headers\": {\n        \"From\": \"recruiter@bigcorp.example\",\n        \"To\": \"you@example.com\",\n        \"Subject\": \"Re: Backend Engineer opportunity at BigCorp\",\n        \"Date\": \"Wed, 07 May 2026 14:23:00 -0700\",\n        \"In-Reply-To\": \"<CABc123xyz@mail.gmail.com>\",\n        \"References\": \"<CABc123xyz@mail.gmail.com>\",\n        \"Message-ID\": \"<CABc456abc@mail.gmail.com>\"\n    },\n    \"snippet\": \"Following up \\u2014 please find the job description attached.\",\n    \"body\": \"<p>Following up \\u2014 please find the job description attached.</p>\",\n    \"bodyType\": \"html\",\n    \"labelIds\": [\"INBOX\", \"CATEGORY_PERSONAL\", \"Label_42\"],\n    \"attachments\": [\n        {\n            \"attachmentId\": \"ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz\",\n            \"filename\": \"BigCorp-JD-Backend-Engineer.pdf\",\n            \"mimeType\": \"application/pdf\",\n            \"sizeBytes\": 183296\n        }\n    ]\n}"
+						},
+						{
+							"name": "200 OK — Metadata only (format=metadata, cheaper quota)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages/1a2b3c4d5e6f7892?format=metadata",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages",
+										"1a2b3c4d5e6f7892"
+									],
+									"query": [
+										{
+											"key": "format",
+											"value": "metadata"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "5"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "25000"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "24965"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746921600"
+								}
+							],
+							"body": "{\n    \"id\": \"1a2b3c4d5e6f7892\",\n    \"threadId\": \"1a2b3c4d5e6f7890\",\n    \"headers\": {\n        \"From\": \"recruiter@bigcorp.example\",\n        \"To\": \"you@example.com\",\n        \"Subject\": \"Re: Backend Engineer opportunity at BigCorp\",\n        \"Date\": \"Wed, 07 May 2026 14:23:00 -0700\",\n        \"Message-ID\": \"<CABc456abc@mail.gmail.com>\"\n    },\n    \"snippet\": \"Following up \\u2014 please find the job description attached.\",\n    \"body\": null,\n    \"bodyType\": null,\n    \"labelIds\": [\"INBOX\", \"CATEGORY_PERSONAL\", \"Label_42\"],\n    \"attachments\": []\n}"
+						},
+						{
+							"name": "404 Not Found — Message does not exist",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages/0000000000000000",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages",
+										"0000000000000000"
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/resource-not-found\",\n    \"title\": \"Resource Not Found\",\n    \"status\": 404,\n    \"detail\": \"Message '0000000000000000' was not found or has been deleted\",\n    \"instance\": \"/api/v1/gmail/messages/0000000000000000\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						},
+						{
+							"name": "400 Bad Request — Invalid format parameter",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages/1a2b3c4d5e6f7892?format=raw",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages",
+										"1a2b3c4d5e6f7892"
+									],
+									"query": [
+										{
+											"key": "format",
+											"value": "raw"
+										}
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/validation-error\",\n    \"title\": \"Validation Error\",\n    \"status\": 400,\n    \"detail\": \"Request validation failed\",\n    \"instance\": \"/api/v1/gmail/messages/1a2b3c4d5e6f7892\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						}
+					]
+				},
+				{
+					"name": "List Labels",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/labels",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"labels"
+							]
+						},
+						"description": "Enumerates all visible labels for the authenticated user, including system labels (INBOX, SENT, TRASH, SPAM, CATEGORY_PERSONAL, etc.) and user-created labels.\n\nNo query parameters accepted — Gmail's `users.labels.list` does not paginate. All labels are returned in a single response. The response has `totalCount` but NO `nextPageToken` field.\n\nQuota cost: 1 unit per call (`users.labels.list`).\n\nUse label IDs from this response as input to GET /labels/{id} for full detail (counts, color).\n\nFeature 004 (read-api-completeness). Requires gmail.readonly scope."
+					},
+					"response": [
+						{
+							"name": "200 OK — Labels listed (system + user labels)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/labels",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"labels"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "1"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "25000"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "24999"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746921600"
+								}
+							],
+							"body": "{\n    \"results\": [\n        {\n            \"id\": \"INBOX\",\n            \"name\": \"INBOX\",\n            \"type\": \"system\",\n            \"messageListVisibility\": \"show\",\n            \"labelListVisibility\": \"labelShow\"\n        },\n        {\n            \"id\": \"SENT\",\n            \"name\": \"SENT\",\n            \"type\": \"system\",\n            \"messageListVisibility\": \"show\",\n            \"labelListVisibility\": \"labelShow\"\n        },\n        {\n            \"id\": \"CATEGORY_PERSONAL\",\n            \"name\": \"CATEGORY_PERSONAL\",\n            \"type\": \"system\",\n            \"messageListVisibility\": \"hide\",\n            \"labelListVisibility\": \"labelHide\"\n        },\n        {\n            \"id\": \"Label_42\",\n            \"name\": \"Recruiters\",\n            \"type\": \"user\",\n            \"messageListVisibility\": \"show\",\n            \"labelListVisibility\": \"labelShow\"\n        },\n        {\n            \"id\": \"Label_99\",\n            \"name\": \"Outreach 2026 Q2\",\n            \"type\": \"user\",\n            \"messageListVisibility\": \"show\",\n            \"labelListVisibility\": \"labelShow\"\n        }\n    ],\n    \"totalCount\": 5\n}"
+						},
+						{
+							"name": "401 Unauthorized — Bearer token invalid or expired",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer expired-token-here"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/labels",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"labels"
+									]
+								}
+							},
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/authentication-failed\",\n    \"title\": \"Authentication Failed\",\n    \"status\": 401,\n    \"detail\": \"Bearer token is invalid or expired\",\n    \"instance\": \"/api/v1/gmail/labels\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Label Detail",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/labels/:labelId",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"labels",
+								":labelId"
+							],
+							"variable": [
+								{
+									"key": "labelId",
+									"value": "Label_42",
+									"description": "Gmail label ID. Must match [A-Za-z0-9_]{1,128}. Examples: 'INBOX', 'SENT', 'Label_42'. Obtain from List Labels response. Labels with hyphens or slashes are rejected with 400."
+								}
+							]
+						},
+						"description": "Retrieves full metadata for a specific label including message/thread counts and color (for user-created labels that have a color assigned).\n\nPath parameter validation: `labelId` must match `[A-Za-z0-9_]{1,128}` (covers system labels like INBOX/SENT and user labels like Label_42). Labels with hyphens, slashes, or other special characters return 400.\n\nResponse notes:\n- `color` field is absent from the JSON (not null) when no color is set on the label (`@JsonInclude(NON_NULL)` globally configured). Use field-existence checks, not null checks.\n- System labels (INBOX, SENT, etc.) never have colors.\n- `messagesTotal`, `messagesUnread`, `threadsTotal`, `threadsUnread` are populated from Gmail API counts.\n\nQuota cost: 1 unit per call (`users.labels.get`).\n\nFeature 004 (read-api-completeness). Requires gmail.readonly scope."
+					},
+					"response": [
+						{
+							"name": "200 OK — User label with color and counts",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/labels/Label_42",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"labels",
+										"Label_42"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "1"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "25000"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "24998"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746921600"
+								}
+							],
+							"body": "{\n    \"id\": \"Label_42\",\n    \"name\": \"Recruiters\",\n    \"type\": \"user\",\n    \"messageListVisibility\": \"show\",\n    \"labelListVisibility\": \"labelShow\",\n    \"color\": {\n        \"textColor\": \"#ffffff\",\n        \"backgroundColor\": \"#4986e7\"\n    },\n    \"messagesTotal\": 47,\n    \"messagesUnread\": 3,\n    \"threadsTotal\": 12,\n    \"threadsUnread\": 2\n}"
+						},
+						{
+							"name": "200 OK — System label (no color field)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/labels/INBOX",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"labels",
+										"INBOX"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "1"
+								}
+							],
+							"body": "{\n    \"id\": \"INBOX\",\n    \"name\": \"INBOX\",\n    \"type\": \"system\",\n    \"messageListVisibility\": \"show\",\n    \"labelListVisibility\": \"labelShow\",\n    \"messagesTotal\": 1243,\n    \"messagesUnread\": 52,\n    \"threadsTotal\": 890,\n    \"threadsUnread\": 40\n}"
+						},
+						{
+							"name": "404 Not Found — Label does not exist",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/labels/Label_99999",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"labels",
+										"Label_99999"
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/resource-not-found\",\n    \"title\": \"Resource Not Found\",\n    \"status\": 404,\n    \"detail\": \"Label 'Label_99999' was not found\",\n    \"instance\": \"/api/v1/gmail/labels/Label_99999\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						},
+						{
+							"name": "400 Bad Request — Invalid label ID format (contains hyphen)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/labels/label-with-hyphens",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"labels",
+										"label-with-hyphens"
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/validation-error\",\n    \"title\": \"Validation Error\",\n    \"status\": 400,\n    \"detail\": \"must be a valid Gmail label ID (alphanumeric and underscore; max 128 characters)\",\n    \"instance\": \"/api/v1/gmail/labels/label-with-hyphens\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						}
+					]
+				},
+				{
+					"name": "List Attachments",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/:messageId/attachments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								":messageId",
+								"attachments"
+							],
+							"variable": [
+								{
+									"key": "messageId",
+									"value": "1a2b3c4d5e6f7892",
+									"description": "Gmail message ID. Must match [0-9a-fA-F]{1,32}. Obtain from List Threads or Get Thread Detail responses."
+								}
+							]
+						},
+						"description": "Retrieves the metadata for all attachments on a specific message — without downloading binary content. Returns an array of `MessageAttachmentMetadata` items with `attachmentId`, `filename`, `mimeType`, and `sizeBytes`.\n\nImportant: returns HTTP 200 with `{results: [], totalCount: 0}` when the message has no attachments — NOT 404. Use this to check whether a message has attachments before calling the download endpoint.\n\nUse the `attachmentId` values from this response as the path parameter for the Download Attachment endpoint.\n\nPath parameter validation: `messageId` must match `[0-9a-fA-F]{1,32}`.\n\nQuota cost: 5 units per call (one `users.messages.get` with `format=FULL` to enumerate the MIME part tree).\n\nFeature 004 (read-api-completeness). Requires gmail.readonly scope."
+					},
+					"response": [
+						{
+							"name": "200 OK — Message has attachments",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages/1a2b3c4d5e6f7892/attachments",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages",
+										"1a2b3c4d5e6f7892",
+										"attachments"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "5"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "25000"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "24960"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746921600"
+								}
+							],
+							"body": "{\n    \"results\": [\n        {\n            \"attachmentId\": \"ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz\",\n            \"filename\": \"BigCorp-JD-Backend-Engineer.pdf\",\n            \"mimeType\": \"application/pdf\",\n            \"sizeBytes\": 183296\n        },\n        {\n            \"attachmentId\": \"ANGjdJ9CxGqo4oR1pGR8xQkWMgSyBcDeFgHiJkLmNoPqRsTuVwXyZ\",\n            \"filename\": \"salary-bands-2026.xlsx\",\n            \"mimeType\": \"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\",\n            \"sizeBytes\": 28672\n        }\n    ],\n    \"totalCount\": 2\n}"
+						},
+						{
+							"name": "200 OK — Message has no attachments (empty list, NOT 404)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages/1a2b3c4d5e6f7891/attachments",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages",
+										"1a2b3c4d5e6f7891",
+										"attachments"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "5"
+								}
+							],
+							"body": "{\n    \"results\": [],\n    \"totalCount\": 0\n}"
+						},
+						{
+							"name": "404 Not Found — Message does not exist",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages/0000000000000000/attachments",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages",
+										"0000000000000000",
+										"attachments"
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/resource-not-found\",\n    \"title\": \"Resource Not Found\",\n    \"status\": 404,\n    \"detail\": \"Message '0000000000000000' was not found or has been deleted\",\n    \"instance\": \"/api/v1/gmail/messages/0000000000000000/attachments\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Download Attachment",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/:messageId/attachments/:attachmentId?filename=BigCorp-JD-Backend-Engineer.pdf&mimeType=application%2Fpdf",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								":messageId",
+								"attachments",
+								":attachmentId"
+							],
+							"query": [
+								{
+									"key": "filename",
+									"value": "BigCorp-JD-Backend-Engineer.pdf",
+									"description": "Filename to use in Content-Disposition header. Sanitized: CR/LF/NUL/Unicode line-terminators return 400. Defaults to 'attachment' if absent. Obtain from List Attachments response."
+								},
+								{
+									"key": "mimeType",
+									"value": "application%2Fpdf",
+									"description": "MIME type to use as Content-Type. Defaults to 'application/octet-stream' if absent. URL-encode the slash (use %2F). Obtain from List Attachments response."
+								}
+							],
+							"variable": [
+								{
+									"key": "messageId",
+									"value": "1a2b3c4d5e6f7892",
+									"description": "Gmail message ID. Must match [0-9a-fA-F]{1,32}."
+								},
+								{
+									"key": "attachmentId",
+									"value": "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz",
+									"description": "Gmail attachment ID. Must match [A-Za-z0-9_-]{1,1024}. Obtain from List Attachments or Get Thread Detail / Get Message Detail responses."
+								}
+							]
+						},
+						"description": "Downloads the raw binary content of a specific attachment. The response body is the decoded binary (base64url-decoded from Gmail's storage format) streamed via `StreamingResponseBody` — no full buffering in JVM heap.\n\nPassing `?filename=` and `?mimeType=` query parameters (obtained from List Attachments) gives the correct `Content-Type` and `Content-Disposition` headers without an extra API call. Without them, the response falls back to `application/octet-stream` and filename `attachment`.\n\nResponse headers set on success:\n- `Content-Type: <mimeType OR application/octet-stream>`\n- `Content-Disposition: attachment; filename=\"<filename OR attachment>\"` — forces save-as in browsers (defends against XSS via SVG/HTML attachments)\n- `Content-Length: <decoded byte count>` — use for progress bars; may differ from `sizeBytes` in List Attachments (which is Gmail's estimate)\n- `X-Content-Type-Options: nosniff` — prevents browser MIME-sniffing\n\n`?filename=` sanitization: values containing CR (`\\r`), LF (`\\n`), NUL (`\\0`), or any Unicode line-terminator return 400 (header injection prevention). Filenames returned by the List Attachments endpoint are always safe to forward.\n\nPath parameter validation: `messageId` must match `[0-9a-fA-F]{1,32}`; `attachmentId` must match `[A-Za-z0-9_-]{1,1024}`.\n\nQuota cost: 5 units per call (`users.messages.attachments.get`).\n\nFeature 004 (read-api-completeness). Requires gmail.readonly scope."
+					},
+					"response": [
+						{
+							"name": "200 OK — Attachment downloaded with metadata hints",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages/1a2b3c4d5e6f7892/attachments/ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz?filename=BigCorp-JD-Backend-Engineer.pdf&mimeType=application%2Fpdf",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages",
+										"1a2b3c4d5e6f7892",
+										"attachments",
+										"ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz"
+									],
+									"query": [
+										{
+											"key": "filename",
+											"value": "BigCorp-JD-Backend-Engineer.pdf"
+										},
+										{
+											"key": "mimeType",
+											"value": "application%2Fpdf"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/pdf"
+								},
+								{
+									"key": "Content-Disposition",
+									"value": "attachment; filename=\"BigCorp-JD-Backend-Engineer.pdf\""
+								},
+								{
+									"key": "Content-Length",
+									"value": "183296"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "5"
+								},
+								{
+									"key": "X-RateLimit-Limit",
+									"value": "25000"
+								},
+								{
+									"key": "X-RateLimit-Remaining",
+									"value": "24955"
+								},
+								{
+									"key": "X-RateLimit-Reset",
+									"value": "1746921600"
+								}
+							],
+							"body": "<binary PDF content — 183296 bytes>"
+						},
+						{
+							"name": "200 OK — Attachment downloaded without metadata hints (generic fallback)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages/1a2b3c4d5e6f7892/attachments/ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages",
+										"1a2b3c4d5e6f7892",
+										"attachments",
+										"ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/octet-stream"
+								},
+								{
+									"key": "Content-Disposition",
+									"value": "attachment; filename=\"attachment\""
+								},
+								{
+									"key": "Content-Length",
+									"value": "183296"
+								},
+								{
+									"key": "X-Content-Type-Options",
+									"value": "nosniff"
+								},
+								{
+									"key": "X-Gmail-Quota-Used",
+									"value": "5"
+								}
+							],
+							"body": "<binary content — 183296 bytes>"
+						},
+						{
+							"name": "404 Not Found — Message or attachment does not exist",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages/0000000000000000/attachments/ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages",
+										"0000000000000000",
+										"attachments",
+										"ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz"
+									]
+								}
+							},
+							"status": "Not Found",
+							"code": 404,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/resource-not-found\",\n    \"title\": \"Resource Not Found\",\n    \"status\": 404,\n    \"detail\": \"Message '0000000000000000' was not found or the attachment does not exist on this message\",\n    \"instance\": \"/api/v1/gmail/messages/0000000000000000/attachments/ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						},
+						{
+							"name": "400 Bad Request — filename contains header injection characters",
+							"originalRequest": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/gmail/messages/1a2b3c4d5e6f7892/attachments/ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz?filename=bad%0Afilename.pdf",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"gmail",
+										"messages",
+										"1a2b3c4d5e6f7892",
+										"attachments",
+										"ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz"
+									],
+									"query": [
+										{
+											"key": "filename",
+											"value": "bad%0Afilename.pdf"
+										}
+									]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/problem+json"
+								}
+							],
+							"body": "{\n    \"type\": \"/problems/validation-error\",\n    \"title\": \"Validation Error\",\n    \"status\": 400,\n    \"detail\": \"filename contains invalid characters (CR, LF, NUL, or Unicode line terminators are not permitted)\",\n    \"instance\": \"/api/v1/gmail/messages/1a2b3c4d5e6f7892/attachments/ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
+						}
+					]
+				}
+			],
+			"description": "Seven new read-only endpoints introduced by feature 004 (read-api-completeness). All seven endpoints use GET and require gmail.readonly scope (already covered by the gmail.modify scope in the project's OAuth2 configuration). No re-consent is required.\n\nEndpoints in this folder:\n1. List Threads — paginated conversation list with optional filter criteria (quota: 10 flat)\n2. Get Thread Detail — full conversation with nested messages (quota: 10)\n3. Get Message Detail — single message with optional format param (quota: 10 full / 5 metadata)\n4. List Labels — all visible labels in one call, no pagination (quota: 1)\n5. Get Label Detail — full label metadata with counts and color (quota: 1)\n6. List Attachments — attachment metadata on a message without downloading binary (quota: 5)\n7. Download Attachment — streamed binary download with Content-Disposition and X-Content-Type-Options (quota: 5)\n\nAll endpoints emit X-Gmail-Quota-Used, X-RateLimit-Limit, X-RateLimit-Remaining, and X-RateLimit-Reset headers. 429 responses include Retry-After. Error responses use application/problem+json with the existing ProblemDetail shape."
+		},
+		{
 			"name": "Test Examples",
 			"item": [
 				{

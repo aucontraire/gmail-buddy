@@ -63,6 +63,10 @@ docs/ROADMAP.md
 ### Backup files ###
 *.bak
 
+### Smoke-test artefacts ###
+# Binary payloads downloaded by smoke-test-download-attachment.sh — recreated on each run
+scripts/smoke-tests/_downloads/
+
 ### Spec files
 specs
 .claude

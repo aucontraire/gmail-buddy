@@ -4,21 +4,37 @@ import com.aucontraire.gmailbuddy.dto.response.AttachmentMetadata;
 import com.aucontraire.gmailbuddy.dto.response.DraftDetailResponse;
 import com.aucontraire.gmailbuddy.dto.response.DraftListItem;
 import com.aucontraire.gmailbuddy.dto.response.DraftListResponse;
+import com.aucontraire.gmailbuddy.dto.response.MessageAttachmentMetadata;
+import com.aucontraire.gmailbuddy.dto.response.MessageDetailResponse;
+import com.aucontraire.gmailbuddy.dto.response.ThreadDetailResponse;
+import com.aucontraire.gmailbuddy.dto.response.ThreadListResponse;
+import com.aucontraire.gmailbuddy.dto.response.ThreadSummary;
+import com.aucontraire.gmailbuddy.fixture.ReadApiFixtures;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
 import com.aucontraire.gmailbuddy.service.DraftDetailResult;
 import com.aucontraire.gmailbuddy.service.DraftListResult;
+import com.aucontraire.gmailbuddy.service.MessageDetailResult;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
+import com.aucontraire.gmailbuddy.service.ThreadDetailResult;
+import com.aucontraire.gmailbuddy.service.ThreadListResult;
+import com.aucontraire.gmailbuddy.service.AttachmentListResult;
+import com.aucontraire.gmailbuddy.service.LabelDetailResult;
 import com.google.api.services.gmail.model.Draft;
+import com.google.api.services.gmail.model.Label;
+import com.google.api.services.gmail.model.LabelColor;
 import com.google.api.services.gmail.model.Message;
 import com.google.api.services.gmail.model.MessagePart;
 import com.google.api.services.gmail.model.MessagePartBody;
 import com.google.api.services.gmail.model.MessagePartHeader;
+import com.google.api.services.gmail.model.Thread;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
@@ -610,5 +626,412 @@ class GmailMessageMapperTest {
 
         assertThat(response.nextPageToken()).isEqualTo("page-token-xyz");
         assertThat(response.totalCount()).isEqualTo(99);
+    }
+
+    // =========================================================================
+    // T010 — toThreadSummary and toThreadDetailResult tests (Phase 3 US1)
+    // =========================================================================
+
+    @Test
+    void toThreadSummary_stubWithAllFields_mapsCorrectly() {
+        Thread stub = ReadApiFixtures.buildThreadStub("thread-123", "Preview snippet", "987654");
+
+        ThreadSummary summary = mapper.toThreadSummary(stub);
+
+        assertThat(summary.id()).isEqualTo("thread-123");
+        assertThat(summary.snippet()).isEqualTo("Preview snippet");
+        assertThat(summary.historyId()).isEqualTo("987654");
+    }
+
+    @Test
+    void toThreadSummary_stubWithNullHistoryId_returnsNullHistoryId() {
+        Thread stub = ReadApiFixtures.buildThreadStub("thread-no-history", "A snippet", null);
+
+        ThreadSummary summary = mapper.toThreadSummary(stub);
+
+        assertThat(summary.id()).isEqualTo("thread-no-history");
+        assertThat(summary.historyId()).isNull();
+    }
+
+    @Test
+    void toThreadDetailResult_threadWithOneMessage_returnsOneMessageList() {
+        Message msg = ReadApiFixtures.buildMessage("msg-1", "thread-abc", List.of("INBOX"));
+        Thread thread = ReadApiFixtures.buildThreadFull("thread-abc", List.of(msg));
+
+        ThreadDetailResult result = mapper.toThreadDetailResult(thread);
+
+        assertThat(result.threadId()).isEqualTo("thread-abc");
+        assertThat(result.messages()).hasSize(1);
+        assertThat(result.messages().get(0).id()).isEqualTo("msg-1");
+    }
+
+    @Test
+    void toThreadDetailResult_threadWithNMessages_preservesChronologicalOrder() {
+        Message msg1 = ReadApiFixtures.buildMessage("msg-1", "thread-xyz", List.of("INBOX"));
+        Message msg2 = ReadApiFixtures.buildMessage("msg-2", "thread-xyz", List.of("SENT"));
+        Message msg3 = ReadApiFixtures.buildMessage("msg-3", "thread-xyz", List.of("INBOX", "UNREAD"));
+        Thread thread = ReadApiFixtures.buildThreadFull("thread-xyz", List.of(msg1, msg2, msg3));
+
+        ThreadDetailResult result = mapper.toThreadDetailResult(thread);
+
+        assertThat(result.messages()).hasSize(3);
+        assertThat(result.messages().get(0).id()).isEqualTo("msg-1");
+        assertThat(result.messages().get(1).id()).isEqualTo("msg-2");
+        assertThat(result.messages().get(2).id()).isEqualTo("msg-3");
+    }
+
+    @Test
+    void toThreadDetailResult_threadWithNoMessages_returnsEmptyMessagesList() {
+        Thread thread = ReadApiFixtures.buildThreadFull("thread-empty", List.of());
+
+        ThreadDetailResult result = mapper.toThreadDetailResult(thread);
+
+        assertThat(result.threadId()).isEqualTo("thread-empty");
+        assertThat(result.messages()).isNotNull().isEmpty();
+        assertThat(result.labelIds()).isNotNull().isEmpty();
+    }
+
+    @Test
+    void toThreadDetailResult_threadWithNullMessages_returnsEmptyMessagesList() {
+        Thread thread = ReadApiFixtures.buildThreadFull("thread-null-msgs", null);
+
+        ThreadDetailResult result = mapper.toThreadDetailResult(thread);
+
+        assertThat(result.messages()).isNotNull().isEmpty();
+        assertThat(result.labelIds()).isNotNull().isEmpty();
+    }
+
+    @Test
+    void toThreadDetailResult_labelUnionAcrossMixedLabelMessages_deduplicates() {
+        Message msg1 = ReadApiFixtures.buildMessage("m1", "t1", List.of("INBOX", "CATEGORY_PERSONAL"));
+        Message msg2 = ReadApiFixtures.buildMessage("m2", "t1", List.of("INBOX", "Label_42"));
+        Thread thread = ReadApiFixtures.buildThreadFull("t1", List.of(msg1, msg2));
+
+        ThreadDetailResult result = mapper.toThreadDetailResult(thread);
+
+        // Union: INBOX (deduplicated), CATEGORY_PERSONAL, Label_42
+        assertThat(result.labelIds()).containsExactlyInAnyOrder("INBOX", "CATEGORY_PERSONAL", "Label_42");
+        // INBOX appears once, not twice
+        assertThat(result.labelIds().stream().filter("INBOX"::equals).count()).isEqualTo(1);
+    }
+
+    @Test
+    void toThreadDetailResult_snippetExtractedFromIndividualMessages() {
+        Message msg = ReadApiFixtures.buildMessage("m1", "t1", List.of());
+        msg.setSnippet("The thread snippet here");
+        Thread thread = ReadApiFixtures.buildThreadFull("t1", List.of(msg));
+
+        ThreadDetailResult result = mapper.toThreadDetailResult(thread);
+
+        assertThat(result.messages().get(0).snippet()).isEqualTo("The thread snippet here");
+    }
+
+    @Test
+    void toThreadListResponse_projectsAllFields() {
+        List<ThreadSummary> summaries = List.of(
+                new ThreadSummary("t1", "Snippet 1", "100"),
+                new ThreadSummary("t2", "Snippet 2", null)
+        );
+        ThreadListResult listResult = new ThreadListResult(summaries, "next-token", 42);
+
+        ThreadListResponse response = mapper.toThreadListResponse(listResult);
+
+        assertThat(response.results()).hasSize(2);
+        assertThat(response.results().get(0).id()).isEqualTo("t1");
+        assertThat(response.nextPageToken()).isEqualTo("next-token");
+        assertThat(response.totalCount()).isEqualTo(42);
+    }
+
+    @Test
+    void toThreadDetailResponse_projectsMessagesViaToMessageDetailResponse() {
+        Message msg = ReadApiFixtures.buildMessage("m1", "t1", List.of("INBOX"));
+        Thread thread = ReadApiFixtures.buildThreadFull("t1", List.of(msg));
+        ThreadDetailResult result = mapper.toThreadDetailResult(thread);
+
+        ThreadDetailResponse response = mapper.toThreadDetailResponse(result);
+
+        assertThat(response.threadId()).isEqualTo("t1");
+        assertThat(response.messages()).hasSize(1);
+        assertThat(response.messages().get(0).id()).isEqualTo("m1");
+        assertThat(response.labelIds()).containsExactly("INBOX");
+    }
+
+    // =========================================================================
+    // T011 — toMessageDetailResult tests (9-header whitelist, body, attachments)
+    // =========================================================================
+
+    @Test
+    void toMessageDetailResult_allNineWhitelistedHeaders_presentInOutputMap() {
+        List<MessagePartHeader> headers = ReadApiFixtures.buildAllNineWhitelistedHeaders();
+        Message message = ReadApiFixtures.buildMessageWithHeaders(
+                "msg-hdr", "t1", headers, "snippet", null);
+
+        MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
+
+        assertThat(result.headers()).containsKey("From");
+        assertThat(result.headers()).containsKey("To");
+        assertThat(result.headers()).containsKey("Cc");
+        assertThat(result.headers()).containsKey("Bcc");
+        assertThat(result.headers()).containsKey("Subject");
+        assertThat(result.headers()).containsKey("Date");
+        assertThat(result.headers()).containsKey("In-Reply-To");
+        assertThat(result.headers()).containsKey("Message-ID");
+        assertThat(result.headers()).containsKey("References");
+        assertThat(result.headers()).hasSize(9);
+    }
+
+    @Test
+    void toMessageDetailResult_caseInsensitiveHeaderInput_canonicalCaseInOutput() {
+        // Gmail may return mixed-case header names; we should normalize to canonical
+        List<MessagePartHeader> headers = List.of(
+                ReadApiFixtures.header("from", "sender@example.com"),   // lowercase
+                ReadApiFixtures.header("SUBJECT", "Test subject"),       // uppercase
+                ReadApiFixtures.header("message-id", "<id@example.com>") // all lowercase
+        );
+        Message message = ReadApiFixtures.buildMessageWithHeaders("msg-case", "t1", headers, null, null);
+
+        MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
+
+        // Canonical-case keys expected
+        assertThat(result.headers()).containsKey("From");
+        assertThat(result.headers().get("From")).isEqualTo("sender@example.com");
+        assertThat(result.headers()).containsKey("Subject");
+        assertThat(result.headers().get("Subject")).isEqualTo("Test subject");
+        assertThat(result.headers()).containsKey("Message-ID");
+        assertThat(result.headers().get("Message-ID")).isEqualTo("<id@example.com>");
+        // Non-whitelisted headers must not be present
+        assertThat(result.headers()).doesNotContainKey("from");
+    }
+
+    @Test
+    void toMessageDetailResult_missingHeaders_absentFromMap_notNull() {
+        // Only 2 of 9 whitelisted headers present
+        List<MessagePartHeader> headers = List.of(
+                ReadApiFixtures.header("From", "sender@example.com"),
+                ReadApiFixtures.header("Subject", "Hello")
+        );
+        Message message = ReadApiFixtures.buildMessageWithHeaders("msg-missing", "t1", headers, null, null);
+
+        MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
+
+        assertThat(result.headers()).hasSize(2);
+        assertThat(result.headers()).doesNotContainKey("To");
+        assertThat(result.headers()).doesNotContainKey("Cc");
+        assertThat(result.headers()).doesNotContainKey("Bcc");
+    }
+
+    @Test
+    void toMessageDetailResult_nonWhitelistedHeaders_silentlyDropped() {
+        List<MessagePartHeader> headers = List.of(
+                ReadApiFixtures.header("From", "sender@example.com"),
+                ReadApiFixtures.header("Received", "by mx.example.com"),
+                ReadApiFixtures.header("Authentication-Results", "spf=pass"),
+                ReadApiFixtures.header("X-Mailer", "Gmail/2026"),
+                ReadApiFixtures.header("Subject", "Test")
+        );
+        Message message = ReadApiFixtures.buildMessageWithHeaders("msg-nonwl", "t1", headers, null, null);
+
+        MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
+
+        assertThat(result.headers()).containsOnlyKeys("From", "Subject");
+        assertThat(result.headers()).doesNotContainKey("Received");
+        assertThat(result.headers()).doesNotContainKey("Authentication-Results");
+        assertThat(result.headers()).doesNotContainKey("X-Mailer");
+    }
+
+    @Test
+    void toMessageDetailResult_formatFull_bodyPresent() {
+        Message message = ReadApiFixtures.buildMessageWithHeaders(
+                "msg-body", "t1", List.of(), "A snippet", "Hello world");
+
+        MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
+
+        assertThat(result.body()).isEqualTo("Hello world");
+        assertThat(result.bodyType()).isNotNull();
+    }
+
+    @Test
+    void toMessageDetailResult_formatMetadata_bodyNull() {
+        Message message = ReadApiFixtures.buildMessageWithHeaders(
+                "msg-meta", "t1", List.of(), "snippet", "Hello world");
+
+        MessageDetailResult result = mapper.toMessageDetailResult(message, "metadata");
+
+        assertThat(result.body()).isNull();
+        assertThat(result.bodyType()).isNull();
+    }
+
+    @Test
+    void toMessageDetailResult_withAttachments_attachmentMetadataExtracted() {
+        List<MessagePart> parts = List.of(
+                ReadApiFixtures.buildAttachmentPart("att-id-1", "doc.pdf", "application/pdf", 5000L)
+        );
+        Message message = ReadApiFixtures.buildMessageWithAttachments("msg-att", parts);
+
+        MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
+
+        assertThat(result.attachments()).hasSize(1);
+        MessageAttachmentMetadata att = result.attachments().get(0);
+        assertThat(att.attachmentId()).isEqualTo("att-id-1");
+        assertThat(att.filename()).isEqualTo("doc.pdf");
+        assertThat(att.mimeType()).isEqualTo("application/pdf");
+        assertThat(att.sizeBytes()).isEqualTo(5000L);
+    }
+
+    @Test
+    void toMessageDetailResult_noAttachments_returnsEmptyList_notNull() {
+        Message message = ReadApiFixtures.buildMessage("msg-noatt", "t1", List.of());
+
+        MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
+
+        assertThat(result.attachments()).isNotNull().isEmpty();
+    }
+
+    @Test
+    void toMessageDetailResult_labelIds_populatedFromMessage() {
+        Message message = ReadApiFixtures.buildMessage("msg-labels", "t1",
+                List.of("INBOX", "UNREAD", "CATEGORY_PERSONAL"));
+
+        MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
+
+        assertThat(result.labelIds()).containsExactly("INBOX", "UNREAD", "CATEGORY_PERSONAL");
+    }
+
+    // -------------------------------------------------------------------------
+    // toAttachmentListResult / collectAttachmentParts (T070 coverage fix)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void toAttachmentListResult_messageWithNoPayload_returnsEmptyList() {
+        Message message = new Message();
+        // No payload set — toAttachmentListResult should return empty list
+        AttachmentListResult result = mapper.toAttachmentListResult(message);
+        assertThat(result.attachments()).isNotNull().isEmpty();
+    }
+
+    @Test
+    void toAttachmentListResult_messageWithEmptyPayload_returnsEmptyList() {
+        Message message = ReadApiFixtures.buildMessage("msg-no-attach", "t1", List.of());
+        // buildMessage sets a MessagePart payload with no sub-parts
+        AttachmentListResult result = mapper.toAttachmentListResult(message);
+        assertThat(result.attachments()).isNotNull().isEmpty();
+    }
+
+    @Test
+    void toAttachmentListResult_messageWithOneAttachment_returnsSingleItem() {
+        MessagePart attachPart = ReadApiFixtures.buildAttachmentPart(
+                "attach-id-001", "report.pdf", "application/pdf", 245760L);
+        Message message = ReadApiFixtures.buildMessageWithAttachments("msg-attach", List.of(attachPart));
+
+        AttachmentListResult result = mapper.toAttachmentListResult(message);
+
+        assertThat(result.attachments()).hasSize(1);
+        MessageAttachmentMetadata meta = result.attachments().get(0);
+        assertThat(meta.attachmentId()).isEqualTo("attach-id-001");
+        assertThat(meta.filename()).isEqualTo("report.pdf");
+        assertThat(meta.mimeType()).isEqualTo("application/pdf");
+        assertThat(meta.sizeBytes()).isEqualTo(245760L);
+    }
+
+    @Test
+    void toAttachmentListResult_messageWithTwoAttachments_returnsBothItems() {
+        MessagePart part1 = ReadApiFixtures.buildAttachmentPart(
+                "attach-001", "doc1.pdf", "application/pdf", 10000L);
+        MessagePart part2 = ReadApiFixtures.buildAttachmentPart(
+                "attach-002", "image.png", "image/png", 50000L);
+        Message message = ReadApiFixtures.buildMessageWithAttachments("msg-two", List.of(part1, part2));
+
+        AttachmentListResult result = mapper.toAttachmentListResult(message);
+
+        assertThat(result.attachments()).hasSize(2);
+    }
+
+    // -------------------------------------------------------------------------
+    // toLabelSummary (T070 coverage fix)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void toLabelSummary_systemLabel_allFieldsPopulated() {
+        Label label = ReadApiFixtures.buildLabel("INBOX", "INBOX", "system");
+        label.setMessageListVisibility("show");
+        label.setLabelListVisibility("labelShow");
+
+        com.aucontraire.gmailbuddy.dto.response.LabelSummary result = mapper.toLabelSummary(label);
+
+        assertThat(result.id()).isEqualTo("INBOX");
+        assertThat(result.name()).isEqualTo("INBOX");
+        assertThat(result.type()).isEqualTo("system");
+        assertThat(result.messageListVisibility()).isEqualTo("show");
+        assertThat(result.labelListVisibility()).isEqualTo("labelShow");
+    }
+
+    @Test
+    void toLabelSummary_userLabel_typeIsLowerCased() {
+        Label label = ReadApiFixtures.buildLabel("Label_42", "Recruiters", "user");
+
+        com.aucontraire.gmailbuddy.dto.response.LabelSummary result = mapper.toLabelSummary(label);
+
+        assertThat(result.type()).isEqualTo("user");
+    }
+
+    @Test
+    void toLabelSummary_labelWithNullType_typeIsNull() {
+        Label label = new Label();
+        label.setId("Label_99");
+        label.setName("Custom");
+        // type is null
+
+        com.aucontraire.gmailbuddy.dto.response.LabelSummary result = mapper.toLabelSummary(label);
+
+        assertThat(result.type()).isNull();
+    }
+
+    // -------------------------------------------------------------------------
+    // toLabelDetailResult (T070 coverage fix)
+    // -------------------------------------------------------------------------
+
+    @Test
+    void toLabelDetailResult_labelWithoutColor_colorFieldsAreNull() {
+        Label label = ReadApiFixtures.buildLabel("INBOX", "INBOX", "system");
+        label.setMessagesTotal(100);
+        label.setMessagesUnread(5);
+        label.setThreadsTotal(80);
+        label.setThreadsUnread(3);
+
+        LabelDetailResult result = mapper.toLabelDetailResult(label);
+
+        assertThat(result.id()).isEqualTo("INBOX");
+        assertThat(result.name()).isEqualTo("INBOX");
+        assertThat(result.type()).isEqualTo("system");
+        assertThat(result.colorTextColor()).isNull();
+        assertThat(result.colorBackgroundColor()).isNull();
+        assertThat(result.messagesTotal()).isEqualTo(100);
+        assertThat(result.messagesUnread()).isEqualTo(5);
+        assertThat(result.threadsTotal()).isEqualTo(80);
+        assertThat(result.threadsUnread()).isEqualTo(3);
+    }
+
+    @Test
+    void toLabelDetailResult_labelWithColor_colorFieldsPopulated() {
+        Label label = ReadApiFixtures.buildLabelWithColor(
+                "Label_42", "Recruiters", "#222222", "#16a766");
+
+        LabelDetailResult result = mapper.toLabelDetailResult(label);
+
+        assertThat(result.colorTextColor()).isEqualTo("#222222");
+        assertThat(result.colorBackgroundColor()).isEqualTo("#16a766");
+    }
+
+    @Test
+    void toLabelDetailResult_labelWithNullCounts_countFieldsAreNull() {
+        Label label = ReadApiFixtures.buildLabel("Label_1", "My Label", "user");
+        // counts not set — should be null
+
+        LabelDetailResult result = mapper.toLabelDetailResult(label);
+
+        assertThat(result.messagesTotal()).isNull();
+        assertThat(result.messagesUnread()).isNull();
+        assertThat(result.threadsTotal()).isNull();
+        assertThat(result.threadsUnread()).isNull();
     }
 }

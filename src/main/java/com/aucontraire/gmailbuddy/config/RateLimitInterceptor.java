@@ -150,6 +150,45 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
         // Estimate based on endpoint pattern
         // Check more specific patterns first (with path suffixes)
+
+        // Feature 004 — threads endpoints (US1, T025)
+        if (uri.matches(".*/threads/[^/]+") && "GET".equals(method)) {
+            // GET /threads/{id}
+            return quotaEstimator.estimateGetThreadQuota();
+        } else if (uri.endsWith("/threads") && "GET".equals(method)) {
+            // GET /threads
+            return quotaEstimator.estimateListThreadsQuota();
+        }
+
+        // Feature 004 — US3: label endpoints (T052)
+        if (uri.matches(".*/labels/[^/]+") && "GET".equals(method)) {
+            // GET /labels/{id}
+            return quotaEstimator.estimateGetLabelQuota();
+        } else if (uri.endsWith("/labels") && "GET".equals(method)) {
+            // GET /labels
+            return quotaEstimator.estimateListLabelsQuota();
+        }
+
+        // Feature 004 — US4: attachment endpoints (T067)
+        // Must be checked BEFORE /messages/{id} (more specific patterns first)
+        if (uri.matches(".*/messages/[^/]+/attachments/[^/]+") && "GET".equals(method)) {
+            // GET /messages/{messageId}/attachments/{attachmentId} — download attachment
+            return quotaEstimator.estimateGetAttachmentQuota();
+        } else if (uri.matches(".*/messages/[^/]+/attachments") && "GET".equals(method)) {
+            // GET /messages/{messageId}/attachments — list attachments
+            return quotaEstimator.estimateListAttachmentsQuota();
+        }
+
+        // Feature 004 — US2: GET /messages/{id} (message detail) — T035
+        // Must be checked BEFORE /body and /read patterns; excludes those suffixes explicitly.
+        if (uri.matches(".*/messages/[^/]+") && "GET".equals(method)
+                && !uri.contains("/body") && !uri.contains("/read")) {
+            // GET /messages/{id} (new message detail endpoint — not /body, not /read)
+            String format = request.getParameter("format");
+            return quotaEstimator.estimateGetMessageDetailQuota(
+                    format != null ? format.toLowerCase() : "full");
+        }
+
         if (uri.matches(".*/messages/[^/]+/body")) {
             // GET /messages/{id}/body - fetches message body
             return quotaEstimator.estimateGetMessageQuota();
@@ -200,9 +239,6 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         } else if (uri.endsWith("/messages") || uri.endsWith("/messages/latest")) {
             // GET /messages or /messages/latest - list messages
             return quotaEstimator.estimateListMessagesQuota(0); // Can't know count yet
-        } else if (uri.matches(".*/messages/[^/]+") && "GET".equals(method)) {
-            // GET /messages/{id} - gets single message
-            return quotaEstimator.estimateGetMessageQuota();
         } else if (uri.matches(".*/messages/[^/]+") && "DELETE".equals(method)) {
             // DELETE /messages/{id} - deletes single message
             return quotaEstimator.estimateDeleteMessageQuota();

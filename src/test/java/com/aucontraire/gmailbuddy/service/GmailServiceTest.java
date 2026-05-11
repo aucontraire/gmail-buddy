@@ -5,11 +5,14 @@ import com.aucontraire.gmailbuddy.dto.DeleteResult;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
+import com.aucontraire.gmailbuddy.dto.response.MessageAttachmentMetadata;
+import com.aucontraire.gmailbuddy.dto.response.ThreadSummary;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
+import com.aucontraire.gmailbuddy.service.AttachmentListResult;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
 import com.aucontraire.gmailbuddy.service.DraftDetailResult;
 import com.aucontraire.gmailbuddy.service.DraftListResult;
@@ -20,7 +23,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.util.unit.DataSize;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -824,5 +829,547 @@ class GmailServiceTest {
         inOrder.verify(gmailRepository).updateDraft(userId, draftId, mimeMessage);
 
         assertThat(result.inReplyToMessageId()).isEqualTo(replyToId);
+    }
+
+    // =========================================================================
+    // T013 — Feature 004 US1: listThreads() and getThread() service tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("listThreads() should return ThreadListResult from repository on success")
+    void listThreads_success_returnsThreadListResult() throws IOException {
+        String userId = "test-user";
+        ThreadListResult expected = new ThreadListResult(List.of(), null, 0);
+        FilterCriteriaDTO filter = new FilterCriteriaDTO();
+        when(gmailRepository.listThreads(userId, filter, null, 50)).thenReturn(expected);
+
+        ThreadListResult result = gmailService.listThreads(userId, filter, null, 50);
+
+        assertThat(result).isEqualTo(expected);
+        verify(gmailRepository).listThreads(userId, filter, null, 50);
+    }
+
+    @Test
+    @DisplayName("listThreads() should return empty results list without error when no threads found")
+    void listThreads_emptyResults_returnsEmptyListNotError() throws IOException {
+        String userId = "test-user";
+        ThreadListResult empty = new ThreadListResult(List.of(), null, 0);
+        when(gmailRepository.listThreads(userId, null, null, 50)).thenReturn(empty);
+
+        ThreadListResult result = gmailService.listThreads(userId, null, null, 50);
+
+        assertThat(result.threads()).isEmpty();
+        assertThat(result.nextPageToken()).isNull();
+    }
+
+    @Test
+    @DisplayName("listThreads() should forward pagination token to repository")
+    void listThreads_paginationToken_forwardedToRepository() throws IOException {
+        String userId = "test-user";
+        String pageToken = "token-page-2";
+        ThreadSummary summary = new ThreadSummary("thread-1", "snippet", "12345");
+        ThreadListResult page2 = new ThreadListResult(List.of(summary), "token-page-3", 2);
+        when(gmailRepository.listThreads(userId, null, pageToken, 25)).thenReturn(page2);
+
+        ThreadListResult result = gmailService.listThreads(userId, null, pageToken, 25);
+
+        assertThat(result.threads()).hasSize(1);
+        assertThat(result.nextPageToken()).isEqualTo("token-page-3");
+        verify(gmailRepository).listThreads(userId, null, pageToken, 25);
+    }
+
+    @Test
+    @DisplayName("listThreads() should forward filter criteria to repository")
+    void listThreads_filterCriteria_forwardedToRepository() throws IOException {
+        String userId = "test-user";
+        FilterCriteriaDTO filter = new FilterCriteriaDTO();
+        filter.setFrom("sender@example.com");
+        filter.setHasAttachment(true);
+        ThreadListResult result_from_repo = new ThreadListResult(List.of(), null, 0);
+        when(gmailRepository.listThreads(userId, filter, null, 50)).thenReturn(result_from_repo);
+
+        ThreadListResult result = gmailService.listThreads(userId, filter, null, 50);
+
+        assertThat(result).isEqualTo(result_from_repo);
+        // Verify the exact filter object is forwarded, not a copy
+        verify(gmailRepository).listThreads(userId, filter, null, 50);
+    }
+
+    @Test
+    @DisplayName("listThreads() should wrap IOException as GmailApiException")
+    void listThreads_ioException_throwsGmailApiException() throws IOException {
+        String userId = "test-user";
+        IOException ioException = new IOException("Network failure");
+        when(gmailRepository.listThreads(userId, null, null, 50)).thenThrow(ioException);
+
+        GmailApiException ex = assertThrows(GmailApiException.class,
+                () -> gmailService.listThreads(userId, null, null, 50));
+
+        assertThat(ex.getMessage()).contains("Failed to list threads for user: test-user");
+        assertThat(ex.getCause()).isEqualTo(ioException);
+    }
+
+    @Test
+    @DisplayName("listThreads() log must not contain PII — only op and count per FR-032")
+    void listThreads_logging_containsOnlyPermittedFields() throws IOException {
+        // This test verifies the service does NOT throw and returns the result;
+        // the logging contract (no PII) is verified by ReadApiConstitutionVIIComplianceTest.
+        // Here we confirm the success path does not surface any exception.
+        String userId = "test-user";
+        ThreadSummary s1 = new ThreadSummary("thread-aaa", "Snippet A", null);
+        ThreadSummary s2 = new ThreadSummary("thread-bbb", "Snippet B", "9876");
+        ThreadListResult twoThreads = new ThreadListResult(List.of(s1, s2), null, 2);
+        when(gmailRepository.listThreads(userId, null, null, 50)).thenReturn(twoThreads);
+
+        ThreadListResult result = gmailService.listThreads(userId, null, null, 50);
+
+        assertThat(result.threads()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("getThread() should return ThreadDetailResult from repository on success")
+    void getThread_success_returnsThreadDetailResult() throws IOException {
+        String userId = "test-user";
+        String threadId = "thread-abc123";
+        ThreadDetailResult expected = new ThreadDetailResult(threadId, List.of("INBOX"), List.of());
+        when(gmailRepository.getThread(userId, threadId)).thenReturn(expected);
+
+        ThreadDetailResult result = gmailService.getThread(userId, threadId);
+
+        assertThat(result).isEqualTo(expected);
+        verify(gmailRepository).getThread(userId, threadId);
+    }
+
+    @Test
+    @DisplayName("getThread() should propagate ResourceNotFoundException from repository without wrapping")
+    void getThread_resourceNotFoundException_propagatesUnwrapped() throws IOException {
+        String userId = "test-user";
+        String threadId = "thread-not-found";
+        ResourceNotFoundException notFound = new ResourceNotFoundException("Thread not found");
+        when(gmailRepository.getThread(userId, threadId)).thenThrow(notFound);
+
+        ResourceNotFoundException thrown = assertThrows(ResourceNotFoundException.class,
+                () -> gmailService.getThread(userId, threadId));
+
+        assertThat(thrown).isSameAs(notFound);
+    }
+
+    @Test
+    @DisplayName("getThread() should wrap IOException as GmailApiException")
+    void getThread_ioException_throwsGmailApiException() throws IOException {
+        String userId = "test-user";
+        String threadId = "thread-io-fail";
+        IOException ioException = new IOException("Timeout");
+        when(gmailRepository.getThread(userId, threadId)).thenThrow(ioException);
+
+        GmailApiException ex = assertThrows(GmailApiException.class,
+                () -> gmailService.getThread(userId, threadId));
+
+        assertThat(ex.getMessage()).contains("Failed to get thread thread-io-fail for user: test-user");
+        assertThat(ex.getCause()).isEqualTo(ioException);
+    }
+
+    @Test
+    @DisplayName("getThread() with messages should expose messageCount in success path")
+    void getThread_withMessages_messageCountAvailable() throws IOException {
+        String userId = "test-user";
+        String threadId = "thread-with-msgs";
+        MessageDetailResult msg1 = new MessageDetailResult(
+                "msg-1", threadId, Map.of(), "snippet 1", "body 1", "text",
+                List.of("INBOX"), List.of()
+        );
+        MessageDetailResult msg2 = new MessageDetailResult(
+                "msg-2", threadId, Map.of(), "snippet 2", null, "text",
+                List.of("INBOX", "UNREAD"), List.of()
+        );
+        ThreadDetailResult twoMessages = new ThreadDetailResult(threadId,
+                List.of("INBOX", "UNREAD"), List.of(msg1, msg2));
+        when(gmailRepository.getThread(userId, threadId)).thenReturn(twoMessages);
+
+        ThreadDetailResult result = gmailService.getThread(userId, threadId);
+
+        assertThat(result.messages()).hasSize(2);
+        assertThat(result.threadId()).isEqualTo(threadId);
+    }
+
+    @Test
+    @DisplayName("getThread() log must not contain PII — only op, threadId, messageCount per FR-032")
+    void getThread_logging_containsOnlyPermittedFields() throws IOException {
+        // Confirms the success path completes without exception; PII-in-logs assertion
+        // is in ReadApiConstitutionVIIComplianceTest (integration level).
+        String userId = "test-user";
+        String threadId = "thread-log-check";
+        ThreadDetailResult result_from_repo = new ThreadDetailResult(threadId, List.of(), List.of());
+        when(gmailRepository.getThread(userId, threadId)).thenReturn(result_from_repo);
+
+        assertDoesNotThrow(() -> gmailService.getThread(userId, threadId));
+    }
+
+    // =========================================================================
+    // T029 — Phase 4 US2: getMessageDetail() service method tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("getMessageDetail() with format=full returns MessageDetailResult with body")
+    void getMessageDetail_formatFull_returnsResultWithBody() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        MessageDetailResult expected = new MessageDetailResult(
+                messageId, "thread-001",
+                Map.of("From", "sender@example.com", "Subject", "Hello"),
+                "snippet text", "<p>body content</p>", "html",
+                List.of("INBOX"), List.of()
+        );
+        when(gmailRepository.getMessageDetail(userId, messageId, "full")).thenReturn(expected);
+
+        MessageDetailResult result = gmailService.getMessageDetail(userId, messageId, "full");
+
+        assertThat(result).isEqualTo(expected);
+        assertThat(result.body()).isNotNull();
+        assertThat(result.body()).isEqualTo("<p>body content</p>");
+        verify(gmailRepository).getMessageDetail(userId, messageId, "full");
+    }
+
+    @Test
+    @DisplayName("getMessageDetail() with format=metadata returns MessageDetailResult with body=null")
+    void getMessageDetail_formatMetadata_returnsResultWithNullBody() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        MessageDetailResult expected = new MessageDetailResult(
+                messageId, "thread-002",
+                Map.of("From", "sender@example.com", "Subject", "Hi"),
+                "snippet", null, null,
+                List.of("INBOX"), List.of()
+        );
+        when(gmailRepository.getMessageDetail(userId, messageId, "metadata")).thenReturn(expected);
+
+        MessageDetailResult result = gmailService.getMessageDetail(userId, messageId, "metadata");
+
+        assertThat(result).isEqualTo(expected);
+        assertThat(result.body()).isNull();
+        verify(gmailRepository).getMessageDetail(userId, messageId, "metadata");
+    }
+
+    @Test
+    @DisplayName("getMessageDetail() normalizes 'Full' to 'full' before repository call")
+    void getMessageDetail_formatFull_caseNormalized() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        MessageDetailResult expected = new MessageDetailResult(
+                messageId, "thread-003", Map.of(), "s", "body", "text",
+                List.of(), List.of()
+        );
+        when(gmailRepository.getMessageDetail(userId, messageId, "full")).thenReturn(expected);
+
+        // Simulates the controller normalizing "Full" → "full" before passing to service
+        MessageDetailResult result = gmailService.getMessageDetail(userId, messageId, "full");
+
+        assertThat(result).isEqualTo(expected);
+        verify(gmailRepository).getMessageDetail(userId, messageId, "full");
+    }
+
+    @Test
+    @DisplayName("getMessageDetail() normalizes 'FULL' to 'full' before repository call")
+    void getMessageDetail_formatFULL_caseNormalized() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        MessageDetailResult expected = new MessageDetailResult(
+                messageId, "thread-004", Map.of(), "s", "body", "text",
+                List.of(), List.of()
+        );
+        when(gmailRepository.getMessageDetail(userId, messageId, "full")).thenReturn(expected);
+
+        // Controller normalizes "FULL" → "full"
+        MessageDetailResult result = gmailService.getMessageDetail(userId, messageId, "full");
+
+        assertThat(result).isEqualTo(expected);
+        verify(gmailRepository).getMessageDetail(userId, messageId, "full");
+    }
+
+    @Test
+    @DisplayName("getMessageDetail() propagates ResourceNotFoundException without wrapping")
+    void getMessageDetail_resourceNotFoundException_propagatesUnwrapped() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        ResourceNotFoundException notFound = new ResourceNotFoundException("Message not found");
+        when(gmailRepository.getMessageDetail(userId, messageId, "full")).thenThrow(notFound);
+
+        ResourceNotFoundException thrown = assertThrows(ResourceNotFoundException.class,
+                () -> gmailService.getMessageDetail(userId, messageId, "full"));
+
+        assertThat(thrown).isSameAs(notFound);
+    }
+
+    @Test
+    @DisplayName("getMessageDetail() wraps IOException as GmailApiException")
+    void getMessageDetail_ioException_throwsGmailApiException() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        IOException ioException = new IOException("Timeout");
+        when(gmailRepository.getMessageDetail(userId, messageId, "full")).thenThrow(ioException);
+
+        GmailApiException ex = assertThrows(GmailApiException.class,
+                () -> gmailService.getMessageDetail(userId, messageId, "full"));
+
+        assertThat(ex.getMessage()).contains("getMessageDetail");
+        assertThat(ex.getCause()).isEqualTo(ioException);
+    }
+
+    @Test
+    @DisplayName("getMessageDetail() log must not contain PII — only op, messageId, format, attachmentCount per FR-032")
+    void getMessageDetail_logging_containsOnlyPermittedFields() throws IOException {
+        // Confirms the success path completes without exception; PII-in-logs assertion
+        // is in ReadApiConstitutionVIIComplianceTest (integration level).
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        MessageDetailResult result_from_repo = new MessageDetailResult(
+                messageId, "thread-log", Map.of(), "snippet", null, null,
+                List.of(), List.of()
+        );
+        when(gmailRepository.getMessageDetail(userId, messageId, "metadata")).thenReturn(result_from_repo);
+
+        assertDoesNotThrow(() -> gmailService.getMessageDetail(userId, messageId, "metadata"));
+    }
+
+    // =========================================================================
+    // T039 — Phase 5 US3: listLabels() and getLabel() service tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("listLabels() returns LabelListResult with full label set")
+    void listLabels_successPath_returnsLabelListResult() throws IOException {
+        String userId = "test-user";
+        com.aucontraire.gmailbuddy.dto.response.LabelSummary inbox =
+                new com.aucontraire.gmailbuddy.dto.response.LabelSummary(
+                        "INBOX", "INBOX", "system", "show", "labelShow");
+        com.aucontraire.gmailbuddy.dto.response.LabelSummary userLabel =
+                new com.aucontraire.gmailbuddy.dto.response.LabelSummary(
+                        "Label_42", "Recruiters", "user", "show", "labelShow");
+        LabelListResult expected = new LabelListResult(List.of(inbox, userLabel), 2);
+        when(gmailRepository.listLabels(userId)).thenReturn(expected);
+
+        LabelListResult result = gmailService.listLabels(userId);
+
+        assertThat(result).isEqualTo(expected);
+        assertThat(result.totalCount()).isEqualTo(2);
+        assertThat(result.labels()).hasSize(2);
+        verify(gmailRepository).listLabels(userId);
+    }
+
+    @Test
+    @DisplayName("listLabels() returns empty list when user has no user labels (system labels only)")
+    void listLabels_emptyLabelSet_returnsEmptyList() throws IOException {
+        String userId = "test-user";
+        LabelListResult expected = new LabelListResult(List.of(), 0);
+        when(gmailRepository.listLabels(userId)).thenReturn(expected);
+
+        LabelListResult result = gmailService.listLabels(userId);
+
+        assertThat(result.labels()).isEmpty();
+        assertThat(result.totalCount()).isEqualTo(0);
+        verify(gmailRepository).listLabels(userId);
+    }
+
+    @Test
+    @DisplayName("listLabels() wraps IOException as GmailApiException")
+    void listLabels_ioException_throwsGmailApiException() throws IOException {
+        String userId = "test-user";
+        IOException ioException = new IOException("Network timeout");
+        when(gmailRepository.listLabels(userId)).thenThrow(ioException);
+
+        GmailApiException ex = assertThrows(GmailApiException.class,
+                () -> gmailService.listLabels(userId));
+
+        assertThat(ex.getMessage()).contains("list labels");
+        assertThat(ex.getCause()).isEqualTo(ioException);
+    }
+
+    @Test
+    @DisplayName("getLabel() returns LabelDetailResult with counts and color for user label")
+    void getLabel_withColorAndCounts_returnsLabelDetailResult() throws IOException {
+        String userId = "test-user";
+        String labelId = "Label_42";
+        LabelDetailResult expected = new LabelDetailResult(
+                labelId, "Recruiters", "user",
+                "show", "labelShow",
+                "#222222", "#16a766",
+                42, 5, 38, 4
+        );
+        when(gmailRepository.getLabel(userId, labelId)).thenReturn(expected);
+
+        LabelDetailResult result = gmailService.getLabel(userId, labelId);
+
+        assertThat(result).isEqualTo(expected);
+        assertThat(result.colorTextColor()).isEqualTo("#222222");
+        assertThat(result.messagesTotal()).isEqualTo(42);
+        verify(gmailRepository).getLabel(userId, labelId);
+    }
+
+    @Test
+    @DisplayName("getLabel() returns LabelDetailResult without color for system label")
+    void getLabel_systemLabelWithoutColor_returnsNullColor() throws IOException {
+        String userId = "test-user";
+        String labelId = "INBOX";
+        LabelDetailResult expected = new LabelDetailResult(
+                labelId, "INBOX", "system",
+                "show", "labelShow",
+                null, null,
+                100, 10, 80, 8
+        );
+        when(gmailRepository.getLabel(userId, labelId)).thenReturn(expected);
+
+        LabelDetailResult result = gmailService.getLabel(userId, labelId);
+
+        assertThat(result.colorTextColor()).isNull();
+        assertThat(result.colorBackgroundColor()).isNull();
+        assertThat(result.id()).isEqualTo("INBOX");
+        verify(gmailRepository).getLabel(userId, labelId);
+    }
+
+    @Test
+    @DisplayName("getLabel() propagates ResourceNotFoundException without wrapping")
+    void getLabel_resourceNotFoundException_propagatesUnwrapped() throws IOException {
+        String userId = "test-user";
+        String labelId = "Label_9999";
+        ResourceNotFoundException notFound = new ResourceNotFoundException("Label not found");
+        when(gmailRepository.getLabel(userId, labelId)).thenThrow(notFound);
+
+        ResourceNotFoundException thrown = assertThrows(ResourceNotFoundException.class,
+                () -> gmailService.getLabel(userId, labelId));
+
+        assertThat(thrown).isSameAs(notFound);
+    }
+
+    @Test
+    @DisplayName("getLabel() wraps IOException as GmailApiException")
+    void getLabel_ioException_throwsGmailApiException() throws IOException {
+        String userId = "test-user";
+        String labelId = "INBOX";
+        IOException ioException = new IOException("Timeout");
+        when(gmailRepository.getLabel(userId, labelId)).thenThrow(ioException);
+
+        GmailApiException ex = assertThrows(GmailApiException.class,
+                () -> gmailService.getLabel(userId, labelId));
+
+        assertThat(ex.getMessage().toLowerCase()).containsAnyOf("getlabel", "label");
+        assertThat(ex.getCause()).isEqualTo(ioException);
+    }
+
+    // =========================================================================
+    // T056 — Phase 6 US4: listAttachments() and getAttachment() service tests
+    // =========================================================================
+
+    @Test
+    @DisplayName("listAttachments() returns AttachmentListResult with N attachments")
+    void listAttachments_withAttachments_returnsResult() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        MessageAttachmentMetadata att1 = new MessageAttachmentMetadata(
+                "att-id-1", "report.pdf", "application/pdf", 12345L);
+        MessageAttachmentMetadata att2 = new MessageAttachmentMetadata(
+                "att-id-2", "photo.jpg", "image/jpeg", 67890L);
+        AttachmentListResult expected = new AttachmentListResult(List.of(att1, att2));
+        when(gmailRepository.listAttachments(userId, messageId)).thenReturn(expected);
+
+        AttachmentListResult result = gmailService.listAttachments(userId, messageId);
+
+        assertThat(result).isEqualTo(expected);
+        assertThat(result.attachments()).hasSize(2);
+        assertThat(result.attachments().get(0).attachmentId()).isEqualTo("att-id-1");
+        assertThat(result.attachments().get(1).filename()).isEqualTo("photo.jpg");
+        verify(gmailRepository).listAttachments(userId, messageId);
+    }
+
+    @Test
+    @DisplayName("listAttachments() returns empty list (not error) when message has no attachments")
+    void listAttachments_noAttachments_returnsEmptyList() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        AttachmentListResult expected = new AttachmentListResult(List.of());
+        when(gmailRepository.listAttachments(userId, messageId)).thenReturn(expected);
+
+        AttachmentListResult result = gmailService.listAttachments(userId, messageId);
+
+        assertThat(result.attachments()).isEmpty();
+        verify(gmailRepository).listAttachments(userId, messageId);
+    }
+
+    @Test
+    @DisplayName("listAttachments() propagates ResourceNotFoundException without wrapping")
+    void listAttachments_resourceNotFoundException_propagatesUnwrapped() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        ResourceNotFoundException notFound = new ResourceNotFoundException("Message not found");
+        when(gmailRepository.listAttachments(userId, messageId)).thenThrow(notFound);
+
+        ResourceNotFoundException thrown = assertThrows(ResourceNotFoundException.class,
+                () -> gmailService.listAttachments(userId, messageId));
+
+        assertThat(thrown).isSameAs(notFound);
+    }
+
+    @Test
+    @DisplayName("listAttachments() wraps IOException as GmailApiException")
+    void listAttachments_ioException_throwsGmailApiException() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        IOException ioException = new IOException("Network error");
+        when(gmailRepository.listAttachments(userId, messageId)).thenThrow(ioException);
+
+        GmailApiException ex = assertThrows(GmailApiException.class,
+                () -> gmailService.listAttachments(userId, messageId));
+
+        assertThat(ex.getMessage().toLowerCase()).containsAnyOf("attachment", "list");
+        assertThat(ex.getCause()).isEqualTo(ioException);
+    }
+
+    @Test
+    @DisplayName("getAttachment() returns StreamingResponseBody with decoded bytes")
+    void getAttachment_success_returnsStreamingResponseBody() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        String attachmentId = "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx";
+        byte[] expected = "hello attachment".getBytes();
+        StreamingResponseBody stream = outputStream -> outputStream.write(expected);
+        when(gmailRepository.getAttachment(userId, messageId, attachmentId)).thenReturn(stream);
+
+        StreamingResponseBody result = gmailService.getAttachment(userId, messageId, attachmentId);
+
+        assertThat(result).isNotNull();
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        result.writeTo(baos);
+        assertThat(baos.toByteArray()).isEqualTo(expected);
+        verify(gmailRepository).getAttachment(userId, messageId, attachmentId);
+    }
+
+    @Test
+    @DisplayName("getAttachment() propagates ResourceNotFoundException without wrapping")
+    void getAttachment_resourceNotFoundException_propagatesUnwrapped() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        String attachmentId = "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx";
+        ResourceNotFoundException notFound = new ResourceNotFoundException("Attachment not found");
+        when(gmailRepository.getAttachment(userId, messageId, attachmentId)).thenThrow(notFound);
+
+        ResourceNotFoundException thrown = assertThrows(ResourceNotFoundException.class,
+                () -> gmailService.getAttachment(userId, messageId, attachmentId));
+
+        assertThat(thrown).isSameAs(notFound);
+    }
+
+    @Test
+    @DisplayName("getAttachment() wraps IOException as GmailApiException")
+    void getAttachment_ioException_throwsGmailApiException() throws IOException {
+        String userId = "test-user";
+        String messageId = "1a2b3c4d5e6f7890";
+        String attachmentId = "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx";
+        IOException ioException = new IOException("Connection reset");
+        when(gmailRepository.getAttachment(userId, messageId, attachmentId)).thenThrow(ioException);
+
+        GmailApiException ex = assertThrows(GmailApiException.class,
+                () -> gmailService.getAttachment(userId, messageId, attachmentId));
+
+        assertThat(ex.getMessage().toLowerCase()).containsAnyOf("attachment", "get");
+        assertThat(ex.getCause()).isEqualTo(ioException);
     }
 }

@@ -8,6 +8,7 @@ import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
 import com.aucontraire.gmailbuddy.exception.RateLimitException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
+import com.aucontraire.gmailbuddy.service.GmailQueryBuilder;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.google.api.client.googleapis.json.GoogleJsonError;
@@ -69,6 +70,7 @@ class GmailRepositoryImplSendDraftTest {
     @Mock private TokenProvider tokenProvider;
     @Mock private GmailBuddyProperties properties;
     @Mock private GmailMessageMapper gmailMessageMapper;
+    @Mock private GmailQueryBuilder gmailQueryBuilder;
 
     // Gmail API call chain: Gmail → Users → Drafts → Send
     @Mock private Gmail gmail;
@@ -81,7 +83,7 @@ class GmailRepositoryImplSendDraftTest {
     @BeforeEach
     void setUp() {
         repository = new GmailRepositoryImpl(
-                gmailClient, gmailBatchClient, tokenProvider, properties, gmailMessageMapper);
+                gmailClient, gmailBatchClient, tokenProvider, properties, gmailMessageMapper, gmailQueryBuilder);
     }
 
     // -------------------------------------------------------------------------

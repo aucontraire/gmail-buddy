@@ -4,20 +4,41 @@ import com.aucontraire.gmailbuddy.dto.response.AttachmentMetadata;
 import com.aucontraire.gmailbuddy.dto.response.DraftDetailResponse;
 import com.aucontraire.gmailbuddy.dto.response.DraftListItem;
 import com.aucontraire.gmailbuddy.dto.response.DraftListResponse;
+import com.aucontraire.gmailbuddy.dto.response.LabelColor;
+import com.aucontraire.gmailbuddy.dto.response.LabelDetailResponse;
+import com.aucontraire.gmailbuddy.dto.response.LabelListResponse;
+import com.aucontraire.gmailbuddy.dto.response.LabelSummary;
+import com.aucontraire.gmailbuddy.dto.response.MessageAttachmentMetadata;
+import com.aucontraire.gmailbuddy.dto.response.MessageDetailResponse;
+import com.aucontraire.gmailbuddy.dto.response.ThreadDetailResponse;
+import com.aucontraire.gmailbuddy.dto.response.ThreadListResponse;
+import com.aucontraire.gmailbuddy.dto.response.ThreadSummary;
+import com.aucontraire.gmailbuddy.service.AttachmentListResult;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
 import com.aucontraire.gmailbuddy.service.DraftDetailResult;
 import com.aucontraire.gmailbuddy.service.DraftListResult;
+import com.aucontraire.gmailbuddy.service.LabelDetailResult;
+import com.aucontraire.gmailbuddy.service.LabelListResult;
+import com.aucontraire.gmailbuddy.service.MessageDetailResult;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
+import com.aucontraire.gmailbuddy.service.ThreadDetailResult;
+import com.aucontraire.gmailbuddy.service.ThreadListResult;
 import com.google.api.services.gmail.model.Draft;
+import com.google.api.services.gmail.model.Label;
 import com.google.api.services.gmail.model.Message;
 import com.google.api.services.gmail.model.MessagePart;
 import com.google.api.services.gmail.model.MessagePartHeader;
+import com.google.api.services.gmail.model.Thread;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Boundary mapper that converts Gmail SDK types into project-internal domain
@@ -38,6 +59,41 @@ import java.util.List;
  */
 @Component
 public class GmailMessageMapper {
+
+    /**
+     * Canonical RFC 5322 header names that this application surfaces in
+     * {@link MessageDetailResult#headers} per Clarifications Q2. All other
+     * headers (e.g., {@code Received}, {@code Authentication-Results},
+     * {@code X-Mailer}) are silently dropped during mapping.
+     *
+     * <p>The {@code List} form is exposed for use as the {@code metadataHeaders}
+     * parameter on {@code users.messages.get(...).setMetadataHeaders(...)} —
+     * limiting Gmail's METADATA-format response to only the headers we'll
+     * surface (research.md Decision 1).</p>
+     */
+    public static final List<String> WHITELISTED_HEADERS_LIST = List.of(
+            "From", "To", "Cc", "Bcc", "Subject", "Date",
+            "In-Reply-To", "Message-ID", "References"
+    );
+
+    /** Set form of {@link #WHITELISTED_HEADERS_LIST} for membership checks. */
+    private static final Set<String> WHITELISTED_HEADERS = Set.copyOf(WHITELISTED_HEADERS_LIST);
+
+    /**
+     * Lowercased header name → canonical RFC 5322 case. Enables case-insensitive
+     * input matching with canonical-case output per research.md Decision 13.
+     */
+    private static final Map<String, String> CANONICAL_HEADER_CASE = Map.of(
+            "from", "From",
+            "to", "To",
+            "cc", "Cc",
+            "bcc", "Bcc",
+            "subject", "Subject",
+            "date", "Date",
+            "in-reply-to", "In-Reply-To",
+            "message-id", "Message-ID",
+            "references", "References"
+    );
 
     /**
      * Converts a Gmail API {@link Message} (as returned by
@@ -218,9 +274,436 @@ public class GmailMessageMapper {
         return new DraftListResponse(items, result.nextPageToken(), result.totalCount());
     }
 
+    /**
+     * Converts a Gmail API {@link Message} (as returned by
+     * {@code users.messages.get}) into a {@link MessageDetailResult} domain
+     * record. Used by US1 (nested in {@code ThreadDetailResult}) AND US2
+     * (top-level on {@code GET /messages/{id}}).
+     *
+     * <p>Header extraction applies the 9-name whitelist with case-insensitive
+     * input matching and canonical-case output (Decision 13). When
+     * {@code "metadata".equalsIgnoreCase(format)}, body extraction is skipped
+     * — {@code body} and {@code bodyType} are returned as null. Attachment
+     * metadata is always extracted regardless of format.</p>
+     *
+     * @param message the Gmail API message; must not be null
+     * @param format  {@code "full"} (or any value other than {@code "metadata"})
+     *                to extract body, or {@code "metadata"} to skip body extraction
+     * @return a {@link MessageDetailResult} with all fields populated
+     *         (lists never null; body null when format=metadata)
+     */
+    public MessageDetailResult toMessageDetailResult(Message message, String format) {
+        boolean metadataOnly = "metadata".equalsIgnoreCase(format);
+
+        String id = message.getId();
+        String threadId = message.getThreadId();
+        String snippet = message.getSnippet();
+        List<String> labelIds = message.getLabelIds() != null
+                ? List.copyOf(message.getLabelIds())
+                : List.of();
+
+        Map<String, String> headers = new LinkedHashMap<>();
+        BodyExtractionResult bodyResult = new BodyExtractionResult();
+        List<MessageAttachmentMetadata> attachments = new ArrayList<>();
+
+        MessagePart payload = message.getPayload();
+        if (payload != null) {
+            extractWhitelistedHeaders(payload, headers);
+            extractBodyAndMessageAttachments(payload, bodyResult, attachments, metadataOnly);
+        }
+
+        String body = metadataOnly ? null : bodyResult.body;
+        String bodyType = metadataOnly
+                ? null
+                : (bodyResult.bodyType != null ? bodyResult.bodyType : (body != null ? "text" : null));
+
+        return new MessageDetailResult(
+                id,
+                threadId,
+                Map.copyOf(headers),
+                snippet,
+                body,
+                bodyType,
+                labelIds,
+                attachments.isEmpty() ? List.of() : List.copyOf(attachments)
+        );
+    }
+
+    /**
+     * Projects a {@link MessageDetailResult} to a {@link MessageDetailResponse}
+     * for API serialization. One-to-one field mapping; null fields pass through.
+     * Used by US1 (per nested message in {@code ThreadDetailResponse}) AND US2
+     * (top-level response on {@code GET /messages/{id}}).
+     *
+     * @param result the message domain record; must not be null
+     * @return a {@link MessageDetailResponse} ready for serialization
+     */
+    public MessageDetailResponse toMessageDetailResponse(MessageDetailResult result) {
+        return new MessageDetailResponse(
+                result.id(),
+                result.threadId(),
+                result.headers(),
+                result.snippet(),
+                result.body(),
+                result.bodyType(),
+                result.labelIds(),
+                result.attachments()
+        );
+    }
+
+    /**
+     * Converts a single attachment {@link MessagePart} (a leaf with non-null
+     * {@code body.attachmentId}) to a {@link MessageAttachmentMetadata} record.
+     * Helper used by {@link #toMessageDetailResult} and (in US4) by
+     * {@code toAttachmentListResult}. Filename falls back to {@code "unnamed"}
+     * if the part has no filename (Constitution III — never null).
+     *
+     * @param part the attachment leaf part; must not be null
+     * @return a {@link MessageAttachmentMetadata} with all fields populated
+     */
+    public MessageAttachmentMetadata toMessageAttachmentMetadata(MessagePart part) {
+        String attachmentId = part.getBody() != null ? part.getBody().getAttachmentId() : null;
+        String filename = (part.getFilename() != null && !part.getFilename().isBlank())
+                ? part.getFilename()
+                : "unnamed";
+        String mimeType = part.getMimeType() != null ? part.getMimeType() : "application/octet-stream";
+        long sizeBytes = (part.getBody() != null && part.getBody().getSize() != null)
+                ? part.getBody().getSize()
+                : 0L;
+        return new MessageAttachmentMetadata(attachmentId, filename, mimeType, sizeBytes);
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 004 — US4: Attachment mapper methods (T061)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Walks a Gmail SDK {@link Message}'s MIME part tree and returns an
+     * {@link AttachmentListResult} containing one {@link MessageAttachmentMetadata}
+     * for each part whose {@code body.attachmentId} is non-null (Decision 12 in
+     * research.md).
+     *
+     * <p>Multipart containers ({@code multipart/*}) are recursed; inline body parts
+     * ({@code text/html}, {@code text/plain}) and parts without an {@code attachmentId}
+     * are skipped. The returned list is in MIME tree traversal order (depth-first).</p>
+     *
+     * <p>If the message has no payload, or no attachment parts are found, the returned
+     * result contains {@code List.of()} (never null, per Constitution III).</p>
+     *
+     * @param message the fully-fetched Gmail API message (format=FULL); must not be null
+     * @return an {@link AttachmentListResult} with zero or more attachment items
+     */
+    public AttachmentListResult toAttachmentListResult(Message message) {
+        List<MessageAttachmentMetadata> collected = new ArrayList<>();
+        MessagePart payload = message.getPayload();
+        if (payload != null) {
+            collectAttachmentParts(payload, collected);
+        }
+        return new AttachmentListResult(
+                collected.isEmpty() ? List.of() : List.copyOf(collected)
+        );
+    }
+
+    /**
+     * Recursively walks a {@link MessagePart} tree, collecting parts that are
+     * identified as attachments by having a non-null {@code body.attachmentId}
+     * (research.md Decision 12).
+     */
+    private void collectAttachmentParts(MessagePart part, List<MessageAttachmentMetadata> target) {
+        if (part == null) return;
+
+        String attachmentId = part.getBody() != null ? part.getBody().getAttachmentId() : null;
+        if (attachmentId != null && !attachmentId.isBlank()) {
+            target.add(toMessageAttachmentMetadata(part));
+            return; // Attachment leaf — no sub-parts to recurse into
+        }
+
+        // Recurse into sub-parts for multipart containers
+        List<MessagePart> subParts = part.getParts();
+        if (subParts != null) {
+            for (MessagePart subPart : subParts) {
+                collectAttachmentParts(subPart, target);
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 004 — Thread mapper methods (T021)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Converts a Gmail SDK {@link Thread} stub (from {@code users.threads.list})
+     * to a {@link ThreadSummary} DTO. Direct SDK-stub→DTO conversion — no
+     * intermediate domain record needed since the stub fields are already
+     * domain-clean (Decision 9).
+     *
+     * @param stub the Gmail API thread stub; must not be null
+     * @return a {@link ThreadSummary} with id, snippet, and historyId
+     */
+    public ThreadSummary toThreadSummary(Thread stub) {
+        String historyId = stub.getHistoryId() != null ? stub.getHistoryId().toString() : null;
+        return new ThreadSummary(stub.getId(), stub.getSnippet(), historyId);
+    }
+
+    /**
+     * Converts a full Gmail SDK {@link Thread} (from {@code users.threads.get},
+     * format=FULL) to a {@link ThreadDetailResult} domain record.
+     *
+     * <p>Calls {@link #toMessageDetailResult(Message, String)} with format "full"
+     * for each nested message. Computes {@code labelIds} as the union across all
+     * messages using a {@link LinkedHashSet} for insertion-order-stable deduplication.
+     * Messages are in the chronological ascending order returned by Gmail's API
+     * (Decision 4 — no additional sorting needed).</p>
+     *
+     * @param thread the fully-fetched Gmail API thread; must not be null
+     * @return a {@link ThreadDetailResult} with all fields populated (lists never null)
+     */
+    public ThreadDetailResult toThreadDetailResult(Thread thread) {
+        List<Message> rawMessages = thread.getMessages();
+        if (rawMessages == null) {
+            return new ThreadDetailResult(thread.getId(), List.of(), List.of());
+        }
+
+        List<MessageDetailResult> messages = new ArrayList<>();
+        LinkedHashSet<String> labelUnion = new LinkedHashSet<>();
+
+        for (Message msg : rawMessages) {
+            MessageDetailResult detail = toMessageDetailResult(msg, "full");
+            messages.add(detail);
+            labelUnion.addAll(detail.labelIds());
+        }
+
+        return new ThreadDetailResult(
+                thread.getId(),
+                labelUnion.isEmpty() ? List.of() : List.copyOf(labelUnion),
+                List.copyOf(messages)
+        );
+    }
+
+    /**
+     * Projects a {@link ThreadListResult} to a {@link ThreadListResponse} for
+     * API serialization. Used by the controller on {@code GET /threads}.
+     *
+     * @param result the per-request domain value object; must not be null
+     * @return a {@link ThreadListResponse} ready for serialization
+     */
+    public ThreadListResponse toThreadListResponse(ThreadListResult result) {
+        return new ThreadListResponse(
+                result.threads(),
+                result.nextPageToken(),
+                result.totalCount()
+        );
+    }
+
+    /**
+     * Projects a {@link ThreadDetailResult} to a {@link ThreadDetailResponse} for
+     * API serialization. Converts each {@link MessageDetailResult} to a
+     * {@link MessageDetailResponse} via {@link #toMessageDetailResponse}. Used by
+     * the controller on {@code GET /threads/{id}}.
+     *
+     * @param result the thread domain record; must not be null
+     * @return a {@link ThreadDetailResponse} ready for serialization
+     */
+    public ThreadDetailResponse toThreadDetailResponse(ThreadDetailResult result) {
+        List<MessageDetailResponse> messages = result.messages().stream()
+                .map(this::toMessageDetailResponse)
+                .toList();
+        return new ThreadDetailResponse(
+                result.threadId(),
+                result.labelIds(),
+                messages
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 004 — Label mapper methods (T048)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Converts a Gmail SDK {@link Label} (from {@code users.labels.list} or
+     * {@code users.labels.get}) to a {@link LabelSummary} DTO. Direct SDK→DTO
+     * conversion — the summary fields are domain-clean (no further enrichment).
+     *
+     * <p>Null-safe: if {@code label.getName()} or {@code label.getType()} is null,
+     * the corresponding field in the returned record is null. All lists default to
+     * {@code null} fields in {@code LabelSummary} when not provided by Gmail.</p>
+     *
+     * @param label the Gmail API label; must not be null
+     * @return a {@link LabelSummary} with id, name, type, and visibility fields
+     */
+    public LabelSummary toLabelSummary(Label label) {
+        return new LabelSummary(
+                label.getId(),
+                label.getName(),
+                label.getType() != null ? label.getType().toLowerCase() : null,
+                label.getMessageListVisibility(),
+                label.getLabelListVisibility()
+        );
+    }
+
+    /**
+     * Converts a Gmail SDK {@link Label} (from {@code users.labels.get}) to a
+     * {@link LabelDetailResult} domain record. Extracts color text and background
+     * as flat String fields per data-model §19.
+     *
+     * <p>Color: if {@code label.getColor()} is non-null, its text and background
+     * fields are stored as flat strings. If color is null (system labels without
+     * color, or user labels with no color chosen), both color fields are null.</p>
+     *
+     * <p>Counts: {@code messagesTotal}, {@code messagesUnread}, {@code threadsTotal},
+     * {@code threadsUnread} are taken from the {@code MessagesUnread},
+     * {@code MessagesTotal}, {@code ThreadsUnread}, {@code ThreadsTotal} fields
+     * on the Gmail API {@code Label} object; null if Gmail did not include them.</p>
+     *
+     * @param label the Gmail API label; must not be null
+     * @return a {@link LabelDetailResult} with all fields populated (nulls where absent)
+     */
+    public LabelDetailResult toLabelDetailResult(Label label) {
+        String colorTextColor = null;
+        String colorBackgroundColor = null;
+        if (label.getColor() != null) {
+            colorTextColor = label.getColor().getTextColor();
+            colorBackgroundColor = label.getColor().getBackgroundColor();
+        }
+
+        return new LabelDetailResult(
+                label.getId(),
+                label.getName(),
+                label.getType() != null ? label.getType().toLowerCase() : null,
+                label.getMessageListVisibility(),
+                label.getLabelListVisibility(),
+                colorTextColor,
+                colorBackgroundColor,
+                label.getMessagesTotal(),
+                label.getMessagesUnread(),
+                label.getThreadsTotal(),
+                label.getThreadsUnread()
+        );
+    }
+
+    /**
+     * Projects a {@link LabelListResult} to a {@link LabelListResponse} for
+     * API serialization. Used by the controller on {@code GET /labels}.
+     *
+     * @param result the per-request domain value object; must not be null
+     * @return a {@link LabelListResponse} ready for serialization
+     */
+    public LabelListResponse toLabelListResponse(LabelListResult result) {
+        return new LabelListResponse(result.labels(), result.totalCount());
+    }
+
+    /**
+     * Projects a {@link LabelDetailResult} to a {@link LabelDetailResponse} for
+     * API serialization. Constructs a {@link LabelColor} record when both color
+     * fields are non-null; otherwise {@code color} is null (system labels or
+     * user labels without color configured).
+     *
+     * @param result the label domain record; must not be null
+     * @return a {@link LabelDetailResponse} ready for serialization
+     */
+    public LabelDetailResponse toLabelDetailResponse(LabelDetailResult result) {
+        LabelColor color = null;
+        if (result.colorTextColor() != null || result.colorBackgroundColor() != null) {
+            color = new LabelColor(result.colorTextColor(), result.colorBackgroundColor());
+        }
+        return new LabelDetailResponse(
+                result.id(),
+                result.name(),
+                result.type(),
+                result.messageListVisibility(),
+                result.labelListVisibility(),
+                color,
+                result.messagesTotal(),
+                result.messagesUnread(),
+                result.threadsTotal(),
+                result.threadsUnread()
+        );
+    }
+
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Recursively walks a {@link MessagePart} tree and adds any whitelisted
+     * RFC 5322 header found at any nesting level into {@code target}, using
+     * the canonical RFC 5322 casing as the map key. Last value wins for
+     * duplicates (rare in well-formed mail; expected for repeated headers
+     * like {@code Received} which are not whitelisted anyway).
+     */
+    private void extractWhitelistedHeaders(MessagePart part, Map<String, String> target) {
+        if (part == null) return;
+        List<MessagePartHeader> headers = part.getHeaders();
+        if (headers != null) {
+            for (MessagePartHeader header : headers) {
+                String name = header.getName();
+                String value = header.getValue();
+                if (name == null || value == null) continue;
+                String canonical = CANONICAL_HEADER_CASE.get(name.toLowerCase());
+                if (canonical != null) {
+                    target.put(canonical, value);
+                }
+            }
+        }
+        // Headers can also live on nested parts (uncommon for the whitelisted
+        // 9, but harmless to recurse).
+        List<MessagePart> subParts = part.getParts();
+        if (subParts != null) {
+            for (MessagePart subPart : subParts) {
+                extractWhitelistedHeaders(subPart, target);
+            }
+        }
+    }
+
+    /**
+     * Recursively walks a {@link MessagePart} tree to extract the body text
+     * (when {@code metadataOnly} is false) and attachment metadata (always).
+     * Mirrors {@link #extractBodyAndAttachments} but produces
+     * {@link MessageAttachmentMetadata} (with {@code attachmentId}) instead of
+     * {@link AttachmentMetadata}.
+     */
+    private void extractBodyAndMessageAttachments(MessagePart part,
+                                                  BodyExtractionResult bodyResult,
+                                                  List<MessageAttachmentMetadata> attachments,
+                                                  boolean metadataOnly) {
+        if (part == null) return;
+
+        String mimeType = part.getMimeType() != null ? part.getMimeType().toLowerCase() : "";
+        String attachmentId = part.getBody() != null ? part.getBody().getAttachmentId() : null;
+
+        // Attachment leaf: identified by non-null attachmentId per data-model §22 + Decision 12
+        if (attachmentId != null) {
+            attachments.add(toMessageAttachmentMetadata(part));
+            return;
+        }
+
+        // Body parts (skip when metadataOnly)
+        if (!metadataOnly) {
+            if (mimeType.equals("text/html")) {
+                String decoded = decodeBodyData(part);
+                if (decoded != null) {
+                    bodyResult.body = decoded;
+                    bodyResult.bodyType = "html";
+                }
+            } else if (mimeType.equals("text/plain")) {
+                if (!"html".equals(bodyResult.bodyType)) {
+                    String decoded = decodeBodyData(part);
+                    if (decoded != null) {
+                        bodyResult.body = decoded;
+                        bodyResult.bodyType = "text";
+                    }
+                }
+            }
+        }
+
+        // Recurse into sub-parts
+        List<MessagePart> parts = part.getParts();
+        if (parts != null) {
+            for (MessagePart subPart : parts) {
+                extractBodyAndMessageAttachments(subPart, bodyResult, attachments, metadataOnly);
+            }
+        }
+    }
 
     /**
      * Parses a comma-separated address list header value (e.g., To, Cc, Bcc)

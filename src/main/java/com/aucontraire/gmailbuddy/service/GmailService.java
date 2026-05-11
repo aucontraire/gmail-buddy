@@ -3,6 +3,7 @@ package com.aucontraire.gmailbuddy.service;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.dto.Attachment;
 import com.aucontraire.gmailbuddy.dto.DeleteResult;
+import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
@@ -11,7 +12,6 @@ import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
-import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.google.api.services.gmail.model.FilterCriteria;
 import com.google.api.services.gmail.model.Message;
 import jakarta.mail.MessagingException;
@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -622,6 +623,227 @@ public class GmailService {
             logger.error("Failed to update draft draftId={} for user: {}", draftId, userId, e);
             throw new GmailApiException(
                     String.format("Failed to update draft %s for user: %s", draftId, userId), e
+            );
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Feature 004 — US1: Thread list + detail service methods (T024)
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Returns a paginated list of thread summaries for the specified user.
+     * Delegates to the repository, which calls {@code users.threads.list} once
+     * (flat 10-unit quota cost per Clarifications Q1 — no per-item enrichment).
+     *
+     * @param userId         the Gmail user identifier; typically "me"
+     * @param filterCriteria filter criteria from query parameters; null for no filter
+     * @param pageToken      opaque pagination token, or null for the first page
+     * @param limit          maximum number of items to return (1–100)
+     * @return a {@link ThreadListResult} with thread summaries and pagination state
+     * @throws GmailApiException if the Gmail API returns an error
+     */
+    public ThreadListResult listThreads(String userId, FilterCriteriaDTO filterCriteria,
+                                        String pageToken, int limit) throws GmailApiException {
+        try {
+            ThreadListResult result = gmailRepository.listThreads(userId, filterCriteria, pageToken, limit);
+            logger.info("Thread operation: op=listThreads, count={}", result.threads().size());
+            return result;
+        } catch (IOException e) {
+            logger.error("Failed to list threads for user: {}", userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to list threads for user: %s", userId), e
+            );
+        }
+    }
+
+    /**
+     * Returns the full content of the specified thread including all nested messages.
+     * Delegates to the repository, which calls {@code users.threads.get(format=FULL)}.
+     *
+     * @param userId   the Gmail user identifier; typically "me"
+     * @param threadId the Gmail thread identifier
+     * @return a {@link ThreadDetailResult} with all messages and union label set
+     * @throws ResourceNotFoundException if the thread does not exist
+     * @throws GmailApiException if the Gmail API returns an error
+     */
+    public ThreadDetailResult getThread(String userId, String threadId) throws GmailApiException {
+        try {
+            ThreadDetailResult result = gmailRepository.getThread(userId, threadId);
+            logger.info("Thread operation: op=getThread, threadId={}, messageCount={}",
+                    threadId, result.messages().size());
+            return result;
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (IOException e) {
+            logger.error("Failed to get thread threadId={} for user: {}", threadId, userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to get thread %s for user: %s", threadId, userId), e
+            );
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Feature 004 — US2: Message detail service method (T034)
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Returns the full structured detail of the specified message.
+     *
+     * <p>Normalizes {@code format} to lowercase before passing to the repository
+     * (per spec Edge Cases: {@code "Full"} / {@code "FULL"} → {@code "full"}).
+     * The repository uses this normalized string to determine whether to fetch
+     * with {@code format=FULL} (10 quota units) or {@code format=METADATA} (5 quota units,
+     * 9-header whitelist per research.md Decision 1).</p>
+     *
+     * @param userId    the Gmail user identifier; typically "me"
+     * @param messageId the Gmail message identifier
+     * @param format    the format param from the controller, already lowercased;
+     *                  {@code "full"} (default) or {@code "metadata"}
+     * @return a {@link MessageDetailResult} with all fields; body is null when format=metadata
+     * @throws ResourceNotFoundException if the message does not exist (Gmail 404)
+     * @throws GmailApiException if the Gmail API returns an error
+     */
+    public MessageDetailResult getMessageDetail(String userId, String messageId, String format)
+            throws GmailApiException {
+        // Normalize to lowercase (Edge Cases: "Full"/"FULL" → "full")
+        String normalizedFormat = format != null ? format.toLowerCase() : "full";
+        try {
+            MessageDetailResult result = gmailRepository.getMessageDetail(userId, messageId, normalizedFormat);
+            logger.info("Message detail op: op=getMessageDetail, messageId={}, format={}, attachmentCount={}",
+                    messageId, normalizedFormat, result.attachments().size());
+            return result;
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (IOException e) {
+            logger.error("Failed to get message detail for messageId={} for user: {}", messageId, userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to getMessageDetail for messageId: %s for user: %s", messageId, userId), e
+            );
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Feature 004 — US3: Label list + detail service methods (T051)
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Returns all visible labels (system + user-created) for the specified user.
+     * Delegates to the repository, which calls {@code users.labels.list} once
+     * (flat 1-unit quota cost — no per-item enrichment).
+     *
+     * @param userId the Gmail user identifier; typically "me"
+     * @return a {@link LabelListResult} with all labels; never null
+     * @throws GmailApiException if the Gmail API returns an error
+     */
+    public LabelListResult listLabels(String userId) throws GmailApiException {
+        try {
+            LabelListResult result = gmailRepository.listLabels(userId);
+            logger.info("Label operation: op=listLabels, count={}", result.totalCount());
+            return result;
+        } catch (IOException e) {
+            logger.error("Failed to list labels for user: {}", userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to list labels for user: %s", userId), e
+            );
+        }
+    }
+
+    /**
+     * Returns the full detail of the specified label including counts and color.
+     * Delegates to the repository, which calls {@code users.labels.get}.
+     *
+     * @param userId  the Gmail user identifier; typically "me"
+     * @param labelId the Gmail label identifier
+     * @return a {@link LabelDetailResult} with all fields
+     * @throws ResourceNotFoundException if the label does not exist (Gmail 404)
+     * @throws GmailApiException if the Gmail API returns an error
+     */
+    public LabelDetailResult getLabel(String userId, String labelId) throws GmailApiException {
+        try {
+            LabelDetailResult result = gmailRepository.getLabel(userId, labelId);
+            logger.info("Label operation: op=getLabel, labelId={}", labelId);
+            return result;
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (IOException e) {
+            logger.error("Failed to get label labelId={} for user: {}", labelId, userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to get label %s for user: %s", labelId, userId), e
+            );
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Feature 004 — US4: Attachment service methods (T066)
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Returns attachment metadata for all attachments on the specified message.
+     * Delegates to the repository, which calls {@code users.messages.get format=FULL}
+     * (5 quota units) and walks the MIME part tree.
+     *
+     * <p>When the message exists but has no attachments, returns an
+     * {@link AttachmentListResult} with an empty list — never throws a
+     * {@link ResourceNotFoundException} in that case (FR-024).</p>
+     *
+     * <p><strong>Logging</strong>: only {@code op}, {@code messageId}, and
+     * {@code attachmentCount} are logged — never filename or mimeType (FR-032).</p>
+     *
+     * @param userId    the Gmail user identifier; typically "me"
+     * @param messageId the Gmail message identifier
+     * @return an {@link AttachmentListResult}; {@code attachments} is empty when none present
+     * @throws ResourceNotFoundException if the message does not exist (Gmail 404)
+     * @throws GmailApiException if the Gmail API returns an error
+     */
+    public AttachmentListResult listAttachments(String userId, String messageId) throws GmailApiException {
+        try {
+            AttachmentListResult result = gmailRepository.listAttachments(userId, messageId);
+            logger.info("Attachment operation: op=listAttachments, messageId={}, attachmentCount={}",
+                    messageId, result.attachments().size());
+            return result;
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (IOException e) {
+            logger.error("Failed to list attachments for messageId={} for user: {}", messageId, userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to list attachments for messageId: %s for user: %s", messageId, userId), e
+            );
+        }
+    }
+
+    /**
+     * Returns a {@link StreamingResponseBody} wrapping the raw binary content of the
+     * specified attachment. Delegates to the repository, which calls
+     * {@code users.messages.attachments.get} (5 quota units) synchronously and captures
+     * the decoded bytes in the lambda closure (research.md Decision 6, Option A).
+     *
+     * <p><strong>Logging</strong>: only {@code op}, {@code messageId}, and
+     * {@code attachmentId} are logged — never filename, mimeType, or binary content
+     * (FR-032).</p>
+     *
+     * @param userId       the Gmail user identifier; typically "me"
+     * @param messageId    the Gmail message identifier
+     * @param attachmentId the Gmail attachment identifier
+     * @return a {@link StreamingResponseBody} whose closure holds the decoded bytes
+     * @throws ResourceNotFoundException if the message or attachment does not exist
+     * @throws GmailApiException if the Gmail API returns an error
+     */
+    public StreamingResponseBody getAttachment(String userId, String messageId,
+                                               String attachmentId) throws GmailApiException {
+        try {
+            StreamingResponseBody stream = gmailRepository.getAttachment(userId, messageId, attachmentId);
+            logger.info("Attachment operation: op=getAttachment, messageId={}, attachmentId={}",
+                    messageId, attachmentId);
+            return stream;
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (IOException e) {
+            logger.error("Failed to get attachment for messageId={}, attachmentId={} for user: {}",
+                    messageId, attachmentId, userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to get attachment for messageId: %s, attachmentId: %s for user: %s",
+                            messageId, attachmentId, userId), e
             );
         }
     }

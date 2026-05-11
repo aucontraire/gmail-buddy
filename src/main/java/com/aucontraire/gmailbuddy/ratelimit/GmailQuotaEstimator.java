@@ -38,6 +38,16 @@ public class GmailQuotaEstimator {
     private static final int DRAFTS_DELETE_QUOTA = 10;
     private static final int DRAFTS_UPDATE_QUOTA = 15;
 
+    // New read-API quota constants (feature 004 — US1)
+    private static final int THREADS_LIST_QUOTA = 10;
+    private static final int THREADS_GET_QUOTA = 10;
+    private static final int MESSAGES_GET_FULL_QUOTA = 10;
+    private static final int MESSAGES_GET_METADATA_QUOTA = 5;
+    private static final int LABELS_LIST_QUOTA = 1;
+    private static final int LABELS_GET_QUOTA = 1;
+    private static final int ATTACHMENTS_LIST_QUOTA = 5;
+    private static final int ATTACHMENTS_GET_QUOTA = 5;
+
     /**
      * Estimates quota usage for listing messages.
      *
@@ -243,5 +253,88 @@ public class GmailQuotaEstimator {
     public int estimateUpdateDraftQuota() {
         logger.debug("Estimated quota for updating draft: {} units", DRAFTS_UPDATE_QUOTA);
         return DRAFTS_UPDATE_QUOTA;
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 004 — Read API: threads, message detail, labels, attachments
+    // -------------------------------------------------------------------------
+
+    /**
+     * Estimates quota for listing threads (users.threads.list).
+     * Flat 10 units regardless of page size — no per-item enrichment (Clarifications Q1).
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateListThreadsQuota() {
+        logger.debug("Estimated quota for listing threads: {} units", THREADS_LIST_QUOTA);
+        return THREADS_LIST_QUOTA;
+    }
+
+    /**
+     * Estimates quota for getting a thread (users.threads.get, format=FULL).
+     * 10 units.
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateGetThreadQuota() {
+        logger.debug("Estimated quota for getting thread: {} units", THREADS_GET_QUOTA);
+        return THREADS_GET_QUOTA;
+    }
+
+    /**
+     * Estimates quota for getting message detail.
+     * 10 units for format=full; 5 units for format=metadata.
+     *
+     * @param format the requested format ("full" or "metadata")
+     * @return Estimated quota units consumed
+     */
+    public int estimateGetMessageDetailQuota(String format) {
+        int quota = "metadata".equals(format) ? MESSAGES_GET_METADATA_QUOTA : MESSAGES_GET_FULL_QUOTA;
+        logger.debug("Estimated quota for getting message detail (format={}): {} units", format, quota);
+        return quota;
+    }
+
+    /**
+     * Estimates quota for listing labels (users.labels.list).
+     * 1 unit.
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateListLabelsQuota() {
+        logger.debug("Estimated quota for listing labels: {} units", LABELS_LIST_QUOTA);
+        return LABELS_LIST_QUOTA;
+    }
+
+    /**
+     * Estimates quota for getting a label (users.labels.get).
+     * 1 unit.
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateGetLabelQuota() {
+        logger.debug("Estimated quota for getting label: {} units", LABELS_GET_QUOTA);
+        return LABELS_GET_QUOTA;
+    }
+
+    /**
+     * Estimates quota for listing attachments on a message (users.messages.get, format=FULL).
+     * 5 units.
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateListAttachmentsQuota() {
+        logger.debug("Estimated quota for listing attachments: {} units", ATTACHMENTS_LIST_QUOTA);
+        return ATTACHMENTS_LIST_QUOTA;
+    }
+
+    /**
+     * Estimates quota for downloading a single attachment (users.messages.attachments.get).
+     * 5 units.
+     *
+     * @return Estimated quota units consumed
+     */
+    public int estimateGetAttachmentQuota() {
+        logger.debug("Estimated quota for getting attachment: {} units", ATTACHMENTS_GET_QUOTA);
+        return ATTACHMENTS_GET_QUOTA;
     }
 }
