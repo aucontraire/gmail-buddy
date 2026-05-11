@@ -9,6 +9,7 @@ import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
 import com.aucontraire.gmailbuddy.exception.RateLimitException;
 import com.aucontraire.gmailbuddy.exception.ServiceUnavailableException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
+import com.aucontraire.gmailbuddy.service.GmailQueryBuilder;
 import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.google.api.client.googleapis.json.GoogleJsonError;
@@ -75,6 +76,7 @@ class GmailRepositoryImplThreadingTest {
     @Mock private TokenProvider tokenProvider;
     @Mock private GmailBuddyProperties properties;
     @Mock private GmailMessageMapper gmailMessageMapper;
+    @Mock private GmailQueryBuilder gmailQueryBuilder;
 
     // Gmail API call chain: Gmail → Users → Messages → Get
     @Mock private Gmail gmail;
@@ -87,7 +89,7 @@ class GmailRepositoryImplThreadingTest {
     @BeforeEach
     void setUp() {
         repository = new GmailRepositoryImpl(
-                gmailClient, gmailBatchClient, tokenProvider, properties, gmailMessageMapper);
+                gmailClient, gmailBatchClient, tokenProvider, properties, gmailMessageMapper, gmailQueryBuilder);
     }
 
     // -------------------------------------------------------------------------

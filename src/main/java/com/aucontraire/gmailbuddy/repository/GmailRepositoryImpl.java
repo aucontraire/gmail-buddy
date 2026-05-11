@@ -3,6 +3,7 @@ package com.aucontraire.gmailbuddy.repository;
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
+import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.exception.AuthorizationException;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
@@ -19,7 +20,14 @@ import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
 import com.aucontraire.gmailbuddy.service.DraftDetailResult;
 import com.aucontraire.gmailbuddy.service.DraftListResult;
+import com.aucontraire.gmailbuddy.service.GmailQueryBuilder;
+import com.aucontraire.gmailbuddy.service.LabelDetailResult;
+import com.aucontraire.gmailbuddy.service.LabelListResult;
+import com.aucontraire.gmailbuddy.service.MessageDetailResult;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
+import com.aucontraire.gmailbuddy.service.ThreadDetailResult;
+import com.aucontraire.gmailbuddy.service.ThreadListResult;
+import com.aucontraire.gmailbuddy.service.AttachmentListResult;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
@@ -31,12 +39,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.SocketTimeoutException;
 import java.security.GeneralSecurityException;
 import java.util.*;
+import java.util.Base64;
 
 @Component
 public class GmailRepositoryImpl implements GmailRepository {
@@ -46,17 +57,20 @@ public class GmailRepositoryImpl implements GmailRepository {
     private final TokenProvider tokenProvider;
     private final GmailBuddyProperties properties;
     private final GmailMessageMapper gmailMessageMapper;
+    private final GmailQueryBuilder gmailQueryBuilder;
     private final Logger logger = LoggerFactory.getLogger(GmailRepositoryImpl.class);
 
     @Autowired
     public GmailRepositoryImpl(GmailClient gmailClient, GmailBatchClient gmailBatchClient,
                               TokenProvider tokenProvider, GmailBuddyProperties properties,
-                              GmailMessageMapper gmailMessageMapper) {
+                              GmailMessageMapper gmailMessageMapper,
+                              GmailQueryBuilder gmailQueryBuilder) {
         this.gmailClient = gmailClient;
         this.gmailBatchClient = gmailBatchClient;
         this.tokenProvider = tokenProvider;
         this.properties = properties;
         this.gmailMessageMapper = gmailMessageMapper;
+        this.gmailQueryBuilder = gmailQueryBuilder;
     }
 
     private Gmail getGmailService() throws IOException, GeneralSecurityException {
@@ -393,6 +407,247 @@ public class GmailRepositoryImpl implements GmailRepository {
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 004 — US1: Thread list + detail (T023)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns a paginated list of thread summaries matching the given filter criteria.
+     * Calls {@code users.threads.list} once; no per-item enrichment (flat 10-unit quota cost
+     * per Clarifications Q1). Each stub thread is mapped to a {@link com.aucontraire.gmailbuddy.dto.response.ThreadSummary}
+     * via {@link GmailMessageMapper#toThreadSummary}.
+     *
+     * @param userId         the Gmail user identifier; typically "me"
+     * @param filterCriteria filter criteria from query parameters; null for no filter
+     * @param pageToken      opaque token from a prior response, or null for the first page
+     * @param limit          maximum number of items to return (1–100)
+     * @return a {@link ThreadListResult} with thread summaries and pagination state
+     * @throws IOException on Gmail API communication failure
+     */
+    @Override
+    public ThreadListResult listThreads(String userId, FilterCriteriaDTO filterCriteria,
+                                        String pageToken, int limit) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+
+            // Build Gmail query string from filter criteria
+            String query = buildQueryFromFilter(filterCriteria);
+
+            Gmail.Users.Threads.List listRequest = gmail.users().threads()
+                    .list(userId)
+                    .setMaxResults((long) limit);
+
+            if (query != null && !query.isBlank()) {
+                listRequest.setQ(query);
+            }
+            if (pageToken != null && !pageToken.isBlank()) {
+                listRequest.setPageToken(pageToken);
+            }
+
+            com.google.api.services.gmail.model.ListThreadsResponse response = listRequest.execute();
+
+            java.util.List<com.google.api.services.gmail.model.Thread> stubs = response.getThreads();
+            String nextPageToken = response.getNextPageToken();
+            Integer totalCount = response.getResultSizeEstimate() != null
+                    ? response.getResultSizeEstimate().intValue() : null;
+
+            java.util.List<com.aucontraire.gmailbuddy.dto.response.ThreadSummary> summaries;
+            if (stubs == null || stubs.isEmpty()) {
+                summaries = List.of();
+            } else {
+                summaries = stubs.stream()
+                        .map(gmailMessageMapper::toThreadSummary)
+                        .toList();
+            }
+
+            logger.info("Listed threads: op=listThreads, count={}", summaries.size());
+            return new ThreadListResult(summaries, nextPageToken, totalCount);
+
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    /**
+     * Returns the full content of the specified thread including all nested messages.
+     * Calls {@code users.threads.get} with format=FULL. Maps via
+     * {@link GmailMessageMapper#toThreadDetailResult}. On Gmail 404, throws
+     * {@link ResourceNotFoundException}.
+     *
+     * @param userId   the Gmail user identifier; typically "me"
+     * @param threadId the Gmail thread identifier
+     * @return a {@link ThreadDetailResult} with all messages and union label set
+     * @throws ResourceNotFoundException if the thread does not exist (Gmail 404)
+     * @throws IOException on Gmail API communication failure
+     */
+    @Override
+    public ThreadDetailResult getThread(String userId, String threadId) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+
+            com.google.api.services.gmail.model.Thread thread = gmail.users().threads()
+                    .get(userId, threadId)
+                    .setFormat("FULL")
+                    .execute();
+
+            logger.info("Got thread: op=getThread, threadId={}, messageCount={}",
+                    threadId, thread.getMessages() != null ? thread.getMessages().size() : 0);
+            return gmailMessageMapper.toThreadDetailResult(thread);
+
+        } catch (GoogleJsonResponseException e) {
+            if (e.getStatusCode() == 404) {
+                throw new ResourceNotFoundException(
+                        "Thread not found: " + threadId, e);
+            }
+            logger.error("Gmail API error getting thread threadId={}: status={}, message={}",
+                    threadId, e.getStatusCode(), e.getMessage());
+            throw e;
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    /**
+     * Returns the full structured detail of the specified message.
+     *
+     * <p>When {@code format} is {@code "full"}, calls {@code users.messages.get} with
+     * {@code format=FULL} (10 quota units). When {@code format} is {@code "metadata"},
+     * calls with {@code format=METADATA} and {@link GmailMessageMapper#WHITELISTED_HEADERS_LIST}
+     * to limit Gmail's response to the 9 whitelisted headers (5 quota units, per
+     * research.md Decision 1). Maps the result via {@link GmailMessageMapper#toMessageDetailResult}.
+     * On Gmail 404 throws {@link ResourceNotFoundException}.</p>
+     *
+     * @param userId    the Gmail user identifier; typically "me"
+     * @param messageId the Gmail message identifier
+     * @param format    {@code "full"} for body + headers (default); {@code "metadata"} for headers only
+     * @return a {@link MessageDetailResult} with all fields; body is null when format=metadata
+     * @throws ResourceNotFoundException if the message does not exist (Gmail 404)
+     * @throws IOException on Gmail API communication failure
+     */
+    @Override
+    public MessageDetailResult getMessageDetail(String userId, String messageId, String format) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+
+            boolean metadataOnly = "metadata".equalsIgnoreCase(format);
+
+            Gmail.Users.Messages.Get getRequest = gmail.users().messages()
+                    .get(userId, messageId);
+
+            if (metadataOnly) {
+                getRequest.setFormat("METADATA")
+                        .setMetadataHeaders(GmailMessageMapper.WHITELISTED_HEADERS_LIST);
+            } else {
+                getRequest.setFormat("FULL");
+            }
+
+            Message message = getRequest.execute();
+
+            MessageDetailResult result = gmailMessageMapper.toMessageDetailResult(message, format);
+            logger.info("Got message detail: op=getMessageDetail, messageId={}, format={}, attachmentCount={}",
+                    messageId, format, result.attachments().size());
+            return result;
+
+        } catch (GoogleJsonResponseException e) {
+            if (e.getStatusCode() == 404) {
+                throw new ResourceNotFoundException(
+                        "Message not found: " + messageId, e);
+            }
+            logger.error("Gmail API error getting message detail messageId={}: status={}, message={}",
+                    messageId, e.getStatusCode(), e.getMessage());
+            throw e;
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 004 — US3: Label list + detail (T050)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns all visible labels for the authenticated user.
+     * Calls {@code users.labels.list} once; no per-item enrichment.
+     * Returns a {@link LabelListResult} with all labels and their totalCount.
+     *
+     * @param userId the Gmail user identifier; typically "me"
+     * @return a LabelListResult with all labels; labels list is never null
+     * @throws IOException on Gmail API communication failure
+     */
+    @Override
+    public LabelListResult listLabels(String userId) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+            ListLabelsResponse response = gmail.users().labels().list(userId).execute();
+
+            List<Label> rawLabels = response.getLabels();
+            if (rawLabels == null || rawLabels.isEmpty()) {
+                return new LabelListResult(List.of(), 0);
+            }
+
+            List<com.aucontraire.gmailbuddy.dto.response.LabelSummary> summaries = rawLabels.stream()
+                    .map(gmailMessageMapper::toLabelSummary)
+                    .toList();
+
+            logger.info("Listed labels: op=listLabels, count={}", summaries.size());
+            return new LabelListResult(summaries, summaries.size());
+
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    /**
+     * Returns the full detail of the specified label including counts and color.
+     * Calls {@code users.labels.get} with the given labelId.
+     * On 404, throws {@link ResourceNotFoundException}.
+     *
+     * @param userId  the Gmail user identifier; typically "me"
+     * @param labelId the Gmail label identifier
+     * @return a LabelDetailResult with all fields populated
+     * @throws ResourceNotFoundException if the label does not exist (Gmail 404)
+     * @throws IOException on Gmail API communication failure
+     */
+    @Override
+    public LabelDetailResult getLabel(String userId, String labelId) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+            Label label = gmail.users().labels().get(userId, labelId).execute();
+
+            LabelDetailResult result = gmailMessageMapper.toLabelDetailResult(label);
+            logger.info("Got label: op=getLabel, labelId={}", labelId);
+            return result;
+
+        } catch (GoogleJsonResponseException e) {
+            if (e.getStatusCode() == 404) {
+                throw new ResourceNotFoundException("Label not found: " + labelId, e);
+            }
+            logger.error("Gmail API error getting label labelId={}: status={}, message={}",
+                    labelId, e.getStatusCode(), e.getMessage());
+            throw e;
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    /**
+     * Builds a Gmail query string from the given filter criteria DTO.
+     * Mirrors the query-building logic in {@code GmailService.buildQuery(FilterCriteriaDTO)}.
+     */
+    private String buildQueryFromFilter(FilterCriteriaDTO filterCriteria) {
+        if (filterCriteria == null) {
+            return null;
+        }
+        String from = gmailQueryBuilder.from(filterCriteria.getFrom());
+        String to = filterCriteria.getTo() != null ? gmailQueryBuilder.to(filterCriteria.getTo()) : "";
+        String subject = filterCriteria.getSubject() != null ? gmailQueryBuilder.subject(filterCriteria.getSubject()) : "";
+        String hasAttachment = filterCriteria.getHasAttachment() != null
+                ? gmailQueryBuilder.hasAttachment(filterCriteria.getHasAttachment()) : "";
+        String additionalQuery = filterCriteria.getQuery() != null ? gmailQueryBuilder.query(filterCriteria.getQuery()) : "";
+        String negatedQuery = filterCriteria.getNegatedQuery() != null ? gmailQueryBuilder.negatedQuery(filterCriteria.getNegatedQuery()) : "";
+        return gmailQueryBuilder.build(from, to, subject, hasAttachment, additionalQuery, negatedQuery);
     }
 
     // -------------------------------------------------------------------------
@@ -1018,5 +1273,117 @@ public class GmailRepositoryImpl implements GmailRepository {
                 "Gmail API error during original-message lookup "
                         + "(messageId=" + messageId + "): HTTP " + statusCode,
                 e);
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 004 — US4: List attachments + download attachment (T064, T065)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns an {@link AttachmentListResult} for the specified message by fetching the
+     * full message ({@code users.messages.get format=FULL}) and walking its MIME part tree
+     * to collect all attachment parts (identified by non-null {@code body.attachmentId}
+     * per research.md Decision 12).
+     *
+     * <p>When the message exists but has no attachments, the result contains
+     * {@code List.of()} — not a 404 (FR-024).</p>
+     *
+     * @param userId    the Gmail user identifier; typically "me"
+     * @param messageId the Gmail message identifier
+     * @return an {@link AttachmentListResult} with zero or more metadata items
+     * @throws ResourceNotFoundException if the message does not exist (Gmail 404)
+     * @throws IOException on Gmail API communication failure
+     */
+    @Override
+    public AttachmentListResult listAttachments(String userId, String messageId) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+
+            Message message = gmail.users().messages()
+                    .get(userId, messageId)
+                    .setFormat("full")
+                    .execute();
+
+            AttachmentListResult result = gmailMessageMapper.toAttachmentListResult(message);
+            logger.info("Attachment operation: op=listAttachments, messageId={}, attachmentCount={}",
+                    messageId, result.attachments().size());
+            return result;
+
+        } catch (GoogleJsonResponseException e) {
+            if (e.getStatusCode() == 404) {
+                throw new ResourceNotFoundException(
+                        "Message not found: " + messageId, e);
+            }
+            logger.error("Gmail API error listing attachments for messageId={}: status={}, message={}",
+                    messageId, e.getStatusCode(), e.getMessage());
+            throw e;
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    /**
+     * Returns a {@link StreamingResponseBody} that writes the decoded binary content of
+     * the specified attachment when Spring invokes its {@code writeTo(OutputStream)} method.
+     *
+     * <p>Per research.md Decision 6, Option A: the Gmail API call
+     * ({@code users.messages.attachments.get}) is executed <em>synchronously in this
+     * method body</em> before the lambda is returned. The decoded {@code byte[]} is captured
+     * in the lambda closure. This ensures any Gmail 404 (message or attachment not found)
+     * surfaces before the HTTP response status is committed — allowing Spring MVC to return
+     * a proper 404 {@code ProblemDetail} rather than a mid-stream 500.</p>
+     *
+     * <p>The base64url decoding is applied via {@link java.util.Base64#getUrlDecoder()}
+     * per research.md Decision 6 and FR-027. {@code Content-Length} should be set to
+     * {@code decoded.length} (not Gmail's {@code MessagePartBody.getSize()}) per the
+     * research.md open follow-up on base64 padding differences.</p>
+     *
+     * @param userId       the Gmail user identifier; typically "me"
+     * @param messageId    the Gmail message identifier
+     * @param attachmentId the Gmail attachment identifier
+     * @return a {@link StreamingResponseBody} whose closure holds the decoded bytes
+     * @throws ResourceNotFoundException if the message or attachment does not exist
+     * @throws IOException on Gmail API communication failure
+     */
+    @Override
+    public StreamingResponseBody getAttachment(String userId, String messageId,
+                                               String attachmentId) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+
+            MessagePartBody body = gmail.users().messages().attachments()
+                    .get(userId, messageId, attachmentId)
+                    .execute();
+
+            String data = body.getData();
+            if (data == null) {
+                // Gmail returned a body with no data (should not occur for valid attachments).
+                throw new ResourceNotFoundException(
+                        "Attachment data is empty for messageId=" + messageId
+                                + ", attachmentId=" + attachmentId);
+            }
+
+            // Decode from base64url to raw bytes (Option A — synchronous, before lambda fires)
+            byte[] decoded = java.util.Base64.getUrlDecoder().decode(data);
+
+            logger.info("Attachment operation: op=getAttachment, messageId={}, attachmentId={}",
+                    messageId, attachmentId);
+
+            // Return a lambda that simply writes the pre-decoded bytes to the output stream.
+            // The lambda closes over the decoded byte array; no additional I/O occurs at write time.
+            return (OutputStream outputStream) -> outputStream.write(decoded);
+
+        } catch (GoogleJsonResponseException e) {
+            if (e.getStatusCode() == 404) {
+                throw new ResourceNotFoundException(
+                        "Attachment not found: messageId=" + messageId
+                                + ", attachmentId=" + attachmentId, e);
+            }
+            logger.error("Gmail API error getting attachment for messageId={}, attachmentId={}: status={}, message={}",
+                    messageId, attachmentId, e.getStatusCode(), e.getMessage());
+            throw e;
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
     }
 }

@@ -223,4 +223,56 @@ class GmailQuotaEstimatorTest {
         assertEquals(15, estimator.estimateUpdateDraftQuota(),
                 "Update draft should cost 15 quota units");
     }
+
+    // =========================================================================
+    // T012 — Phase 3 US1: Thread quota estimator tests
+    // =========================================================================
+
+    @Test
+    void estimateListThreadsQuota_returnsTen() {
+        assertEquals(10, estimator.estimateListThreadsQuota(),
+                "List threads should cost 10 quota units (flat regardless of page size)");
+    }
+
+    @Test
+    void estimateGetThreadQuota_returnsTen() {
+        assertEquals(10, estimator.estimateGetThreadQuota(),
+                "Get thread should cost 10 quota units (users.threads.get with format=FULL)");
+    }
+
+    @Test
+    void estimateGetMessageDetailQuota_formatFull_returnsTen() {
+        assertEquals(10, estimator.estimateGetMessageDetailQuota("full"),
+                "Get message detail with format=full should cost 10 quota units");
+    }
+
+    @Test
+    void estimateGetMessageDetailQuota_formatMetadata_returnsFive() {
+        assertEquals(5, estimator.estimateGetMessageDetailQuota("metadata"),
+                "Get message detail with format=metadata should cost 5 quota units");
+    }
+
+    @Test
+    void estimateListLabelsQuota_returnsOne() {
+        assertEquals(1, estimator.estimateListLabelsQuota(),
+                "List labels should cost 1 quota unit");
+    }
+
+    @Test
+    void estimateGetLabelQuota_returnsOne() {
+        assertEquals(1, estimator.estimateGetLabelQuota(),
+                "Get label should cost 1 quota unit");
+    }
+
+    @Test
+    void estimateListAttachmentsQuota_returnsFive() {
+        assertEquals(5, estimator.estimateListAttachmentsQuota(),
+                "List attachments should cost 5 quota units");
+    }
+
+    @Test
+    void estimateGetAttachmentQuota_returnsFive() {
+        assertEquals(5, estimator.estimateGetAttachmentQuota(),
+                "Get attachment should cost 5 quota units");
+    }
 }

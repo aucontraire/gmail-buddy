@@ -9,8 +9,9 @@ import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
-import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
+import com.aucontraire.gmailbuddy.service.GmailQueryBuilder;
+import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.ListMessagesResponse;
 import com.google.api.services.gmail.model.Message;
@@ -64,6 +65,9 @@ class GmailRepositoryImplTest {
     private GmailMessageMapper gmailMessageMapper;
 
     @Mock
+    private GmailQueryBuilder gmailQueryBuilder;
+
+    @Mock
     private Gmail gmail;
 
     @Mock
@@ -96,7 +100,7 @@ class GmailRepositoryImplTest {
 
     @BeforeEach
     void setUp() {
-        repository = new GmailRepositoryImpl(gmailClient, gmailBatchClient, tokenProvider, properties, gmailMessageMapper);
+        repository = new GmailRepositoryImpl(gmailClient, gmailBatchClient, tokenProvider, properties, gmailMessageMapper, gmailQueryBuilder);
 
         repositoryLogger = (Logger) LoggerFactory.getLogger(GmailRepositoryImpl.class);
         repositoryLogger.setLevel(Level.DEBUG);

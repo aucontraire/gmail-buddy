@@ -232,6 +232,7 @@ class RateLimitInterceptorTest {
 
     @Test
     void testPreHandle_getMessageEndpoint() {
+        // GET /messages/{id} now routes to estimateGetMessageDetailQuota (Feature 004 US2 T035)
         // Arrange
         when(securityContext.getAuthentication()).thenReturn(authentication);
         when(authentication.isAuthenticated()).thenReturn(true);
@@ -240,14 +241,15 @@ class RateLimitInterceptorTest {
         when(rateLimitService.recordRequest(anyString())).thenReturn(mockRateLimitInfo);
         when(request.getRequestURI()).thenReturn("/api/v1/gmail/messages/msg123");
         when(request.getMethod()).thenReturn("GET");
-        when(quotaEstimator.estimateGetMessageQuota()).thenReturn(5);
+        when(request.getParameter("format")).thenReturn(null); // default → full
+        when(quotaEstimator.estimateGetMessageDetailQuota("full")).thenReturn(10);
 
         // Act
         interceptor.preHandle(request, response, new Object());
 
-        // Assert
-        verify(quotaEstimator).estimateGetMessageQuota();
-        verify(request).setAttribute(ResponseHeaderFilter.ATTR_GMAIL_QUOTA_USED, 5);
+        // Assert: routes to estimateGetMessageDetailQuota with "full" (format=null defaults to full)
+        verify(quotaEstimator).estimateGetMessageDetailQuota("full");
+        verify(request).setAttribute(ResponseHeaderFilter.ATTR_GMAIL_QUOTA_USED, 10);
     }
 
     @Test
@@ -375,5 +377,83 @@ class RateLimitInterceptorTest {
         // Assert: falls back to non-threaded estimate
         assertEquals(100, quota);
         verify(quotaEstimator).estimateSendMessageQuota();
+    }
+
+    // =========================================================================
+    // Feature 004 — US3: Label routing tests (T052)
+    // =========================================================================
+
+    @Test
+    @DisplayName("estimateQuotaForEndpoint — GET /labels routes to estimateListLabelsQuota (1 unit)")
+    void estimateQuotaForEndpoint_getLabels_routesToListLabelsQuota() {
+        when(quotaEstimator.estimateListLabelsQuota()).thenReturn(1);
+
+        int quota = interceptor.estimateQuotaForEndpoint(request, "/api/v1/gmail/labels", "GET");
+
+        assertEquals(1, quota);
+        verify(quotaEstimator).estimateListLabelsQuota();
+    }
+
+    @Test
+    @DisplayName("estimateQuotaForEndpoint — GET /labels/{id} routes to estimateGetLabelQuota (1 unit)")
+    void estimateQuotaForEndpoint_getLabelById_routesToGetLabelQuota() {
+        when(quotaEstimator.estimateGetLabelQuota()).thenReturn(1);
+
+        int quota = interceptor.estimateQuotaForEndpoint(request, "/api/v1/gmail/labels/INBOX", "GET");
+
+        assertEquals(1, quota);
+        verify(quotaEstimator).estimateGetLabelQuota();
+    }
+
+    @Test
+    @DisplayName("estimateQuotaForEndpoint — GET /labels/{id} for user label routes to estimateGetLabelQuota (1 unit)")
+    void estimateQuotaForEndpoint_getUserLabelById_routesToGetLabelQuota() {
+        when(quotaEstimator.estimateGetLabelQuota()).thenReturn(1);
+
+        int quota = interceptor.estimateQuotaForEndpoint(request, "/api/v1/gmail/labels/Label_42", "GET");
+
+        assertEquals(1, quota);
+        verify(quotaEstimator).estimateGetLabelQuota();
+    }
+
+    // =========================================================================
+    // Feature 004 — US4: Attachment routing tests (T057)
+    // =========================================================================
+
+    @Test
+    @DisplayName("estimateQuotaForEndpoint — GET /messages/{id}/attachments routes to estimateListAttachmentsQuota (5 units)")
+    void estimateQuotaForEndpoint_getMessageAttachments_routesToListAttachmentsQuota() {
+        when(quotaEstimator.estimateListAttachmentsQuota()).thenReturn(5);
+
+        int quota = interceptor.estimateQuotaForEndpoint(
+                request, "/api/v1/gmail/messages/1a2b3c4d5e6f7890/attachments", "GET");
+
+        assertEquals(5, quota);
+        verify(quotaEstimator).estimateListAttachmentsQuota();
+    }
+
+    @Test
+    @DisplayName("estimateQuotaForEndpoint — GET /messages/{id}/attachments/{attachId} routes to estimateGetAttachmentQuota (5 units)")
+    void estimateQuotaForEndpoint_getAttachmentById_routesToGetAttachmentQuota() {
+        when(quotaEstimator.estimateGetAttachmentQuota()).thenReturn(5);
+
+        int quota = interceptor.estimateQuotaForEndpoint(
+                request, "/api/v1/gmail/messages/1a2b3c4d5e6f7890/attachments/ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx", "GET");
+
+        assertEquals(5, quota);
+        verify(quotaEstimator).estimateGetAttachmentQuota();
+    }
+
+    @Test
+    @DisplayName("estimateQuotaForEndpoint — attachment list endpoint does NOT match message detail pattern")
+    void estimateQuotaForEndpoint_attachmentListDoesNotMatchMessageDetail() {
+        when(quotaEstimator.estimateListAttachmentsQuota()).thenReturn(5);
+        // This should match attachment list (5 units), NOT message detail (10 units)
+        int quota = interceptor.estimateQuotaForEndpoint(
+                request, "/api/v1/gmail/messages/1a2b3c4d5e6f7890/attachments", "GET");
+
+        assertEquals(5, quota);
+        verify(quotaEstimator).estimateListAttachmentsQuota();
+        verify(quotaEstimator, never()).estimateGetMessageDetailQuota(anyString());
     }
 }
