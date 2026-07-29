@@ -17,7 +17,7 @@ jobs:
   build:
     name: Build and Test
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       # Dummy OAuth2 credentials so the Spring context can load without real Google secrets.
       # application.properties falls back to these via ${GOOGLE_CLIENT_ID:YOUR_CLIENT_ID} style
@@ -37,10 +37,11 @@ jobs:
 
       - name: Build and test (verify)
         run: ./mvnw -B -ntp verify
-        # Step-level cap (not just job-level) so the always() report/upload steps below still
-        # run on a hang, surfacing which tests completed vs. stalled. Generous enough for a
-        # cold-cache run on a 2-core runner; a true hang trips it and we get diagnostics.
-        timeout-minutes: 25
+        # Step-level cap set WELL below the job cap (45) so it always fires first — a step
+        # timeout fails just this step, letting the always() upload steps run and capture the
+        # surefire reports (a job-level timeout is a hard kill that skips them). 20 min is enough
+        # to see how far the suite got: broad progress = slow, stalled early = a hung test.
+        timeout-minutes: 20
 
       - name: Publish JUnit test summary
         uses: mikepenz/action-junit-report@v4
