@@ -36,7 +36,11 @@ jobs:
           cache: maven
 
       - name: Build and test (verify)
-        run: ./mvnw -B -ntp verify
+        # -Dsurefire.timeout=900: Maven self-terminates the forked test JVM at 15 min and writes a
+        # thread dump (target/surefire-reports/*.dumpstream) naming the stuck test — reliable where
+        # GitHub's step timeout-minutes doesn't kill a blocked process. Produces a NORMAL build
+        # failure (retrievable log + always() artifacts). Diagnostic value; tune/remove once green.
+        run: ./mvnw -B -ntp verify -Dsurefire.timeout=900
         # Step-level cap set WELL below the job cap (45) so it always fires first — a step
         # timeout fails just this step, letting the always() upload steps run and capture the
         # surefire reports (a job-level timeout is a hard kill that skips them). 20 min is enough
