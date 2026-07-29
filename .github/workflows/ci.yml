@@ -35,17 +35,17 @@ jobs:
           java-version: '17'
           cache: maven
 
+      # JavaMail's MimeMessage.saveChanges() builds a Message-ID via
+      # InetAddress.getLocalHost().getHostName(). GitHub runners don't map their hostname in
+      # /etc/hosts, so that reverse-DNS lookup blocks in a native syscall — hanging the send/draft
+      # tests indefinitely (uninterruptible, so step/surefire timeouts can't kill it; only the
+      # job-level SIGKILL does). Map the hostname so the lookup returns instantly.
+      - name: Make hostname resolvable (avoid InetAddress.getLocalHost() hang)
+        run: echo "127.0.1.1 $(hostname)" | sudo tee -a /etc/hosts
+
       - name: Build and test (verify)
-        # -Dsurefire.timeout=900: Maven self-terminates the forked test JVM at 15 min and writes a
-        # thread dump (target/surefire-reports/*.dumpstream) naming the stuck test — reliable where
-        # GitHub's step timeout-minutes doesn't kill a blocked process. Produces a NORMAL build
-        # failure (retrievable log + always() artifacts). Diagnostic value; tune/remove once green.
-        run: ./mvnw -B -ntp verify -Dsurefire.timeout=900
-        # Step-level cap set WELL below the job cap (45) so it always fires first — a step
-        # timeout fails just this step, letting the always() upload steps run and capture the
-        # surefire reports (a job-level timeout is a hard kill that skips them). 20 min is enough
-        # to see how far the suite got: broad progress = slow, stalled early = a hung test.
-        timeout-minutes: 20
+        run: ./mvnw -B -ntp verify
+        timeout-minutes: 30
 
       - name: Publish JUnit test summary
         uses: mikepenz/action-junit-report@v4
