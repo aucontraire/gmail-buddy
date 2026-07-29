@@ -163,6 +163,38 @@
                             <goal>report</goal>
                         </goals>
                     </execution>
+                    <!--
+                        Coverage regression floor (runs in `verify`, which CI executes).
+                        Set a few points under the current baseline (instruction 78.8%,
+                        branch 69.3%) so it blocks meaningful drops without failing on
+                        normal PR variance. Ratchet upward as coverage improves.
+                    -->
+                    <execution>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>INSTRUCTION</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.75</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.65</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
         </plugins>
