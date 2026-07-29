@@ -10,6 +10,7 @@ import com.aucontraire.gmailbuddy.service.LabelDetailResult;
 import com.aucontraire.gmailbuddy.service.LabelListResult;
 import com.aucontraire.gmailbuddy.service.MessageDetailResult;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
+import com.aucontraire.gmailbuddy.dto.response.LabelSummary;
 import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
 import com.aucontraire.gmailbuddy.service.ThreadDetailResult;
@@ -38,6 +39,48 @@ public interface GmailRepository {
     String getMessageBody(String userId, String messageId) throws IOException;
     Map<String, String> getLabels(String userId) throws IOException;
     BulkOperationResult markMessageAsRead(String userId, String messageId) throws IOException;
+
+    /**
+     * Moves each listed message to Trash (recoverable) by adding the {@code TRASH}
+     * system label id via the existing {@code GmailBatchClient.batchModifyLabels}
+     * primitive (feature 005 US1, FR-001).
+     *
+     * @param userId     the Gmail user identifier; typically "me"
+     * @param messageIds the Gmail message identifiers to trash
+     * @return a BulkOperationResult with per-message-id success/failure outcomes
+     * @throws IOException on Gmail API communication failure
+     */
+    BulkOperationResult batchTrashMessages(String userId, List<String> messageIds) throws IOException;
+
+    /**
+     * Restores each listed message from Trash by removing the {@code TRASH}
+     * system label id via the existing {@code GmailBatchClient.batchModifyLabels}
+     * primitive (feature 005 US1, FR-002).
+     *
+     * @param userId     the Gmail user identifier; typically "me"
+     * @param messageIds the Gmail message identifiers to untrash
+     * @return a BulkOperationResult with per-message-id success/failure outcomes
+     * @throws IOException on Gmail API communication failure
+     */
+    BulkOperationResult batchUntrashMessages(String userId, List<String> messageIds) throws IOException;
+
+    /**
+     * Applies/removes raw Gmail label ids on exactly the listed messages via the
+     * existing {@code GmailBatchClient.batchModifyLabels} primitive (feature 005
+     * US2, FR-005). No name-to-id resolution is performed — {@code labelIdsToAdd}
+     * and {@code labelIdsToRemove} are used as-is; an unknown label id surfaces as
+     * a per-message failure in the returned result rather than being silently
+     * dropped (FR-006).
+     *
+     * @param userId            the Gmail user identifier; typically "me"
+     * @param messageIds        the Gmail message identifiers to modify
+     * @param labelIdsToAdd     raw Gmail label ids to add; may be empty
+     * @param labelIdsToRemove  raw Gmail label ids to remove; may be empty
+     * @return a BulkOperationResult with per-message-id success/failure outcomes
+     * @throws IOException on Gmail API communication failure
+     */
+    BulkOperationResult batchModifyLabelsByIds(String userId, List<String> messageIds,
+                                               List<String> labelIdsToAdd, List<String> labelIdsToRemove) throws IOException;
 
     /**
      * Sends a fully-constructed MimeMessage immediately via the Gmail
@@ -243,6 +286,27 @@ public interface GmailRepository {
      * @throws IOException on Gmail API communication failure
      */
     LabelDetailResult getLabel(String userId, String labelId) throws IOException;
+
+    /**
+     * Creates a new Gmail label via {@code users.labels.create} (feature 005 US3, FR-009).
+     * Create-only — no name-resolution lookup of existing labels is performed (FR-010);
+     * if a label with the requested name already exists, Gmail returns HTTP 409 and this
+     * method throws {@link com.aucontraire.gmailbuddy.exception.LabelAlreadyExistsException}
+     * with no mutation performed.
+     *
+     * @param userId                the Gmail user identifier; typically "me"
+     * @param name                  the display name for the new label
+     * @param messageListVisibility Gmail's {@code messageListVisibility}; {@code null} to
+     *                              use Gmail's default
+     * @param labelListVisibility   Gmail's {@code labelListVisibility}; {@code null} to
+     *                              use Gmail's default
+     * @return a {@link LabelSummary} for the newly created label
+     * @throws com.aucontraire.gmailbuddy.exception.LabelAlreadyExistsException
+     *         if a label with this name already exists (Gmail 409)
+     * @throws IOException on Gmail API communication failure
+     */
+    LabelSummary createLabel(String userId, String name, String messageListVisibility,
+                              String labelListVisibility) throws IOException;
 
     /**
      * Fetches the RFC 5322 {@code Message-ID} header and {@code threadId} from the

@@ -1,6 +1,7 @@
 package com.aucontraire.gmailbuddy.mapper;
 
 import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
+import com.aucontraire.gmailbuddy.dto.response.BatchOperationResponse;
 import com.aucontraire.gmailbuddy.dto.response.BulkDeleteResponse;
 import com.aucontraire.gmailbuddy.dto.response.LabelModificationResponse;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
@@ -23,6 +24,15 @@ import java.util.List;
  */
 @Component
 public class ResponseMapper {
+
+    /**
+     * Per-message quota cost of the feature-005 batch-by-id mutation endpoints,
+     * which loop {@code users.messages.modify} (Gmail ~5 units/message; mirrors
+     * {@code GmailQuotaEstimator.MESSAGES_MODIFY_QUOTA}, FR-013). This differs from
+     * the flat ~50-units-per-batch {@code batchDelete} cost used by
+     * {@link #estimateQuotaUsed}.
+     */
+    private static final int MODIFY_QUOTA_PER_MESSAGE = 5;
 
     /**
      * Converts a BulkOperationResult to a BulkDeleteResponse DTO.
@@ -75,6 +85,36 @@ public class ResponseMapper {
             .labelsAdded(labelsAdded)
             .labelsRemoved(labelsRemoved)
             .affectedMessageIds(new ArrayList<>(serviceResult.getSuccessfulOperations()))
+            .metadata(metadata)
+            .build();
+    }
+
+    /**
+     * Converts a BulkOperationResult to a BatchOperationResponse DTO for the
+     * feature-005 batch-by-id endpoints (batchTrash, batchUntrash, batchModifyLabels).
+     *
+     * <p>{@code status} is taken directly from {@link BulkOperationResult#getStatus()}
+     * (SUCCESS/PARTIAL_SUCCESS/FAILURE/NO_RESULTS from the counts), and per-id outcomes
+     * are exposed via {@code successfulOperations}/{@code failedOperations}. Unlike the
+     * flat-fee {@code batchDelete} path, quota is estimated as total operations ×
+     * {@value #MODIFY_QUOTA_PER_MESSAGE} (per-message {@code modify}, FR-013).</p>
+     *
+     * @param serviceResult the result from the service layer containing operation details
+     * @return BatchOperationResponse DTO with status, per-id outcomes, and metadata
+     */
+    public BatchOperationResponse toBatchOperationResponse(BulkOperationResult serviceResult) {
+        ResponseMetadata metadata = ResponseMetadata.builder()
+            .durationMs(serviceResult.getDurationMs())
+            .quotaUsed(serviceResult.getTotalOperations() * MODIFY_QUOTA_PER_MESSAGE)
+            .build();
+
+        return BatchOperationResponse.builder()
+            .status(serviceResult.getStatus())
+            .totalOperations(serviceResult.getTotalOperations())
+            .successCount(serviceResult.getSuccessCount())
+            .failureCount(serviceResult.getFailureCount())
+            .successfulOperations(new ArrayList<>(serviceResult.getSuccessfulOperations()))
+            .failedOperations(new HashMap<>(serviceResult.getFailedOperations()))
             .metadata(metadata)
             .build();
     }

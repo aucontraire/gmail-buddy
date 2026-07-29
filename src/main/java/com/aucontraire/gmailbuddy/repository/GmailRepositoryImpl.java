@@ -8,6 +8,7 @@ import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.exception.AuthorizationException;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
 import com.aucontraire.gmailbuddy.exception.InvalidRecipientException;
+import com.aucontraire.gmailbuddy.exception.LabelAlreadyExistsException;
 import com.aucontraire.gmailbuddy.exception.MessageSendException;
 import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
 import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
@@ -332,6 +333,86 @@ public class GmailRepositoryImpl implements GmailRepository {
         }
     }
 
+    /**
+     * Feature 005 US1 (T010): moves each listed message to Trash by adding the
+     * {@code TRASH} system label id via {@link GmailBatchClient#batchModifyLabels}.
+     * No name-to-id resolution is needed — {@code TRASH} is a fixed Gmail system
+     * label id (FR-001).
+     */
+    @Override
+    public BulkOperationResult batchTrashMessages(String userId, List<String> messageIds) throws IOException {
+        try {
+            var gmail = getGmailService();
+
+            ModifyMessageRequest mods = new ModifyMessageRequest().setAddLabelIds(List.of("TRASH"));
+
+            BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, mods);
+
+            logger.info("Batch trash completed: {} successful, {} failed out of {} total",
+                       result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations());
+
+            return result;
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    /**
+     * Feature 005 US1 (T010): restores each listed message from Trash by removing
+     * the {@code TRASH} system label id via {@link GmailBatchClient#batchModifyLabels}
+     * (FR-002).
+     */
+    @Override
+    public BulkOperationResult batchUntrashMessages(String userId, List<String> messageIds) throws IOException {
+        try {
+            var gmail = getGmailService();
+
+            ModifyMessageRequest mods = new ModifyMessageRequest().setRemoveLabelIds(List.of("TRASH"));
+
+            BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, mods);
+
+            logger.info("Batch untrash completed: {} successful, {} failed out of {} total",
+                       result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations());
+
+            return result;
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    /**
+     * Feature 005 US2 (T018): applies/removes raw Gmail label ids on exactly the
+     * listed messages via {@link GmailBatchClient#batchModifyLabels}. No
+     * name-to-id resolution is performed — contrast with {@link #modifyMessagesLabels}
+     * above, which resolves label names via {@link #getLabelIdList} (FR-006). Empty
+     * add/remove lists are omitted from the {@link ModifyMessageRequest} rather than
+     * passed through as empty/null lists to Gmail.
+     */
+    @Override
+    public BulkOperationResult batchModifyLabelsByIds(String userId, List<String> messageIds,
+                                                       List<String> labelIdsToAdd, List<String> labelIdsToRemove) throws IOException {
+        try {
+            var gmail = getGmailService();
+
+            ModifyMessageRequest mods = new ModifyMessageRequest();
+            if (labelIdsToAdd != null && !labelIdsToAdd.isEmpty()) {
+                mods.setAddLabelIds(labelIdsToAdd);
+            }
+            if (labelIdsToRemove != null && !labelIdsToRemove.isEmpty()) {
+                mods.setRemoveLabelIds(labelIdsToRemove);
+            }
+
+            BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, mods);
+
+            logger.info("Batch modify labels by id completed: {} successful, {} failed out of {} total",
+                       result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations());
+
+            return result;
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
     @Override
     public String getMessageBody(String userId, String messageId) throws IOException {
         try {
@@ -626,6 +707,63 @@ public class GmailRepositoryImpl implements GmailRepository {
             }
             logger.error("Gmail API error getting label labelId={}: status={}, message={}",
                     labelId, e.getStatusCode(), e.getMessage());
+            throw e;
+        } catch (GeneralSecurityException e) {
+            throw new IOException("Security exception creating Gmail service", e);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 005 — US3: Create label (T026)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Creates a new Gmail label via {@code users.labels.create}. Maps the returned Gmail
+     * {@code Label} to a {@link com.aucontraire.gmailbuddy.dto.response.LabelSummary} at
+     * the repository boundary via {@code gmailMessageMapper.toLabelSummary}, mirroring
+     * {@link #getLabel}'s SDK→domain mapping pattern (Constitution II — no Gmail SDK type
+     * leaves this layer).
+     *
+     * <p>Create-only (FR-010): no name resolution or existence lookup is performed before
+     * the call. Gmail's duplicate-name conflict — a {@link GoogleJsonResponseException}
+     * with status 409 — is translated into {@link LabelAlreadyExistsException} with a
+     * generic, name-free message (FR-015); no mutation occurs on that path.</p>
+     *
+     * @param userId                the Gmail user identifier; typically "me"
+     * @param name                  the display name for the new label
+     * @param messageListVisibility Gmail's messageListVisibility; null to use Gmail's default
+     * @param labelListVisibility   Gmail's labelListVisibility; null to use Gmail's default
+     * @return a LabelSummary for the newly created label
+     * @throws LabelAlreadyExistsException if a label with this name already exists (Gmail 409)
+     * @throws IOException on Gmail API communication failure
+     */
+    @Override
+    public com.aucontraire.gmailbuddy.dto.response.LabelSummary createLabel(String userId, String name,
+            String messageListVisibility, String labelListVisibility) throws IOException {
+        try {
+            Gmail gmail = getGmailService();
+
+            // The generated Gmail client marks messageListVisibility and labelListVisibility as
+            // REQUIRED on labels.create — checkRequiredParameter throws IllegalArgumentException
+            // client-side, before any HTTP call, if either is null (even though the REST API itself
+            // defaults them). Default to Gmail's own defaults when the caller omits them so a
+            // name-only create (e.g. buzonero's "pending-purge") succeeds.
+            Label newLabel = new Label()
+                    .setName(name)
+                    .setMessageListVisibility(messageListVisibility != null ? messageListVisibility : "show")
+                    .setLabelListVisibility(labelListVisibility != null ? labelListVisibility : "labelShow");
+
+            Label created = gmail.users().labels().create(userId, newLabel).execute();
+
+            com.aucontraire.gmailbuddy.dto.response.LabelSummary summary = gmailMessageMapper.toLabelSummary(created);
+            logger.info("Created label: op=createLabel, labelId={}", summary.id());
+            return summary;
+
+        } catch (GoogleJsonResponseException e) {
+            if (e.getStatusCode() == 409) {
+                throw new LabelAlreadyExistsException("A label with the requested name already exists");
+            }
+            logger.error("Gmail API error creating label: status={}", e.getStatusCode());
             throw e;
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);

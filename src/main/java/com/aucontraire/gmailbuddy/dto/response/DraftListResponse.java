@@ -21,9 +21,10 @@ public record DraftListResponse(
         List<DraftListItem> results,
 
         @Schema(description = "Token for the next page; null when all results are exhausted",
-                example = "AKmmh...")
+                example = "AKmmh...", nullable = true)
         String nextPageToken,
 
-        @Schema(description = "Estimated total count from Gmail API; may be null", example = "42")
+        @Schema(description = "Estimated total count from Gmail API; null when unavailable",
+                example = "42", nullable = true)
         Integer totalCount
 ) {}

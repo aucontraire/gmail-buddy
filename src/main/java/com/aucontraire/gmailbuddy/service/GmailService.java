@@ -6,9 +6,12 @@ import com.aucontraire.gmailbuddy.dto.DeleteResult;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
+import com.aucontraire.gmailbuddy.dto.response.LabelSummary;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
+import com.aucontraire.gmailbuddy.exception.LabelAlreadyExistsException;
 import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
+import com.aucontraire.gmailbuddy.exception.ValidationException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
@@ -257,6 +260,126 @@ public class GmailService {
         } catch (IOException e) {
             throw new GmailApiException(
                     String.format("Failed to modify labels for messages for user: %s", userId), e
+            );
+        }
+    }
+
+    /**
+     * Feature 005 US1 (T011): moves each listed message to Trash (recoverable),
+     * delegating to {@link GmailRepository#batchTrashMessages}.
+     *
+     * <p>Validates {@code messageIds.size()} against the configured
+     * {@code batchDeleteMaxResults} ceiling before calling the repository, throwing
+     * {@link ValidationException} (mapped to HTTP 400 {@code /problems/validation-error})
+     * when exceeded (FR-004). Logging is limited to non-PII diagnostics — operation
+     * type, batch size, and success/failure counts — never label names or message
+     * content (FR-015).</p>
+     *
+     * @param userId     the Gmail user identifier; typically "me"
+     * @param messageIds the Gmail message identifiers to trash
+     * @return a BulkOperationResult with per-message-id success/failure outcomes
+     * @throws ValidationException if {@code messageIds} exceeds the configured maximum
+     * @throws GmailApiException   if the underlying Gmail API call fails
+     */
+    public BulkOperationResult batchTrashMessages(String userId, List<String> messageIds) throws GmailApiException {
+        validateBatchSize(messageIds);
+        try {
+            BulkOperationResult result = gmailRepository.batchTrashMessages(userId, messageIds);
+
+            logger.info("Batch trash operation completed for user {}: batchSize={}, {} successful, {} failed",
+                       userId, messageIds.size(), result.getSuccessCount(), result.getFailureCount());
+
+            return result;
+        } catch (IOException e) {
+            logger.error("Failed to batch trash messages for user: {}. batchSize={}", userId, messageIds.size(), e);
+            throw new GmailApiException(
+                    String.format("Failed to batch trash messages for user: %s", userId), e
+            );
+        }
+    }
+
+    /**
+     * Feature 005 US1 (T011): restores each listed message from Trash, delegating
+     * to {@link GmailRepository#batchUntrashMessages}. Same validation and logging
+     * behavior as {@link #batchTrashMessages} (FR-002, FR-004, FR-015).
+     *
+     * @param userId     the Gmail user identifier; typically "me"
+     * @param messageIds the Gmail message identifiers to untrash
+     * @return a BulkOperationResult with per-message-id success/failure outcomes
+     * @throws ValidationException if {@code messageIds} exceeds the configured maximum
+     * @throws GmailApiException   if the underlying Gmail API call fails
+     */
+    public BulkOperationResult batchUntrashMessages(String userId, List<String> messageIds) throws GmailApiException {
+        validateBatchSize(messageIds);
+        try {
+            BulkOperationResult result = gmailRepository.batchUntrashMessages(userId, messageIds);
+
+            logger.info("Batch untrash operation completed for user {}: batchSize={}, {} successful, {} failed",
+                       userId, messageIds.size(), result.getSuccessCount(), result.getFailureCount());
+
+            return result;
+        } catch (IOException e) {
+            logger.error("Failed to batch untrash messages for user: {}. batchSize={}", userId, messageIds.size(), e);
+            throw new GmailApiException(
+                    String.format("Failed to batch untrash messages for user: %s", userId), e
+            );
+        }
+    }
+
+    /**
+     * Feature 005 US2 (T019): applies/removes raw Gmail label ids on exactly the
+     * listed messages, delegating to {@link GmailRepository#batchModifyLabelsByIds}.
+     * Reuses {@link #validateBatchSize} for the {@code messageIds} ceiling (FR-004,
+     * FR-007). No name-to-id resolution is performed at this or any lower layer
+     * (FR-006). Logging is limited to non-PII diagnostics — operation type, batch
+     * size, add/remove counts, and success/failure counts; label ids are permitted
+     * by FR-015 but label names are never logged here (this endpoint never receives
+     * names).
+     *
+     * @param userId            the Gmail user identifier; typically "me"
+     * @param messageIds        the Gmail message identifiers to modify
+     * @param labelIdsToAdd     raw Gmail label ids to add; may be empty
+     * @param labelIdsToRemove  raw Gmail label ids to remove; may be empty
+     * @return a BulkOperationResult with per-message-id success/failure outcomes
+     * @throws ValidationException if {@code messageIds} exceeds the configured maximum
+     * @throws GmailApiException   if the underlying Gmail API call fails
+     */
+    public BulkOperationResult batchModifyLabelsByIds(String userId, List<String> messageIds,
+                                                       List<String> labelIdsToAdd, List<String> labelIdsToRemove) throws GmailApiException {
+        validateBatchSize(messageIds);
+        int addCount = labelIdsToAdd != null ? labelIdsToAdd.size() : 0;
+        int removeCount = labelIdsToRemove != null ? labelIdsToRemove.size() : 0;
+        try {
+            BulkOperationResult result = gmailRepository.batchModifyLabelsByIds(userId, messageIds, labelIdsToAdd, labelIdsToRemove);
+
+            logger.info("Batch modify labels by id operation completed for user {}: batchSize={}, addCount={}, removeCount={}, {} successful, {} failed",
+                       userId, messageIds.size(), addCount, removeCount, result.getSuccessCount(), result.getFailureCount());
+
+            return result;
+        } catch (IOException e) {
+            logger.error("Failed to batch modify labels by id for user: {}. batchSize={}, addCount={}, removeCount={}",
+                       userId, messageIds.size(), addCount, removeCount, e);
+            throw new GmailApiException(
+                    String.format("Failed to batch modify labels by id for user: %s", userId), e
+            );
+        }
+    }
+
+    /**
+     * Rejects a batch whose size exceeds the configured
+     * {@code gmail-buddy.gmail-api.batch-delete-max-results} ceiling (FR-004,
+     * shared bound with {@code batchDeleteMaxResults}). Emptiness is already
+     * enforced by {@code @NotEmpty} on the request DTO; this is the
+     * service-layer half of the bound (the configurable upper limit).
+     *
+     * @param messageIds the batch to validate
+     * @throws ValidationException if the batch exceeds the configured maximum
+     */
+    private void validateBatchSize(List<String> messageIds) {
+        long max = properties.gmailApi().batchDeleteMaxResults();
+        if (messageIds.size() > max) {
+            throw new ValidationException(
+                    String.format("messageIds size (%d) exceeds the configured maximum (%d)", messageIds.size(), max)
             );
         }
     }
@@ -770,6 +893,42 @@ public class GmailService {
             logger.error("Failed to get label labelId={} for user: {}", labelId, userId, e);
             throw new GmailApiException(
                     String.format("Failed to get label %s for user: %s", labelId, userId), e
+            );
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Feature 005 — US3: Create label (T027)
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Creates a new Gmail label, delegating to {@link GmailRepository#createLabel}.
+     * Create-only (FR-010) — a duplicate name surfaces as
+     * {@link LabelAlreadyExistsException}, propagated unchanged so
+     * {@code GlobalExceptionHandler} can map it to HTTP 409. Logging here is limited to
+     * non-PII diagnostics (operation type, resulting label id) — the requested label
+     * name is never logged (FR-015).
+     *
+     * @param userId                the Gmail user identifier; typically "me"
+     * @param name                  the display name for the new label
+     * @param messageListVisibility Gmail's messageListVisibility; null to use Gmail's default
+     * @param labelListVisibility   Gmail's labelListVisibility; null to use Gmail's default
+     * @return a {@link LabelSummary} for the newly created label
+     * @throws LabelAlreadyExistsException if a label with this name already exists (Gmail 409)
+     * @throws GmailApiException if the underlying Gmail API call fails
+     */
+    public LabelSummary createLabel(String userId, String name, String messageListVisibility,
+                                     String labelListVisibility) throws GmailApiException {
+        try {
+            LabelSummary result = gmailRepository.createLabel(userId, name, messageListVisibility, labelListVisibility);
+            logger.info("Label operation: op=createLabel, labelId={}", result.id());
+            return result;
+        } catch (LabelAlreadyExistsException e) {
+            throw e;
+        } catch (IOException e) {
+            logger.error("Failed to create label for user: {}", userId, e);
+            throw new GmailApiException(
+                    String.format("Failed to create label for user: %s", userId), e
             );
         }
     }
