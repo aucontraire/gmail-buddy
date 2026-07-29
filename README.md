@@ -1,7 +1,6 @@
 # Gmail Buddy
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/aucontraire/gmail-buddy/ci.yml?branch=master)](https://github.com/aucontraire/gmail-buddy/actions)
-[![Code Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen)](./target/site/jacoco/index.html)
 [![Java Version](https://img.shields.io/badge/Java-17+-blue)](https://openjdk.java.net/projects/jdk/17/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.0-brightgreen)](https://spring.io/projects/spring-boot)
 [![Performance](https://img.shields.io/badge/Performance-96%25_faster-success)](docs/architecture/ADR-002-OAuth2-Security-Context-Decoupling.md)
@@ -518,7 +517,8 @@ The project maintains high test coverage across all layers:
 - **Integration Tests**: Controller endpoints and OAuth2 flow
 - **Validation Tests**: Input validation and error scenarios
 
-View coverage reports at `target/site/jacoco/index.html` after running tests.
+View coverage reports at `target/site/jacoco/index.html` after running tests. CI also uploads the
+JaCoCo report as a build artifact on every run — see the [Actions tab](https://github.com/aucontraire/gmail-buddy/actions).
 
 ### Test Configuration
 
@@ -578,18 +578,17 @@ The test suite includes:
 
 ### Code Quality
 
-The project uses several tools to maintain code quality:
-
 ```bash
-# Run linting and formatting
-./mvnw spotless:apply
-
-# Run security scan
-./mvnw org.owasp:dependency-check-maven:check
-
-# Run all quality checks
+# Run the full build with tests and JaCoCo coverage report
 ./mvnw verify
+
+# Run tests and generate the coverage report only
+./mvnw test jacoco:report
 ```
+
+> **Planned / not yet configured**: Linting/formatting (Spotless) and dependency vulnerability scanning
+> (OWASP `dependency-check-maven`) are not yet wired into the Maven build. CI currently runs
+> `./mvnw verify` (build, tests, JaCoCo) and a separate CodeQL static analysis workflow.
 
 ---
 
