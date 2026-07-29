@@ -2,6 +2,9 @@ package com.aucontraire.gmailbuddy.controller;
 
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.config.ResponseHeaderFilter;
+import com.aucontraire.gmailbuddy.dto.BatchMessageIdsRequest;
+import com.aucontraire.gmailbuddy.dto.BatchModifyLabelsByIdRequest;
+import com.aucontraire.gmailbuddy.dto.CreateLabelRequest;
 import com.aucontraire.gmailbuddy.dto.DeleteResult;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
@@ -9,6 +12,7 @@ import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
 import com.aucontraire.gmailbuddy.dto.error.ErrorResponse;
 import com.aucontraire.gmailbuddy.dto.response.AttachmentListResponse;
+import com.aucontraire.gmailbuddy.dto.response.BatchOperationResponse;
 import com.aucontraire.gmailbuddy.dto.response.BulkDeleteResponse;
 import com.aucontraire.gmailbuddy.dto.response.DeleteOperationResult;
 import com.aucontraire.gmailbuddy.dto.response.DraftDetailResponse;
@@ -18,6 +22,7 @@ import com.aucontraire.gmailbuddy.dto.response.LabelModificationResponse;
 import com.aucontraire.gmailbuddy.dto.response.SendMessageResponse;
 import com.aucontraire.gmailbuddy.dto.response.LabelDetailResponse;
 import com.aucontraire.gmailbuddy.dto.response.LabelListResponse;
+import com.aucontraire.gmailbuddy.dto.response.LabelSummary;
 import com.aucontraire.gmailbuddy.dto.response.MessageDetailResponse;
 import com.aucontraire.gmailbuddy.dto.response.ThreadDetailResponse;
 import com.aucontraire.gmailbuddy.dto.response.ThreadListResponse;
@@ -91,6 +96,15 @@ public class GmailController {
     private final ResponseMapper responseMapper;
     private final GmailMessageMapper gmailMessageMapper;
     private final Logger logger = LoggerFactory.getLogger(GmailController.class);
+
+    /**
+     * Quota cost of {@code users.labels.create} (feature 005 US3, FR-013). Mirrors
+     * {@code GmailQuotaEstimator.LABELS_GET_QUOTA}/{@code LABELS_LIST_QUOTA} (both 1 unit) —
+     * the label endpoints are Gmail's cheapest operations. Not wired via
+     * {@code RateLimitInterceptor} (that estimator only routes {@code GET /labels}
+     * and {@code GET /labels/{id}}), so it is set directly here.
+     */
+    private static final int LABEL_CREATE_QUOTA = 1;
 
     @Autowired
     public GmailController(GmailService gmailService, OAuth2AuthorizedClientService authorizedClientService,
@@ -363,6 +377,147 @@ public class GmailController {
         List<String> labelsRemoved = dto.getLabelsToRemove() != null ? dto.getLabelsToRemove() : Collections.emptyList();
 
         LabelModificationResponse response = responseMapper.toLabelModificationResponse(result, labelsAdded, labelsRemoved);
+
+        return ResponseEntity.ok(response);
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 005 — US1: Batch trash / untrash by message ID (T012)
+    // -------------------------------------------------------------------------
+
+    /**
+     * POST /messages/batchTrash - Move a list of messages to Trash (recoverable) by ID.
+     * Best-effort: a fully-failed batch is still HTTP 200 with successCount 0 (FR-003).
+     */
+    @Operation(
+        summary = "Batch trash messages by ID",
+        description = "Moves the listed message IDs to Trash (recoverable) by adding the TRASH label. " +
+                      "Best-effort per-message result — a fully-failed batch is still HTTP 200."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Batch trash operation completed (including partial or fully-failed)",
+            content = @Content(schema = @Schema(implementation = BatchOperationResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid request - empty/oversized messageIds or ill-formed message ID",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping(value = "/messages/batchTrash",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<BatchOperationResponse> batchTrashMessages(
+            @Valid @RequestBody BatchMessageIdsRequest request,
+            HttpServletRequest httpRequest) {
+
+        String userId = properties.gmailApi().defaultUserId();
+        BulkOperationResult result = gmailService.batchTrashMessages(userId, request.messageIds());
+
+        logger.info("Batch trash result: {}", result);
+
+        BatchOperationResponse response = responseMapper.toBatchOperationResponse(result);
+        httpRequest.setAttribute(ResponseHeaderFilter.ATTR_GMAIL_QUOTA_USED, response.getMetadata().getQuotaUsed());
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * POST /messages/batchUntrash - Restore a list of messages from Trash by ID.
+     * Best-effort: a fully-failed batch is still HTTP 200 with successCount 0 (FR-003).
+     */
+    @Operation(
+        summary = "Batch untrash messages by ID",
+        description = "Restores the listed message IDs from Trash by removing the TRASH label. " +
+                      "Best-effort per-message result — a fully-failed batch is still HTTP 200."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Batch untrash operation completed (including partial or fully-failed)",
+            content = @Content(schema = @Schema(implementation = BatchOperationResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid request - empty/oversized messageIds or ill-formed message ID",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping(value = "/messages/batchUntrash",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<BatchOperationResponse> batchUntrashMessages(
+            @Valid @RequestBody BatchMessageIdsRequest request,
+            HttpServletRequest httpRequest) {
+
+        String userId = properties.gmailApi().defaultUserId();
+        BulkOperationResult result = gmailService.batchUntrashMessages(userId, request.messageIds());
+
+        logger.info("Batch untrash result: {}", result);
+
+        BatchOperationResponse response = responseMapper.toBatchOperationResponse(result);
+        httpRequest.setAttribute(ResponseHeaderFilter.ATTR_GMAIL_QUOTA_USED, response.getMetadata().getQuotaUsed());
+
+        return ResponseEntity.ok(response);
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 005 — US2: Batch label-modify by message ID (T020)
+    // -------------------------------------------------------------------------
+
+    /**
+     * POST /messages/batchModifyLabels - Apply/remove raw Gmail label IDs on exactly the listed messages.
+     * No name-to-id resolution (contrast with /messages/filter/modifyLabels, FR-006, FR-008).
+     * Best-effort: a fully-failed batch is still HTTP 200 with successCount 0 (FR-003).
+     */
+    @Operation(
+        summary = "Batch modify message labels by ID",
+        description = "Applies/removes raw Gmail label IDs on exactly the listed message IDs in a single " +
+                      "ModifyMessageRequest per message. No name-to-id resolution is performed — an unknown " +
+                      "label ID surfaces as a per-message failure, never a silent drop. " +
+                      "Best-effort per-message result — a fully-failed batch is still HTTP 200."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Batch label-modify operation completed (including partial or fully-failed)",
+            content = @Content(schema = @Schema(implementation = BatchOperationResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid request - empty/oversized messageIds, both label lists empty, or ill-formed message/label ID",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping(value = "/messages/batchModifyLabels",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<BatchOperationResponse> batchModifyLabelsByIds(
+            @Valid @RequestBody BatchModifyLabelsByIdRequest request,
+            HttpServletRequest httpRequest) {
+
+        String userId = properties.gmailApi().defaultUserId();
+        BulkOperationResult result = gmailService.batchModifyLabelsByIds(
+                userId, request.messageIds(), request.labelIdsToAdd(), request.labelIdsToRemove());
+
+        logger.info("Batch modify labels by id result: {}", result);
+
+        BatchOperationResponse response = responseMapper.toBatchOperationResponse(result);
+        httpRequest.setAttribute(ResponseHeaderFilter.ATTR_GMAIL_QUOTA_USED, response.getMetadata().getQuotaUsed());
 
         return ResponseEntity.ok(response);
     }
@@ -1033,6 +1188,53 @@ public class GmailController {
         LabelDetailResult result = gmailService.getLabel(userId, labelId);
         LabelDetailResponse response = gmailMessageMapper.toLabelDetailResponse(result);
         return ResponseEntity.ok(response);
+    }
+
+    // -------------------------------------------------------------------------
+    // Feature 005 — US3: Create label (T028)
+    // -------------------------------------------------------------------------
+
+    /**
+     * POST /labels - Create a new Gmail label.
+     * Create-only: a duplicate name returns 409 with no mutation (no upsert, FR-010).
+     */
+    @Operation(
+        summary = "Create a label",
+        description = "Creates a new Gmail label via users.labels.create. Create-only — if a label " +
+                      "with the requested name already exists, returns 409 with no mutation performed " +
+                      "(no upsert). Costs 1 Gmail API quota unit."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Label created successfully",
+            content = @Content(schema = @Schema(implementation = LabelSummary.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid request - blank/oversized name, control characters, or invalid visibility value",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - invalid or missing authentication",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "403", description = "Forbidden - insufficient Gmail permissions",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "409", description = "A label with the requested name already exists",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "502", description = "Gmail API error",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class))),
+        @ApiResponse(responseCode = "503", description = "Gmail API unavailable",
+            content = @Content(schema = @Schema(implementation = com.aucontraire.gmailbuddy.dto.error.ErrorResponse.class)))
+    })
+    @PostMapping(value = "/labels",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<LabelSummary> createLabel(
+            @Valid @RequestBody CreateLabelRequest request,
+            HttpServletRequest httpRequest) {
+        String userId = properties.gmailApi().defaultUserId();
+        LabelSummary result = gmailService.createLabel(
+                userId, request.name(), request.messageListVisibility(), request.labelListVisibility());
+
+        httpRequest.setAttribute(ResponseHeaderFilter.ATTR_GMAIL_QUOTA_USED, LABEL_CREATE_QUOTA);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
     // -------------------------------------------------------------------------

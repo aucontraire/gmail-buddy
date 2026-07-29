@@ -879,6 +879,45 @@ class GmailBatchClientTest {
             verify(batchRequest).execute();
             assertThat(result.getOperationType()).isEqualTo("MODIFY_LABELS");
         }
+
+        @Test
+        @DisplayName("Should record every message as failed and NOT throw when the whole batch fails (T037)")
+        void batchModifyLabels_allMessagesFailViaCallback_returnsAllFailedResultWithoutThrowing() throws IOException {
+            // Arrange: each queued modify() operation reports failure through its
+            // JsonBatchCallback#onFailure -- this is how Gmail surfaces per-item
+            // rejections (e.g. every id in the batch is invalid/not found). A
+            // BatchRequest#execute() throwing an IOException is reserved for genuine
+            // transport-level failures, not per-item rejections, so the swallow-and-record
+            // contract (BulkOperationResult carries every failure; batchModifyLabels itself
+            // never throws) must hold even when 100% of items fail.
+            String userId = "me";
+            List<String> messageIds = List.of("msg-fail-1", "msg-fail-2");
+            ModifyMessageRequest modifyMessageRequest = new ModifyMessageRequest()
+                    .setAddLabelIds(List.of("TRASH"));
+
+            for (String messageId : messageIds) {
+                Gmail.Users.Messages.Modify mockModify = mock(Gmail.Users.Messages.Modify.class);
+                when(messages.modify(userId, messageId, modifyMessageRequest)).thenReturn(mockModify);
+                doAnswer(invocation -> {
+                    JsonBatchCallback<com.google.api.services.gmail.model.Message> callback =
+                            invocation.getArgument(1);
+                    GoogleJsonError error = new GoogleJsonError();
+                    error.setMessage("Gmail rejected " + messageId);
+                    callback.onFailure(error, null);
+                    return null;
+                }).when(mockModify).queue(eq(batchRequest), any());
+            }
+
+            // Act: must complete normally, not throw, even though every message failed.
+            BulkOperationResult result =
+                    gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyMessageRequest);
+
+            // Assert
+            verify(batchRequest).execute();
+            assertThat(result.getSuccessCount()).isZero();
+            assertThat(result.getFailureCount()).isEqualTo(2);
+            assertThat(result.getFailedOperations()).containsKeys("msg-fail-1", "msg-fail-2");
+        }
     }
 
     @Nested

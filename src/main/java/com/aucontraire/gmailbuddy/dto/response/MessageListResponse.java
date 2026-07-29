@@ -19,13 +19,18 @@ public class MessageListResponse {
     @Schema(description = "List of message summaries")
     private List<MessageSummary> messages;
 
-    @Schema(description = "Total count of messages (estimated)", example = "150")
+    @Schema(description = "Total count of messages (estimated); null when unavailable",
+            example = "150", nullable = true)
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private Integer totalCount;
 
-    @Schema(description = "Whether more results are available", example = "true")
+    @Schema(description = "Whether more results are available", example = "true", nullable = true)
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private Boolean hasMore;
 
-    @Schema(description = "Token for fetching the next page of results", example = "eyJwYWdl...")
+    @Schema(description = "Token for fetching the next page of results; null when all results are exhausted",
+            example = "eyJwYWdl...", nullable = true)
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private String nextPageToken;
 
     @Schema(description = "Response metadata including timing information")

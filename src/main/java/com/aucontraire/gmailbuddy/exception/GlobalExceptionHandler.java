@@ -69,6 +69,35 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles LabelAlreadyExistsException (feature 005 US3 — create-label duplicate-name
+     * conflict). Maps to RFC 7807 ProblemDetail with 409 Conflict status.
+     *
+     * <p>The requested label name is never embedded in {@code ex.getMessage()} (FR-015),
+     * so the log line below — which logs the message verbatim, matching every other
+     * handler in this class — never leaks it either.</p>
+     */
+    @ExceptionHandler(LabelAlreadyExistsException.class)
+    public ResponseEntity<ProblemDetail> handleLabelAlreadyExistsException(LabelAlreadyExistsException ex) {
+        String requestId = getRequestId();
+        HttpStatus status = HttpStatus.valueOf(ex.getHttpStatus());
+
+        ProblemDetail problem = ProblemDetail.builder()
+                .type(ProblemTypes.RESOURCE_CONFLICT)
+                .title("Resource Conflict")
+                .status(status.value())
+                .detail(ex.getMessage())
+                .instance(request.getRequestURI())
+                .requestId(requestId)
+                .retryable(false)
+                .category("CLIENT_ERROR")
+                .build();
+
+        logger.warn("Resource conflict [{}]: {} (correlation: {})", ex.getErrorCode(), ex.getMessage(), requestId);
+
+        return buildProblemResponse(problem, status);
+    }
+
+    /**
      * Handles GmailApiException (Gmail API communication failures).
      * Maps to RFC 7807 ProblemDetail with 502 Bad Gateway status.
      */
@@ -542,6 +571,7 @@ public class GlobalExceptionHandler {
     private String determineProblemType(String errorCode) {
         return switch (errorCode) {
             case "VALIDATION_ERROR" -> ProblemTypes.VALIDATION_ERROR;
+            case "LABEL_ALREADY_EXISTS" -> ProblemTypes.RESOURCE_CONFLICT;
             case "INVALID_RECIPIENT" -> ProblemTypes.INVALID_RECIPIENT;
             case "MESSAGE_TOO_LARGE" -> ProblemTypes.MESSAGE_TOO_LARGE;
             case "ORIGINAL_MESSAGE_NOT_FOUND" -> ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND;

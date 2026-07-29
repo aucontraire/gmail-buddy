@@ -17,6 +17,7 @@ import com.aucontraire.gmailbuddy.service.MessageDetailResult;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.aucontraire.gmailbuddy.service.ThreadDetailResult;
 import com.aucontraire.gmailbuddy.service.ThreadListResult;
+import com.google.api.services.gmail.model.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -47,6 +48,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -110,6 +112,84 @@ public class GmailControllerTest {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.messages").isArray())
                 .andExpect(jsonPath("$.totalCount").value(0));
+    }
+
+    // =========================================================================
+    // Pagination contract regression tests — POST /api/v1/gmail/messages/filter
+    //
+    // Downstream consumer (buzonero) paginates this endpoint to perform full-set
+    // deletion, driven entirely by nextPageToken. These tests pin the response
+    // shape (MessageListResult -> MessageListResponse mapping) so a regression
+    // here is caught immediately rather than surfacing as silent under-deletion
+    // in a downstream consumer.
+    // =========================================================================
+
+    @Test
+    public void filterMessages_nonFinalPage_returnsNextPageTokenAndFullSetTotalCount() throws Exception {
+        String jsonPayload = "{ \"query\": \"label:Inbox\" }";
+
+        Message message1 = new Message().setId("msg-1").setThreadId("thread-1");
+        Message message2 = new Message().setId("msg-2").setThreadId("thread-2");
+        // totalCount (201) is far larger than the 2 messages on this page, proving
+        // it reflects Gmail's full-set resultSizeEstimate, not the page size.
+        MessageListResult mockResult = new MessageListResult(List.of(message1, message2), "page-2-token", 201);
+        when(gmailService.listMessagesByFilterCriteriaWithPagination(eq("me"), any(FilterCriteriaDTO.class), any(), anyInt()))
+                .thenReturn(mockResult);
+
+        mockMvc.perform(post("/api/v1/gmail/messages/filter")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload)
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.messages").isArray())
+                .andExpect(jsonPath("$.messages.length()").value(2))
+                .andExpect(jsonPath("$.nextPageToken").value("page-2-token"))
+                .andExpect(jsonPath("$.totalCount").value(201));
+    }
+
+    @Test
+    public void filterMessages_lastPage_returnsNullNextPageTokenSoPaginationTerminates() throws Exception {
+        String jsonPayload = "{ \"query\": \"label:Inbox\" }";
+
+        Message message1 = new Message().setId("msg-201").setThreadId("thread-201");
+        // null nextPageToken signals the last page.
+        MessageListResult mockResult = new MessageListResult(List.of(message1), null, 201);
+        when(gmailService.listMessagesByFilterCriteriaWithPagination(eq("me"), any(FilterCriteriaDTO.class), eq("page-2-token"), anyInt()))
+                .thenReturn(mockResult);
+
+        mockMvc.perform(post("/api/v1/gmail/messages/filter")
+                        .param("pageToken", "page-2-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload)
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.totalCount").value(201))
+                // nextPageToken is field-level @JsonInclude(ALWAYS), so a null value
+                // is still serialized as a present JSON null (not omitted), for
+                // cross-endpoint consistency with ThreadListResponse/DraftListResponse.
+                // This is the termination guarantee downstream search_all-style pagination
+                // depends on: the field's null value is the "stop paginating" signal.
+                .andExpect(jsonPath("$.nextPageToken").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    public void filterMessages_pageTokenParam_forwardedToService() throws Exception {
+        String jsonPayload = "{ \"query\": \"label:Inbox\" }";
+
+        MessageListResult mockResult = new MessageListResult(Collections.emptyList(), null, 0);
+        when(gmailService.listMessagesByFilterCriteriaWithPagination(eq("me"), any(FilterCriteriaDTO.class), eq("page-3-token"), anyInt()))
+                .thenReturn(mockResult);
+
+        mockMvc.perform(post("/api/v1/gmail/messages/filter")
+                        .param("pageToken", "page-3-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload)
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        verify(gmailService).listMessagesByFilterCriteriaWithPagination(eq("me"), any(FilterCriteriaDTO.class), eq("page-3-token"), anyInt());
     }
 
     @Test

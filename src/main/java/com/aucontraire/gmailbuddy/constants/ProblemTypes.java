@@ -49,6 +49,13 @@ public final class ProblemTypes {
     public static final String RESOURCE_NOT_FOUND = BASE_URI + "/resource-not-found";
 
     /**
+     * Resource conflict - the request conflicts with the current state of a resource.
+     * HTTP Status: 409 Conflict
+     * Example: Creating a label whose name already exists (feature 005 US3, FR-010).
+     */
+    public static final String RESOURCE_CONFLICT = BASE_URI + "/resource-conflict";
+
+    /**
      * Authentication failed - user authentication failed or token is invalid.
      * HTTP Status: 401 Unauthorized
      * Example: OAuth2 token expired, invalid credentials.
@@ -198,6 +205,7 @@ public final class ProblemTypes {
         return VALIDATION_ERROR.equals(problemType) ||
                MESSAGE_NOT_FOUND.equals(problemType) ||
                RESOURCE_NOT_FOUND.equals(problemType) ||
+               RESOURCE_CONFLICT.equals(problemType) ||
                AUTHENTICATION_FAILED.equals(problemType) ||
                AUTHORIZATION_FAILED.equals(problemType) ||
                RATE_LIMIT_EXCEEDED.equals(problemType) ||
@@ -229,6 +237,7 @@ public final class ProblemTypes {
             case VALIDATION_ERROR -> "Input data failed validation rules";
             case MESSAGE_NOT_FOUND -> "The requested Gmail message does not exist";
             case RESOURCE_NOT_FOUND -> "The requested resource does not exist";
+            case RESOURCE_CONFLICT -> "The request conflicts with the current state of a resource";
             case AUTHENTICATION_FAILED -> "User authentication failed or token is invalid";
             case AUTHORIZATION_FAILED -> "User lacks permission to perform this action";
             case RATE_LIMIT_EXCEEDED -> "Too many requests in a given time window";

@@ -15,10 +15,10 @@ public record ThreadListResponse(
         List<ThreadSummary> results,
 
         @Schema(description = "Token for the next page; null when all results are exhausted",
-                example = "eyJwYWdlVG9rZW4i...")
+                example = "eyJwYWdlVG9rZW4i...", nullable = true)
         String nextPageToken,
 
-        @Schema(description = "resultSizeEstimate from Gmail API; may be absent",
-                example = "14")
+        @Schema(description = "resultSizeEstimate from Gmail API; null when unavailable",
+                example = "14", nullable = true)
         Integer totalCount
 ) {}

@@ -119,9 +119,15 @@ Gmail Buddy supports **dual authentication modes**:
 | `PUT` | `/api/v1/gmail/messages/{id}/read` | Mark message as read | - | Standard |
 | `DELETE` | `/api/v1/gmail/messages/filter` | **High-performance bulk delete** | `FilterCriteriaDTO` | **99% quota reduction** |
 | `POST` | `/api/v1/gmail/messages/filter/modifyLabels` | Bulk modify labels | `FilterCriteriaWithLabelsDTO` | Batch optimized |
+| `POST` | `/api/v1/gmail/messages/batchTrash` | **Batch trash by message ID** (recoverable via Trash) | `BatchMessageIdsRequest` | Batch (~5 units/msg) |
+| `POST` | `/api/v1/gmail/messages/batchUntrash` | **Batch restore from Trash** by message ID | `BatchMessageIdsRequest` | Batch (~5 units/msg) |
+| `POST` | `/api/v1/gmail/messages/batchModifyLabels` | **Batch add/remove labels by message ID** (raw label IDs, no name resolution) | `BatchModifyLabelsByIdRequest` | Batch (~5 units/msg) |
+| `POST` | `/api/v1/gmail/labels` | **Create a Gmail label** (201; 409 on duplicate) | `CreateLabelRequest` | Standard (1 unit) |
 | `POST` | `/api/v1/gmail/drafts` | **Stage a draft for review** in Gmail Drafts folder | `SendMessageDTO` | Standard (10 quota units) |
 | `POST` | `/api/v1/gmail/drafts/{draftId}/send` | **Send a previously-created draft** programmatically | - | Standard (100 quota units, naturally idempotent) |
 | `POST` | `/api/v1/gmail/messages` | **Send a message directly** without staging (trusted templates only) | `SendMessageDTO` | Standard (100 quota units) |
+
+> **Pagination**: the list/filter endpoints (`/messages`, `/messages/latest`, `/messages/filter`, `/threads`, `/drafts`) return `nextPageToken` and an estimated `totalCount`. `nextPageToken` is **always present and `null` on the last page** — keep requesting pages until it is `null`. `totalCount` is Gmail's `resultSizeEstimate` (approximate, and may drift slightly across pages).
 
 ### High-Performance Batch Operations
 
@@ -245,7 +251,7 @@ src/
 ├── main/resources/
 │   ├── application.properties    # Main configuration
 │   └── application-{env}.properties  # Environment-specific configs
-└── test/               # Comprehensive test suite (120+ tests)
+└── test/               # Comprehensive test suite (1,600+ tests)
 ```
 
 ### Key Components
