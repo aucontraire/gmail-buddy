@@ -266,6 +266,111 @@
 						},
 						"description": "Add or remove labels from messages matching filter criteria"
 					}
+				},
+				{
+					"name": "Batch Trash Messages",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"messageIds\": [\"18d1a2b3c4d5e6f7\", \"18d1a2b3c4d5e700\"]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/batchTrash",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"batchTrash"
+							]
+						},
+						"description": "Batch trash messages by ID list (recoverable via Trash). Returns BatchOperationResponse with per-id outcomes; a fully-failed batch is still HTTP 200."
+					}
+				},
+				{
+					"name": "Batch Untrash Messages",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"messageIds\": [\"18d1a2b3c4d5e6f7\", \"18d1a2b3c4d5e700\"]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/batchUntrash",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"batchUntrash"
+							]
+						},
+						"description": "Batch restore messages from Trash by ID list."
+					}
+				},
+				{
+					"name": "Batch Modify Labels (by ID)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"messageIds\": [\"18d1a2b3c4d5e6f7\"],\n    \"labelIdsToAdd\": [\"Label_42\"],\n    \"labelIdsToRemove\": []\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/messages/batchModifyLabels",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"messages",
+								"batchModifyLabels"
+							]
+						},
+						"description": "Add/remove labels on specific messages by RAW label ID (no name resolution). At least one of labelIdsToAdd/labelIdsToRemove must be non-empty."
+					}
 				}
 			],
 			"description": "Advanced message management operations"
@@ -3166,9 +3271,47 @@
 							"body": "{\n    \"type\": \"/problems/validation-error\",\n    \"title\": \"Validation Error\",\n    \"status\": 400,\n    \"detail\": \"filename contains invalid characters (CR, LF, NUL, or Unicode line terminators are not permitted)\",\n    \"instance\": \"/api/v1/gmail/messages/1a2b3c4d5e6f7892/attachments/ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRxAbCdEfGhIjKlMnOpQrStUvWxYz\",\n    \"retryable\": false,\n    \"category\": \"CLIENT_ERROR\"\n}"
 						}
 					]
+				},
+				{
+					"name": "Create Label",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"pending-purge\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/gmail/labels",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"gmail",
+								"labels"
+							]
+						},
+						"description": "Create a Gmail label. 201 + LabelSummary on success; 409 if the name already exists."
+					}
 				}
 			],
-			"description": "Seven new read-only endpoints introduced by feature 004 (read-api-completeness). All seven endpoints use GET and require gmail.readonly scope (already covered by the gmail.modify scope in the project's OAuth2 configuration). No re-consent is required.\n\nEndpoints in this folder:\n1. List Threads — paginated conversation list with optional filter criteria (quota: 10 flat)\n2. Get Thread Detail — full conversation with nested messages (quota: 10)\n3. Get Message Detail — single message with optional format param (quota: 10 full / 5 metadata)\n4. List Labels — all visible labels in one call, no pagination (quota: 1)\n5. Get Label Detail — full label metadata with counts and color (quota: 1)\n6. List Attachments — attachment metadata on a message without downloading binary (quota: 5)\n7. Download Attachment — streamed binary download with Content-Disposition and X-Content-Type-Options (quota: 5)\n\nAll endpoints emit X-Gmail-Quota-Used, X-RateLimit-Limit, X-RateLimit-Remaining, and X-RateLimit-Reset headers. 429 responses include Retry-After. Error responses use application/problem+json with the existing ProblemDetail shape."
+			"description": "Seven new read-only endpoints introduced by feature 004 (read-api-completeness). All seven endpoints use GET and require gmail.readonly scope (already covered by the gmail.modify scope in the project's OAuth2 configuration). No re-consent is required.\n\nEndpoints in this folder:\n1. List Threads — paginated conversation list with optional filter criteria (quota: 10 flat)\n2. Get Thread Detail — full conversation with nested messages (quota: 10)\n3. Get Message Detail — single message with optional format param (quota: 10 full / 5 metadata)\n4. List Labels — all visible labels in one call, no pagination (quota: 1)\n5. Get Label Detail — full label metadata with counts and color (quota: 1)\n6. List Attachments — attachment metadata on a message without downloading binary (quota: 5)\n7. Download Attachment — streamed binary download with Content-Disposition and X-Content-Type-Options (quota: 5)\n\nFeature 005 (batch-by-id-endpoints) adds Create Label (POST /labels) to this folder.\n\nAll endpoints emit X-Gmail-Quota-Used, X-RateLimit-Limit, X-RateLimit-Remaining, and X-RateLimit-Reset headers. 429 responses include Retry-After. Error responses use application/problem+json with the existing ProblemDetail shape."
 		},
 		{
 			"name": "Test Examples",
