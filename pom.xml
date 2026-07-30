@@ -248,7 +248,7 @@
                     </suppressionFiles>
                     <!-- OSS Index needs Sonatype credentials we don't provide; it only
                          adds noise + errors, so disable it (NVD data is the primary source). -->
-                    <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
+                    <ossIndexAnalyzerEnabled>false</ossIndexAnalyzerEnabled>
                     <!-- Read the NVD API key from the NVD_API_KEY env var (never on the command
                          line, so it can't leak into Maven debug logs). dependency-check 12.x uses
                          the `nvdApiKey`/`nvdApiKeyEnvironmentVariable` config, NOT the old
