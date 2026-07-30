@@ -230,7 +230,7 @@
                 Deliberately NOT bound to a build phase: it is slow and needs an NVD API key, so
                 `./mvnw verify` (CI + local) never runs it. Invoked on demand or by the scheduled
                 dependency-check workflow:
-                    ./mvnw dependency-check:check -Dnvd.api.key=<your NVD API key>
+                    NVD_API_KEY=<your NVD API key> ./mvnw dependency-check:check
                 failBuildOnCVSS=7 fails the scan on any High/Critical CVE (CVSS >= 7).
             -->
             <plugin>
@@ -249,6 +249,11 @@
                     <!-- OSS Index needs Sonatype credentials we don't provide; it only
                          adds noise + errors, so disable it (NVD data is the primary source). -->
                     <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
+                    <!-- Read the NVD API key from the NVD_API_KEY env var (never on the command
+                         line, so it can't leak into Maven debug logs). dependency-check 12.x uses
+                         the `nvdApiKey`/`nvdApiKeyEnvironmentVariable` config, NOT the old
+                         `-Dnvd.api.key` property. Without a key the NVD sync is rate-limited to hours. -->
+                    <nvdApiKeyEnvironmentVariable>NVD_API_KEY</nvdApiKeyEnvironmentVariable>
                 </configuration>
             </plugin>
         </plugins>

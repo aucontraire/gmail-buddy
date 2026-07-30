@@ -595,7 +595,7 @@ The test suite includes:
 ./mvnw spotless:apply
 
 # Scan dependencies for known CVEs (needs an NVD API key)
-./mvnw dependency-check:check -Dnvd.api.key=<your NVD API key>
+NVD_API_KEY=<your NVD API key> ./mvnw dependency-check:check
 ```
 
 > CI runs `./mvnw verify` — build, tests, JaCoCo coverage gate, and a Spotless
