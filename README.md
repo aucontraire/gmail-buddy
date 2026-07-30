@@ -41,7 +41,7 @@ A robust, enterprise-ready Spring Boot application for Gmail management with exc
 - **📊 Detailed Operation Tracking**: Success/failure tracking with retry counts and duration metrics
 
 ### Developer Experience
-- **🧪 High Test Coverage**: 85%+ test coverage with unit and integration tests
+- **🧪 High Test Coverage**: ~79% line coverage (unit + integration), enforced by a JaCoCo coverage gate in CI
 - **📋 Structured Logging**: JSON-formatted logs with correlation tracking and security masking
 - **🔄 Retry Logic**: Intelligent retry mechanisms with exponential backoff for Gmail API interactions
 - **📊 Health Checks**: Application and dependency health monitoring
@@ -592,9 +592,10 @@ The test suite includes:
 ./mvnw test jacoco:report
 ```
 
-> **Planned / not yet configured**: Linting/formatting (Spotless) and dependency vulnerability scanning
-> (OWASP `dependency-check-maven`) are not yet wired into the Maven build. CI currently runs
-> `./mvnw verify` (build, tests, JaCoCo) and a separate CodeQL static analysis workflow.
+> CI runs `./mvnw verify` — build, tests, JaCoCo coverage gate, and a Spotless
+> (palantir-java-format) check — plus a separate CodeQL static-analysis workflow.
+>
+> **Planned / not yet configured**: dependency vulnerability scanning (OWASP `dependency-check-maven`).
 
 ---
 
