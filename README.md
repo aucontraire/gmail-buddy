@@ -590,12 +590,18 @@ The test suite includes:
 
 # Run tests and generate the coverage report only
 ./mvnw test jacoco:report
+
+# Auto-format the codebase (palantir-java-format)
+./mvnw spotless:apply
+
+# Scan dependencies for known CVEs (needs an NVD API key)
+./mvnw dependency-check:check -Dnvd.api.key=<your NVD API key>
 ```
 
 > CI runs `./mvnw verify` — build, tests, JaCoCo coverage gate, and a Spotless
-> (palantir-java-format) check — plus a separate CodeQL static-analysis workflow.
->
-> **Planned / not yet configured**: dependency vulnerability scanning (OWASP `dependency-check-maven`).
+> (palantir-java-format) check. Separate workflows run CodeQL static analysis (on
+> PR/push) and OWASP dependency-check (a scheduled CVE scan of dependencies,
+> `.github/workflows/dependency-check.yml`; requires an `NVD_API_KEY` repo secret).
 
 ---
 

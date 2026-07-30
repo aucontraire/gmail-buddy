@@ -1,0 +1,54 @@
+name: Dependency Check
+
+# OWASP dependency-check (CVE scan of Maven dependencies). Runs on a schedule and
+# on-demand — NOT on every PR — because pulling the NVD data is slow. Requires the
+# NVD_API_KEY repository secret (https://nvd.nist.gov/developers/request-an-api-key);
+# without it the NVD download is rate-limited to the point of being unusable.
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: OWASP dependency-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      # Cache the NVD database between runs so only the delta is downloaded.
+      - name: Cache NVD data
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: nvd-data-${{ github.run_id }}
+          restore-keys: |
+            nvd-data-
+
+      - name: Run OWASP dependency-check
+        run: ./mvnw -B -ntp dependency-check:check -Dnvd.api.key="${{ secrets.NVD_API_KEY }}"
+
+      # Always publish the report, even when the scan fails the build on a CVE.
+      - name: Upload dependency-check report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependency-check-report
+          path: target/dependency-check-report.*
+          if-no-files-found: warn
