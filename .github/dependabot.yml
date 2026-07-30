@@ -6,6 +6,12 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    ignore:
+      # logback 1.6.x requires SLF4J 2.1 / Spring Boot 4; this project is on Spring Boot 3.4
+      # with logback pinned to 1.5.13 (see pom.xml). Cap at <1.6.0 so Dependabot stops
+      # proposing the incompatible major but still offers 1.5.x patch updates.
+      - dependency-name: "ch.qos.logback:*"
+        versions: [">=1.6.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
