@@ -1,10 +1,16 @@
 package com.aucontraire.gmailbuddy.config;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
 import com.aucontraire.gmailbuddy.ratelimit.GmailQuotaEstimator;
 import com.aucontraire.gmailbuddy.ratelimit.RateLimitInfo;
 import com.aucontraire.gmailbuddy.ratelimit.RateLimitService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,13 +21,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RateLimitInterceptorTest {
@@ -288,20 +287,36 @@ class RateLimitInterceptorTest {
         byte[] bodyBytes = bodyJson.getBytes(StandardCharsets.UTF_8);
         jakarta.servlet.ServletInputStream servletInputStream = new jakarta.servlet.ServletInputStream() {
             private final java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(bodyBytes);
-            @Override public int read() { return bais.read(); }
-            @Override public boolean isFinished() { return bais.available() == 0; }
-            @Override public boolean isReady() { return true; }
-            @Override public void setReadListener(jakarta.servlet.ReadListener l) {}
+
+            @Override
+            public int read() {
+                return bais.read();
+            }
+
+            @Override
+            public boolean isFinished() {
+                return bais.available() == 0;
+            }
+
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setReadListener(jakarta.servlet.ReadListener l) {}
         };
         when(underlying.getInputStream()).thenReturn(servletInputStream);
         return new CachedBodyHttpServletRequest(underlying);
     }
 
     @Test
-    @DisplayName("estimateQuotaForEndpoint — POST /messages with inReplyToMessageId in body routes to threaded quota (105)")
+    @DisplayName(
+            "estimateQuotaForEndpoint — POST /messages with inReplyToMessageId in body routes to threaded quota (105)")
     void estimateQuotaForEndpoint_postMessages_threadedBody_usesThreadedSendQuota() throws IOException {
         // Arrange: body contains inReplyToMessageId — triggers threaded path (line 237)
-        String threadedBody = "{\"to\":\"a@b.com\",\"subject\":\"Hi\",\"body\":\"text\",\"inReplyToMessageId\":\"1a2b3c4d5e6f7a8b\"}";
+        String threadedBody =
+                "{\"to\":\"a@b.com\",\"subject\":\"Hi\",\"body\":\"text\",\"inReplyToMessageId\":\"1a2b3c4d5e6f7a8b\"}";
         CachedBodyHttpServletRequest cachedRequest = buildCachedRequest(threadedBody);
 
         when(quotaEstimator.estimateThreadedSendMessageQuota()).thenReturn(105);
@@ -315,7 +330,8 @@ class RateLimitInterceptorTest {
     }
 
     @Test
-    @DisplayName("estimateQuotaForEndpoint — POST /messages with null inReplyToMessageId in body uses non-threaded quota (100)")
+    @DisplayName(
+            "estimateQuotaForEndpoint — POST /messages with null inReplyToMessageId in body uses non-threaded quota (100)")
     void estimateQuotaForEndpoint_postMessages_nullInReplyToInBody_usesNonThreadedSendQuota() throws IOException {
         // Arrange: body has inReplyToMessageId: null (JSON null) — must NOT trigger threaded path
         String body = "{\"to\":\"a@b.com\",\"subject\":\"Hi\",\"body\":\"text\",\"inReplyToMessageId\":null}";
@@ -332,7 +348,8 @@ class RateLimitInterceptorTest {
     }
 
     @Test
-    @DisplayName("estimateQuotaForEndpoint — POST /messages with empty body (line 237 false branch) uses non-threaded quota")
+    @DisplayName(
+            "estimateQuotaForEndpoint — POST /messages with empty body (line 237 false branch) uses non-threaded quota")
     void estimateQuotaForEndpoint_postMessages_emptyBody_usesNonThreadedSendQuota() throws IOException {
         // Arrange: empty body — isThreadedRequest returns false (line 237 branch)
         CachedBodyHttpServletRequest cachedRequest = buildCachedRequest("");
@@ -348,10 +365,12 @@ class RateLimitInterceptorTest {
     }
 
     @Test
-    @DisplayName("estimateQuotaForEndpoint — POST /drafts with inReplyToMessageId in body routes to threaded draft quota (15)")
+    @DisplayName(
+            "estimateQuotaForEndpoint — POST /drafts with inReplyToMessageId in body routes to threaded draft quota (15)")
     void estimateQuotaForEndpoint_postDrafts_threadedBody_usesThreadedCreateDraftQuota() throws IOException {
         // Arrange: draft body contains inReplyToMessageId — triggers threaded draft path
-        String threadedBody = "{\"to\":\"a@b.com\",\"subject\":\"Hi\",\"body\":\"text\",\"inReplyToMessageId\":\"abc123\"}";
+        String threadedBody =
+                "{\"to\":\"a@b.com\",\"subject\":\"Hi\",\"body\":\"text\",\"inReplyToMessageId\":\"abc123\"}";
         CachedBodyHttpServletRequest cachedRequest = buildCachedRequest(threadedBody);
 
         when(quotaEstimator.estimateThreadedCreateDraftQuota()).thenReturn(15);
@@ -365,7 +384,8 @@ class RateLimitInterceptorTest {
     }
 
     @Test
-    @DisplayName("estimateQuotaForEndpoint — POST /messages with plain mock (not CachedBody) falls back to non-threaded (line 225 + 228)")
+    @DisplayName(
+            "estimateQuotaForEndpoint — POST /messages with plain mock (not CachedBody) falls back to non-threaded (line 225 + 228)")
     void estimateQuotaForEndpoint_postMessages_nonCachedRequest_fallsBackToNonThreaded() {
         // Arrange: plain mock HttpServletRequest — not a CachedBodyHttpServletRequest
         // This covers lines 225 (instanceof check) and 228 (debug log + return false)
@@ -421,7 +441,8 @@ class RateLimitInterceptorTest {
     // =========================================================================
 
     @Test
-    @DisplayName("estimateQuotaForEndpoint — GET /messages/{id}/attachments routes to estimateListAttachmentsQuota (5 units)")
+    @DisplayName(
+            "estimateQuotaForEndpoint — GET /messages/{id}/attachments routes to estimateListAttachmentsQuota (5 units)")
     void estimateQuotaForEndpoint_getMessageAttachments_routesToListAttachmentsQuota() {
         when(quotaEstimator.estimateListAttachmentsQuota()).thenReturn(5);
 
@@ -433,7 +454,8 @@ class RateLimitInterceptorTest {
     }
 
     @Test
-    @DisplayName("estimateQuotaForEndpoint — GET /messages/{id}/attachments/{attachId} routes to estimateGetAttachmentQuota (5 units)")
+    @DisplayName(
+            "estimateQuotaForEndpoint — GET /messages/{id}/attachments/{attachId} routes to estimateGetAttachmentQuota (5 units)")
     void estimateQuotaForEndpoint_getAttachmentById_routesToGetAttachmentQuota() {
         when(quotaEstimator.estimateGetAttachmentQuota()).thenReturn(5);
 

@@ -1,9 +1,9 @@
 package com.aucontraire.gmailbuddy.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Size;
 import com.aucontraire.gmailbuddy.validation.OptionalEmail;
 import com.aucontraire.gmailbuddy.validation.ValidGmailQuery;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Size;
 
 @Schema(description = "Filter criteria for searching Gmail messages")
 public class FilterCriteriaDTO {
@@ -37,36 +37,47 @@ public class FilterCriteriaDTO {
     public String getFrom() {
         return from;
     }
+
     public void setFrom(String from) {
         this.from = from;
     }
+
     public String getTo() {
         return to;
     }
+
     public void setTo(String to) {
         this.to = to;
     }
+
     public String getSubject() {
         return subject;
     }
+
     public void setSubject(String subject) {
         this.subject = subject;
     }
+
     public Boolean getHasAttachment() {
         return hasAttachment;
     }
+
     public void setHasAttachment(Boolean hasAttachment) {
         this.hasAttachment = hasAttachment;
     }
+
     public String getQuery() {
         return query;
     }
+
     public void setQuery(String query) {
         this.query = query;
     }
+
     public String getNegatedQuery() {
         return negatedQuery;
     }
+
     public void setNegatedQuery(String negatedQuery) {
         this.negatedQuery = negatedQuery;
     }

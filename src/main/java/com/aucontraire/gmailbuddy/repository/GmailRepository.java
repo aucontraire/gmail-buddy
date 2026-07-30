@@ -1,6 +1,7 @@
 package com.aucontraire.gmailbuddy.repository;
 
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
+import com.aucontraire.gmailbuddy.dto.response.LabelSummary;
 import com.aucontraire.gmailbuddy.service.AttachmentListResult;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
@@ -10,34 +11,44 @@ import com.aucontraire.gmailbuddy.service.LabelDetailResult;
 import com.aucontraire.gmailbuddy.service.LabelListResult;
 import com.aucontraire.gmailbuddy.service.MessageDetailResult;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
-import com.aucontraire.gmailbuddy.dto.response.LabelSummary;
 import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
 import com.aucontraire.gmailbuddy.service.ThreadDetailResult;
 import com.aucontraire.gmailbuddy.service.ThreadListResult;
 import com.google.api.services.gmail.model.Message;
 import jakarta.mail.internet.MimeMessage;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 public interface GmailRepository {
     List<Message> getMessages(String userId) throws IOException;
+
     List<Message> getLatestMessages(String userId, long maxResults) throws IOException;
+
     List<Message> getMessagesByFilterCriteria(String userId, String query) throws IOException;
 
     // Paginated versions of list methods
     MessageListResult getMessagesWithPagination(String userId, String pageToken, int limit) throws IOException;
-    MessageListResult getLatestMessagesWithPagination(String userId, String pageToken, int maxResults) throws IOException;
-    MessageListResult getMessagesByFilterCriteriaWithPagination(String userId, String query, String pageToken, int limit) throws IOException;
+
+    MessageListResult getLatestMessagesWithPagination(String userId, String pageToken, int maxResults)
+            throws IOException;
+
+    MessageListResult getMessagesByFilterCriteriaWithPagination(
+            String userId, String query, String pageToken, int limit) throws IOException;
 
     BulkOperationResult deleteMessage(String userId, String messageId) throws IOException;
+
     BulkOperationResult deleteMessagesByFilterCriteria(String userId, String query) throws IOException;
-    BulkOperationResult modifyMessagesLabels(String userId, List<String> labelsToAdd, List<String> labelsToRemove, String query) throws IOException;
+
+    BulkOperationResult modifyMessagesLabels(
+            String userId, List<String> labelsToAdd, List<String> labelsToRemove, String query) throws IOException;
+
     String getMessageBody(String userId, String messageId) throws IOException;
+
     Map<String, String> getLabels(String userId) throws IOException;
+
     BulkOperationResult markMessageAsRead(String userId, String messageId) throws IOException;
 
     /**
@@ -79,8 +90,9 @@ public interface GmailRepository {
      * @return a BulkOperationResult with per-message-id success/failure outcomes
      * @throws IOException on Gmail API communication failure
      */
-    BulkOperationResult batchModifyLabelsByIds(String userId, List<String> messageIds,
-                                               List<String> labelIdsToAdd, List<String> labelIdsToRemove) throws IOException;
+    BulkOperationResult batchModifyLabelsByIds(
+            String userId, List<String> messageIds, List<String> labelIdsToAdd, List<String> labelIdsToRemove)
+            throws IOException;
 
     /**
      * Sends a fully-constructed MimeMessage immediately via the Gmail
@@ -235,8 +247,8 @@ public interface GmailRepository {
      * @return a ThreadListResult containing thread summaries and pagination state
      * @throws IOException on Gmail API communication failure
      */
-    ThreadListResult listThreads(String userId, FilterCriteriaDTO filterCriteria,
-                                 String pageToken, int limit) throws IOException;
+    ThreadListResult listThreads(String userId, FilterCriteriaDTO filterCriteria, String pageToken, int limit)
+            throws IOException;
 
     /**
      * Returns the full content of the specified thread including all nested messages.
@@ -305,8 +317,8 @@ public interface GmailRepository {
      *         if a label with this name already exists (Gmail 409)
      * @throws IOException on Gmail API communication failure
      */
-    LabelSummary createLabel(String userId, String name, String messageListVisibility,
-                              String labelListVisibility) throws IOException;
+    LabelSummary createLabel(String userId, String name, String messageListVisibility, String labelListVisibility)
+            throws IOException;
 
     /**
      * Fetches the RFC 5322 {@code Message-ID} header and {@code threadId} from the

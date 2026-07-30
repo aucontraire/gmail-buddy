@@ -1,5 +1,14 @@
 package com.aucontraire.gmailbuddy.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
@@ -14,6 +23,8 @@ import com.aucontraire.gmailbuddy.service.SentMessageResult;
 import com.aucontraire.gmailbuddy.util.CrlfSanitizingMessageConverter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.mail.internet.MimeMessage;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -28,18 +39,6 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Constitution VII compliance spot-check for the threading-attachments feature (T058).
@@ -94,10 +93,10 @@ class ConstitutionVIIComplianceTest {
     // -------------------------------------------------------------------------
 
     private static final String MESSAGES_ENDPOINT = "/api/v1/gmail/messages";
-    private static final String DRAFTS_ENDPOINT   = "/api/v1/gmail/drafts";
+    private static final String DRAFTS_ENDPOINT = "/api/v1/gmail/drafts";
 
     /** A valid Gmail thread ID used in threading scenarios. */
-    private static final String VALID_THREAD_ID   = "1a2b3c4d5e6f7a8b";
+    private static final String VALID_THREAD_ID = "1a2b3c4d5e6f7a8b";
 
     /** A valid Gmail message ID used as the inReplyToMessageId. */
     private static final String VALID_IN_REPLY_TO = "2b3c4d5e6f7a8b9c";
@@ -107,8 +106,7 @@ class ConstitutionVIIComplianceTest {
      * This value is unique enough that it will not appear in logs by coincidence.
      * It must NEVER appear in any log event (FR-019, Constitution VII).
      */
-    private static final String RFC_MESSAGE_ID_FINGERPRINT =
-            "<unique-fingerprint-rfc-id@mail.gmail.com>";
+    private static final String RFC_MESSAGE_ID_FINGERPRINT = "<unique-fingerprint-rfc-id@mail.gmail.com>";
 
     /**
      * Fingerprintable attachment filename used in Scenario 3.
@@ -124,8 +122,8 @@ class ConstitutionVIIComplianceTest {
     private static final String VALID_PDF_BASE64 = "JVBERi0xLjQK";
 
     private static final String STUB_MESSAGE_ID = "msg-stub-id-001";
-    private static final String STUB_THREAD_ID  = "thread-stub-001";
-    private static final String STUB_DRAFT_ID   = "draft-stub-001";
+    private static final String STUB_THREAD_ID = "thread-stub-001";
+    private static final String STUB_DRAFT_ID = "draft-stub-001";
 
     // -------------------------------------------------------------------------
     // Spring-managed beans
@@ -161,6 +159,7 @@ class ConstitutionVIIComplianceTest {
      * code only, without needing cross-logger event capture).</p>
      */
     private ListAppender<ILoggingEvent> rootAppender;
+
     private Logger rootLogger;
 
     @BeforeEach
@@ -323,11 +322,10 @@ class ConstitutionVIIComplianceTest {
         void postMessages_threadIdContainsCRLF_rejectedWith400BeforeServiceCode() throws Exception {
             // Arrange: CRLF embedded in threadId; this string fails @Pattern([0-9a-fA-F]{1,32})
             Map<String, Object> body = Map.of(
-                    "to",       List.of("recruiter@example.com"),
-                    "subject",  "Follow-up",
-                    "body",     "Reaching out.",
-                    "threadId", "1234567890abcdef\r\nFAKE_LOG_LINE"
-            );
+                    "to", List.of("recruiter@example.com"),
+                    "subject", "Follow-up",
+                    "body", "Reaching out.",
+                    "threadId", "1234567890abcdef\r\nFAKE_LOG_LINE");
             String json = objectMapper.writeValueAsString(body);
 
             // Act & Assert: Bean Validation rejects the request; GmailService never runs
@@ -347,11 +345,10 @@ class ConstitutionVIIComplianceTest {
         void postMessages_inReplyToMessageIdContainsCRLF_rejectedWith400() throws Exception {
             // Arrange
             Map<String, Object> body = Map.of(
-                    "to",                  List.of("recruiter@example.com"),
-                    "subject",             "Follow-up",
-                    "body",                "Reaching out.",
-                    "inReplyToMessageId",  "1234567890abcdef\r\nFAKE_LOG_LINE"
-            );
+                    "to", List.of("recruiter@example.com"),
+                    "subject", "Follow-up",
+                    "body", "Reaching out.",
+                    "inReplyToMessageId", "1234567890abcdef\r\nFAKE_LOG_LINE");
             String json = objectMapper.writeValueAsString(body);
 
             // Act & Assert
@@ -375,11 +372,15 @@ class ConstitutionVIIComplianceTest {
                     .thenReturn(new SentMessageResult(STUB_MESSAGE_ID, STUB_THREAD_ID));
 
             Map<String, Object> body = Map.of(
-                    "to",      List.of("recruiter@example.com"),
-                    "subject", "Follow-up",
-                    "body",    "Reaching out.",
-                    "threadId", VALID_THREAD_ID   // clean hex — must pass @Pattern
-            );
+                    "to",
+                    List.of("recruiter@example.com"),
+                    "subject",
+                    "Follow-up",
+                    "body",
+                    "Reaching out.",
+                    "threadId",
+                    VALID_THREAD_ID // clean hex — must pass @Pattern
+                    );
             String json = objectMapper.writeValueAsString(body);
 
             // Act & Assert: 201 Created (validation passes)
@@ -430,19 +431,22 @@ class ConstitutionVIIComplianceTest {
         @DisplayName("postMessages_withInReplyToMessageId_rfcMessageIdNeverAppearsInLogs")
         void postMessages_withInReplyToMessageId_rfcMessageIdNeverAppearsInLogs() throws Exception {
             // Arrange: mock getMessageHeaders to return a lookup with the fingerprintable rfcMessageId
-            OriginalMessageLookup lookup = new OriginalMessageLookup(
-                    VALID_IN_REPLY_TO, VALID_THREAD_ID, RFC_MESSAGE_ID_FINGERPRINT);
+            OriginalMessageLookup lookup =
+                    new OriginalMessageLookup(VALID_IN_REPLY_TO, VALID_THREAD_ID, RFC_MESSAGE_ID_FINGERPRINT);
             when(gmailRepository.getMessageHeaders(anyString(), eq(VALID_IN_REPLY_TO)))
                     .thenReturn(lookup);
             when(gmailRepository.sendMessage(anyString(), any(MimeMessage.class), anyString()))
                     .thenReturn(new SentMessageResult(STUB_MESSAGE_ID, STUB_THREAD_ID));
 
             Map<String, Object> body = Map.of(
-                    "to",                  List.of("recruiter@example.com"),
-                    "subject",             "Re: Your inquiry",
-                    "body",                "Following up on our conversation.",
-                    "inReplyToMessageId",  VALID_IN_REPLY_TO
-            );
+                    "to",
+                    List.of("recruiter@example.com"),
+                    "subject",
+                    "Re: Your inquiry",
+                    "body",
+                    "Following up on our conversation.",
+                    "inReplyToMessageId",
+                    VALID_IN_REPLY_TO);
 
             // Act
             mockMvc.perform(post(MESSAGES_ENDPOINT)
@@ -456,8 +460,10 @@ class ConstitutionVIIComplianceTest {
                     .filter(e -> e.getFormattedMessage().contains(RFC_MESSAGE_ID_FINGERPRINT))
                     .count();
             assertThat(leakingEvents)
-                    .as("FR-019 / Constitution VII: rfcMessageId '%s' MUST NOT appear in any log event " +
-                        "(found %d violating events)", RFC_MESSAGE_ID_FINGERPRINT, leakingEvents)
+                    .as(
+                            "FR-019 / Constitution VII: rfcMessageId '%s' MUST NOT appear in any log event "
+                                    + "(found %d violating events)",
+                            RFC_MESSAGE_ID_FINGERPRINT, leakingEvents)
                     .isZero();
         }
 
@@ -473,19 +479,22 @@ class ConstitutionVIIComplianceTest {
         @DisplayName("postMessages_withInReplyToMessageId_inReplyToMessageIdMayAppearInLogs")
         void postMessages_withInReplyToMessageId_inReplyToMessageIdMayAppearInLogs() throws Exception {
             // Arrange
-            OriginalMessageLookup lookup = new OriginalMessageLookup(
-                    VALID_IN_REPLY_TO, VALID_THREAD_ID, RFC_MESSAGE_ID_FINGERPRINT);
+            OriginalMessageLookup lookup =
+                    new OriginalMessageLookup(VALID_IN_REPLY_TO, VALID_THREAD_ID, RFC_MESSAGE_ID_FINGERPRINT);
             when(gmailRepository.getMessageHeaders(anyString(), eq(VALID_IN_REPLY_TO)))
                     .thenReturn(lookup);
             when(gmailRepository.sendMessage(anyString(), any(MimeMessage.class), anyString()))
                     .thenReturn(new SentMessageResult(STUB_MESSAGE_ID, STUB_THREAD_ID));
 
             Map<String, Object> body = Map.of(
-                    "to",                  List.of("recruiter@example.com"),
-                    "subject",             "Re: Your inquiry",
-                    "body",                "Following up on our conversation.",
-                    "inReplyToMessageId",  VALID_IN_REPLY_TO
-            );
+                    "to",
+                    List.of("recruiter@example.com"),
+                    "subject",
+                    "Re: Your inquiry",
+                    "body",
+                    "Following up on our conversation.",
+                    "inReplyToMessageId",
+                    VALID_IN_REPLY_TO);
 
             // Act
             mockMvc.perform(post(MESSAGES_ENDPOINT)
@@ -496,12 +505,12 @@ class ConstitutionVIIComplianceTest {
             // Assert: the opaque hex inReplyToMessageId DOES appear in at least one log event
             // (GmailService logs it as "Threading lookup: inReplyToMessageId=..., userId=...")
             List<ILoggingEvent> allEvents = rootAppender.list;
-            boolean inReplyToLogged = allEvents.stream()
-                    .anyMatch(e -> e.getFormattedMessage().contains(VALID_IN_REPLY_TO));
+            boolean inReplyToLogged =
+                    allEvents.stream().anyMatch(e -> e.getFormattedMessage().contains(VALID_IN_REPLY_TO));
             assertThat(inReplyToLogged)
-                    .as("FR-019b spirit: inReplyToMessageId (opaque hex ID) should appear in diagnostic " +
-                        "log to confirm threading lookup occurred. If absent, the threading log statement " +
-                        "may have been removed — check GmailService#sendMessage threading log.")
+                    .as("FR-019b spirit: inReplyToMessageId (opaque hex ID) should appear in diagnostic "
+                            + "log to confirm threading lookup occurred. If absent, the threading log statement "
+                            + "may have been removed — check GmailService#sendMessage threading log.")
                     .isTrue();
         }
 
@@ -515,19 +524,22 @@ class ConstitutionVIIComplianceTest {
         @DisplayName("postDrafts_withInReplyToMessageId_rfcMessageIdNeverAppearsInLogs")
         void postDrafts_withInReplyToMessageId_rfcMessageIdNeverAppearsInLogs() throws Exception {
             // Arrange
-            OriginalMessageLookup lookup = new OriginalMessageLookup(
-                    VALID_IN_REPLY_TO, VALID_THREAD_ID, RFC_MESSAGE_ID_FINGERPRINT);
+            OriginalMessageLookup lookup =
+                    new OriginalMessageLookup(VALID_IN_REPLY_TO, VALID_THREAD_ID, RFC_MESSAGE_ID_FINGERPRINT);
             when(gmailRepository.getMessageHeaders(anyString(), eq(VALID_IN_REPLY_TO)))
                     .thenReturn(lookup);
             when(gmailRepository.createDraft(anyString(), any(MimeMessage.class), anyString()))
                     .thenReturn(new DraftCreationResult(STUB_DRAFT_ID, STUB_MESSAGE_ID, STUB_THREAD_ID));
 
             Map<String, Object> body = Map.of(
-                    "to",                  List.of("recruiter@example.com"),
-                    "subject",             "Re: Your inquiry",
-                    "body",                "Following up on our conversation.",
-                    "inReplyToMessageId",  VALID_IN_REPLY_TO
-            );
+                    "to",
+                    List.of("recruiter@example.com"),
+                    "subject",
+                    "Re: Your inquiry",
+                    "body",
+                    "Following up on our conversation.",
+                    "inReplyToMessageId",
+                    VALID_IN_REPLY_TO);
 
             // Act
             mockMvc.perform(post(DRAFTS_ENDPOINT)
@@ -541,9 +553,10 @@ class ConstitutionVIIComplianceTest {
                     .filter(e -> e.getFormattedMessage().contains(RFC_MESSAGE_ID_FINGERPRINT))
                     .count();
             assertThat(leakingEvents)
-                    .as("FR-019 / Constitution VII: rfcMessageId '%s' MUST NOT appear in any log event " +
-                        "for the draft creation path (found %d violating events)",
-                        RFC_MESSAGE_ID_FINGERPRINT, leakingEvents)
+                    .as(
+                            "FR-019 / Constitution VII: rfcMessageId '%s' MUST NOT appear in any log event "
+                                    + "for the draft creation path (found %d violating events)",
+                            RFC_MESSAGE_ID_FINGERPRINT, leakingEvents)
                     .isZero();
         }
     }
@@ -608,13 +621,15 @@ class ConstitutionVIIComplianceTest {
                     .filter(e -> e.getFormattedMessage().contains(UNIQUE_FILENAME))
                     .count();
             assertThat(leakingEvents)
-                    .as("FR-019 / SC-004 / Constitution VII: filename '%s' MUST NOT appear in any log event " +
-                        "(found %d violating events at levels: %s)",
-                        UNIQUE_FILENAME, leakingEvents,
-                        allEvents.stream()
-                                .filter(e -> e.getFormattedMessage().contains(UNIQUE_FILENAME))
-                                .map(e -> e.getLevel().toString())
-                                .toList())
+                    .as(
+                            "FR-019 / SC-004 / Constitution VII: filename '%s' MUST NOT appear in any log event "
+                                    + "(found %d violating events at levels: %s)",
+                            UNIQUE_FILENAME,
+                            leakingEvents,
+                            allEvents.stream()
+                                    .filter(e -> e.getFormattedMessage().contains(UNIQUE_FILENAME))
+                                    .map(e -> e.getLevel().toString())
+                                    .toList())
                     .isZero();
         }
 
@@ -671,8 +686,7 @@ class ConstitutionVIIComplianceTest {
         @Test
         @WithMockUser
         @DisplayName("postMessages_withAttachment_diagnosticLogContainsAttachmentCountAndMimeTypes")
-        void postMessages_withAttachment_diagnosticLogContainsAttachmentCountAndMimeTypes()
-                throws Exception {
+        void postMessages_withAttachment_diagnosticLogContainsAttachmentCountAndMimeTypes() throws Exception {
             // Arrange
             when(gmailRepository.sendMessage(anyString(), any(MimeMessage.class), any()))
                     .thenReturn(new SentMessageResult(STUB_MESSAGE_ID, STUB_THREAD_ID));
@@ -688,25 +702,25 @@ class ConstitutionVIIComplianceTest {
             // Assert: FR-020 positive assertions
             List<ILoggingEvent> allEvents = rootAppender.list;
 
-            boolean foundAttachmentCount = allEvents.stream()
-                    .anyMatch(e -> e.getFormattedMessage().contains("attachmentCount=1"));
+            boolean foundAttachmentCount =
+                    allEvents.stream().anyMatch(e -> e.getFormattedMessage().contains("attachmentCount=1"));
             assertThat(foundAttachmentCount)
-                    .as("FR-020: diagnostic log MUST contain 'attachmentCount=1' after sending 1 attachment. " +
-                        "Check GmailService#sendMessage FR-019a/FR-020 log statement.")
+                    .as("FR-020: diagnostic log MUST contain 'attachmentCount=1' after sending 1 attachment. "
+                            + "Check GmailService#sendMessage FR-019a/FR-020 log statement.")
                     .isTrue();
 
-            boolean foundMimeTypes = allEvents.stream()
-                    .anyMatch(e -> e.getFormattedMessage().contains("mimeTypes="));
+            boolean foundMimeTypes =
+                    allEvents.stream().anyMatch(e -> e.getFormattedMessage().contains("mimeTypes="));
             assertThat(foundMimeTypes)
-                    .as("FR-020: diagnostic log MUST contain 'mimeTypes=' for observability. " +
-                        "Check GmailService#sendMessage FR-019a/FR-020 log statement.")
+                    .as("FR-020: diagnostic log MUST contain 'mimeTypes=' for observability. "
+                            + "Check GmailService#sendMessage FR-019a/FR-020 log statement.")
                     .isTrue();
 
-            boolean foundMimeTypeValue = allEvents.stream()
-                    .anyMatch(e -> e.getFormattedMessage().contains("application/pdf"));
+            boolean foundMimeTypeValue =
+                    allEvents.stream().anyMatch(e -> e.getFormattedMessage().contains("application/pdf"));
             assertThat(foundMimeTypeValue)
-                    .as("FR-020: 'mimeTypes=' log field MUST include the actual MIME type 'application/pdf'. " +
-                        "Check GmailService#sendMessage — mimeTypes list should include Attachment::mimeType.")
+                    .as("FR-020: 'mimeTypes=' log field MUST include the actual MIME type 'application/pdf'. "
+                            + "Check GmailService#sendMessage — mimeTypes list should include Attachment::mimeType.")
                     .isTrue();
         }
 
@@ -746,13 +760,12 @@ class ConstitutionVIIComplianceTest {
                     .isNotEmpty();
 
             // None of the mimeTypes log lines may contain the filename
-            mimeTypeLogLines.forEach(line ->
-                    assertThat(line)
-                            .as("FR-019: the mimeTypes= log line must NOT contain the attachment filename '%s'. " +
-                                "This would indicate the filename is being logged alongside MIME types.",
-                                UNIQUE_FILENAME)
-                            .doesNotContain(UNIQUE_FILENAME)
-            );
+            mimeTypeLogLines.forEach(line -> assertThat(line)
+                    .as(
+                            "FR-019: the mimeTypes= log line must NOT contain the attachment filename '%s'. "
+                                    + "This would indicate the filename is being logged alongside MIME types.",
+                            UNIQUE_FILENAME)
+                    .doesNotContain(UNIQUE_FILENAME));
         }
 
         /**
@@ -783,8 +796,10 @@ class ConstitutionVIIComplianceTest {
                     .filter(e -> e.getFormattedMessage().contains(UNIQUE_FILENAME))
                     .count();
             assertThat(leakingEvents)
-                    .as("FR-019 / SC-004: filename '%s' MUST NOT appear in any log event for the draft path " +
-                        "(found %d violating events)", UNIQUE_FILENAME, leakingEvents)
+                    .as(
+                            "FR-019 / SC-004: filename '%s' MUST NOT appear in any log event for the draft path "
+                                    + "(found %d violating events)",
+                            UNIQUE_FILENAME, leakingEvents)
                     .isZero();
         }
     }
@@ -801,20 +816,19 @@ class ConstitutionVIIComplianceTest {
      * @param base64Data the base64-encoded attachment content
      * @return JSON string suitable for {@code MockMvc} request body
      */
-    private String singleAttachmentBody(String filename, String mimeType, String base64Data)
-            throws Exception {
+    private String singleAttachmentBody(String filename, String mimeType, String base64Data) throws Exception {
         Map<String, Object> body = Map.of(
-                "to",          List.of("recruiter@example.com"),
-                "subject",     "Outreach with attachment",
-                "body",        "Please find the attachment enclosed.",
-                "attachments", List.of(
-                        Map.of(
-                                "filename",   filename,
-                                "mimeType",   mimeType,
-                                "base64Data", base64Data
-                        )
-                )
-        );
+                "to",
+                List.of("recruiter@example.com"),
+                "subject",
+                "Outreach with attachment",
+                "body",
+                "Please find the attachment enclosed.",
+                "attachments",
+                List.of(Map.of(
+                        "filename", filename,
+                        "mimeType", mimeType,
+                        "base64Data", base64Data)));
         return objectMapper.writeValueAsString(body);
     }
 }

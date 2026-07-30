@@ -21,16 +21,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Schema(description = "Attachment metadata with download identifier (no binary content)")
 public record MessageAttachmentMetadata(
-        @Schema(description = "Gmail opaque attachment identifier",
-                example = "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
-        String attachmentId,
-
-        @Schema(description = "Original filename of the attachment", example = "job-description.pdf")
-        String filename,
-
-        @Schema(description = "MIME type of the attachment", example = "application/pdf")
-        String mimeType,
-
-        @Schema(description = "Decoded byte size estimate from Gmail API", example = "245760")
-        long sizeBytes
-) {}
+        @Schema(description = "Gmail opaque attachment identifier", example = "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
+                String attachmentId,
+        @Schema(description = "Original filename of the attachment", example = "job-description.pdf") String filename,
+        @Schema(description = "MIME type of the attachment", example = "application/pdf") String mimeType,
+        @Schema(description = "Decoded byte size estimate from Gmail API", example = "245760") long sizeBytes) {}

@@ -5,6 +5,7 @@ import com.aucontraire.gmailbuddy.ratelimit.RateLimitInfo;
 import com.aucontraire.gmailbuddy.ratelimit.RateLimitService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.nio.charset.StandardCharsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,8 +14,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
-
-import java.nio.charset.StandardCharsets;
 
 /**
  * Interceptor that tracks rate limits and Gmail quota usage for each request.
@@ -63,9 +62,8 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public boolean preHandle(@NonNull HttpServletRequest request,
-                            @NonNull HttpServletResponse response,
-                            @NonNull Object handler) {
+    public boolean preHandle(
+            @NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) {
 
         // Get user identifier from security context
         String userId = getUserIdentifier();
@@ -90,8 +88,9 @@ public class RateLimitInterceptor implements HandlerInterceptor {
      */
     private String getUserIdentifier() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated() &&
-            !"anonymousUser".equals(authentication.getPrincipal())) {
+        if (authentication != null
+                && authentication.isAuthenticated()
+                && !"anonymousUser".equals(authentication.getPrincipal())) {
             return authentication.getName();
         }
         return "anonymous";
@@ -181,12 +180,13 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
         // Feature 004 — US2: GET /messages/{id} (message detail) — T035
         // Must be checked BEFORE /body and /read patterns; excludes those suffixes explicitly.
-        if (uri.matches(".*/messages/[^/]+") && "GET".equals(method)
-                && !uri.contains("/body") && !uri.contains("/read")) {
+        if (uri.matches(".*/messages/[^/]+")
+                && "GET".equals(method)
+                && !uri.contains("/body")
+                && !uri.contains("/read")) {
             // GET /messages/{id} (new message detail endpoint — not /body, not /read)
             String format = request.getParameter("format");
-            return quotaEstimator.estimateGetMessageDetailQuota(
-                    format != null ? format.toLowerCase() : "full");
+            return quotaEstimator.estimateGetMessageDetailQuota(format != null ? format.toLowerCase() : "full");
         }
 
         if (uri.matches(".*/messages/[^/]+/body")) {
@@ -277,7 +277,8 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         if (!(request instanceof CachedBodyHttpServletRequest wrapper)) {
             // Filter was bypassed (e.g., test context without full filter chain).
             // Fall back to non-threaded estimate — safe degradation.
-            logger.debug("RateLimitInterceptor: request is not wrapped; cannot inspect body for threading; defaulting to non-threaded quota");
+            logger.debug(
+                    "RateLimitInterceptor: request is not wrapped; cannot inspect body for threading; defaulting to non-threaded quota");
             return false;
         }
 
@@ -295,7 +296,8 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         // Allows optional whitespace around the colon per JSON spec.
         boolean threaded = bodySnippet.matches("(?s).*\"inReplyToMessageId\"\\s*:\\s*\"[^\"]+\".*");
         if (threaded) {
-            logger.debug("RateLimitInterceptor: detected inReplyToMessageId in request body — routing to threaded quota estimate");
+            logger.debug(
+                    "RateLimitInterceptor: detected inReplyToMessageId in request body — routing to threaded quota estimate");
         }
         return threaded;
     }

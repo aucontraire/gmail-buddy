@@ -1,10 +1,10 @@
 package com.aucontraire.gmailbuddy.exception;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link OriginalMessageNotFoundException}.
@@ -51,8 +51,7 @@ class OriginalMessageNotFoundExceptionTest {
         Throwable cause = new RuntimeException("GoogleJsonResponseException mock");
 
         // Act
-        OriginalMessageNotFoundException exception =
-                new OriginalMessageNotFoundException(message, cause);
+        OriginalMessageNotFoundException exception = new OriginalMessageNotFoundException(message, cause);
 
         // Assert
         assertThat(exception.getMessage()).isEqualTo(message);
@@ -69,12 +68,10 @@ class OriginalMessageNotFoundExceptionTest {
     @DisplayName("getHttpStatus returns 422 Unprocessable Entity for single-arg constructor")
     void getHttpStatus_SingleArgConstructor_Returns422UnprocessableEntity() {
         // Arrange
-        OriginalMessageNotFoundException exception =
-                new OriginalMessageNotFoundException("message not found");
+        OriginalMessageNotFoundException exception = new OriginalMessageNotFoundException("message not found");
 
         // Act & Assert
-        assertThat(exception.getHttpStatus())
-                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.value());
+        assertThat(exception.getHttpStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.value());
     }
 
     @Test
@@ -85,8 +82,7 @@ class OriginalMessageNotFoundExceptionTest {
                 new OriginalMessageNotFoundException("message not found", new Exception("api error"));
 
         // Act & Assert
-        assertThat(exception.getHttpStatus())
-                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.value());
+        assertThat(exception.getHttpStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.value());
     }
 
     // ---------------------------------------------------------------
@@ -115,8 +111,7 @@ class OriginalMessageNotFoundExceptionTest {
     @DisplayName("OriginalMessageNotFoundException extends GmailBuddyClientException")
     void classHierarchy_ExtendsClientExceptionNotValidationException() {
         // Arrange
-        OriginalMessageNotFoundException exception =
-                new OriginalMessageNotFoundException("original message not found");
+        OriginalMessageNotFoundException exception = new OriginalMessageNotFoundException("original message not found");
 
         // Assert: extends the client base, so GlobalExceptionHandler.handleValidationException
         // does NOT catch it — only the dedicated handleOriginalMessageNotFoundException does.

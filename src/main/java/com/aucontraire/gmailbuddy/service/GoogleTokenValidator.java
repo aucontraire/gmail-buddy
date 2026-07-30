@@ -1,6 +1,8 @@
 package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
+import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
@@ -8,9 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Service for validating Google OAuth2 tokens using Google's TokenInfo endpoint.
@@ -48,14 +47,13 @@ public class GoogleTokenValidator {
      *   endpoints with HTTP 403 insufficientPermissions.
      */
     private static final Set<String> REQUIRED_GMAIL_SCOPES = Set.of(
-        "https://www.googleapis.com/auth/gmail.readonly",
-        "https://www.googleapis.com/auth/gmail.modify",
-        // Allows least-privilege send-only Bearer tokens from the Python consumer to pass validation.
-        "https://www.googleapis.com/auth/gmail.send",
-        // Required for users.messages.batchDelete (permanent delete used by DELETE endpoints).
-        // gmail.modify only permits trash(); batchDelete requires the full-access scope.
-        "https://mail.google.com/"
-    );
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.modify",
+            // Allows least-privilege send-only Bearer tokens from the Python consumer to pass validation.
+            "https://www.googleapis.com/auth/gmail.send",
+            // Required for users.messages.batchDelete (permanent delete used by DELETE endpoints).
+            // gmail.modify only permits trash(); batchDelete requires the full-access scope.
+            "https://mail.google.com/");
 
     private final RestTemplate restTemplate;
 
@@ -88,13 +86,16 @@ public class GoogleTokenValidator {
 
             boolean hasValidScopes = validateGmailScopes(tokenInfo.getScope());
             if (!hasValidScopes) {
-                logger.debug("Token validation failed: missing required Gmail scopes. Current scopes: {}",
-                           tokenInfo.getScope());
+                logger.debug(
+                        "Token validation failed: missing required Gmail scopes. Current scopes: {}",
+                        tokenInfo.getScope());
                 return false;
             }
 
-            logger.debug("Token validation successful. Scopes: {}, expires in: {} seconds",
-                        tokenInfo.getScope(), tokenInfo.getExpiresIn());
+            logger.debug(
+                    "Token validation successful. Scopes: {}, expires in: {} seconds",
+                    tokenInfo.getScope(),
+                    tokenInfo.getExpiresIn());
             return true;
 
         } catch (Exception e) {
@@ -143,7 +144,8 @@ public class GoogleTokenValidator {
         HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity<>(body, headers);
 
         logger.debug("Validating token with Google TokenInfo endpoint using secure POST method");
-        ResponseEntity<Map> response = restTemplate.exchange(GOOGLE_TOKEN_INFO_URL, HttpMethod.POST, requestEntity, Map.class);
+        ResponseEntity<Map> response =
+                restTemplate.exchange(GOOGLE_TOKEN_INFO_URL, HttpMethod.POST, requestEntity, Map.class);
 
         if (!response.getStatusCode().is2xxSuccessful()) {
             logger.debug("Google TokenInfo returned non-success status: {}", response.getStatusCode());
@@ -240,34 +242,63 @@ public class GoogleTokenValidator {
         private String accessType;
 
         // Getters and setters
-        public String getScope() { return scope; }
-        public void setScope(String scope) { this.scope = scope; }
+        public String getScope() {
+            return scope;
+        }
 
-        public String getAudience() { return audience; }
-        public void setAudience(String audience) { this.audience = audience; }
+        public void setScope(String scope) {
+            this.scope = scope;
+        }
 
-        public String getUserId() { return userId; }
-        public void setUserId(String userId) { this.userId = userId; }
+        public String getAudience() {
+            return audience;
+        }
 
-        public String getEmail() { return email; }
-        public void setEmail(String email) { this.email = email; }
+        public void setAudience(String audience) {
+            this.audience = audience;
+        }
 
-        public String getExpiresIn() { return expiresIn; }
-        public void setExpiresIn(String expiresIn) { this.expiresIn = expiresIn; }
+        public String getUserId() {
+            return userId;
+        }
 
-        public String getAccessType() { return accessType; }
-        public void setAccessType(String accessType) { this.accessType = accessType; }
+        public void setUserId(String userId) {
+            this.userId = userId;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getExpiresIn() {
+            return expiresIn;
+        }
+
+        public void setExpiresIn(String expiresIn) {
+            this.expiresIn = expiresIn;
+        }
+
+        public String getAccessType() {
+            return accessType;
+        }
+
+        public void setAccessType(String accessType) {
+            this.accessType = accessType;
+        }
 
         @Override
         public String toString() {
-            return "TokenInfoResponse{" +
-                    "scope='" + scope + '\'' +
-                    ", audience='" + audience + '\'' +
-                    ", userId='" + userId + '\'' +
-                    ", email='" + email + '\'' +
-                    ", expiresIn='" + expiresIn + '\'' +
-                    ", accessType='" + accessType + '\'' +
-                    '}';
+            return "TokenInfoResponse{" + "scope='"
+                    + scope + '\'' + ", audience='"
+                    + audience + '\'' + ", userId='"
+                    + userId + '\'' + ", email='"
+                    + email + '\'' + ", expiresIn='"
+                    + expiresIn + '\'' + ", accessType='"
+                    + accessType + '\'' + '}';
         }
     }
 }

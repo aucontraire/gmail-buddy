@@ -1,5 +1,11 @@
 package com.aucontraire.gmailbuddy.dto;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.controller.GmailController;
 import com.aucontraire.gmailbuddy.fixture.AttachmentFixtures;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
@@ -11,6 +17,7 @@ import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import com.aucontraire.gmailbuddy.validation.TestGmailBuddyPropertiesConfiguration;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -22,14 +29,6 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Tests for the threading and attachment fields added to {@link SendMessageDTO}
@@ -59,6 +58,7 @@ class SendMessageDTOThreadingAttachmentTest {
 
     /** Minimum valid field values for the six pre-existing required fields. */
     private static final String VALID_RECIPIENT = "recruiter@example.com";
+
     private static final String VALID_SUBJECT = "Follow-up";
     private static final String VALID_BODY = "Hello!";
 
@@ -81,11 +81,15 @@ class SendMessageDTOThreadingAttachmentTest {
             // Arrange + Act: pass null for attachments.
             SendMessageDTO dto = new SendMessageDTO(
                     List.of(VALID_RECIPIENT),
-                    null, null,
-                    VALID_SUBJECT, VALID_BODY, "text",
-                    null, null,
-                    null  // null attachments
-            );
+                    null,
+                    null,
+                    VALID_SUBJECT,
+                    VALID_BODY,
+                    "text",
+                    null,
+                    null,
+                    null // null attachments
+                    );
 
             // Assert: compact constructor must replace null with List.of().
             List<Attachment> result = dto.attachments();
@@ -97,12 +101,7 @@ class SendMessageDTOThreadingAttachmentTest {
         void compactConstructor_emptyAttachments_remainsEmpty() {
             // Arrange + Act
             SendMessageDTO dto = new SendMessageDTO(
-                    List.of(VALID_RECIPIENT),
-                    null, null,
-                    VALID_SUBJECT, VALID_BODY, "text",
-                    null, null,
-                    List.of()
-            );
+                    List.of(VALID_RECIPIENT), null, null, VALID_SUBJECT, VALID_BODY, "text", null, null, List.of());
 
             // Assert
             assertThat(dto.attachments()).isNotNull().isEmpty();
@@ -114,12 +113,7 @@ class SendMessageDTOThreadingAttachmentTest {
             // Arrange + Act
             List<Attachment> input = List.of(AttachmentFixtures.validSinglePdf());
             SendMessageDTO dto = new SendMessageDTO(
-                    List.of(VALID_RECIPIENT),
-                    null, null,
-                    VALID_SUBJECT, VALID_BODY, "text",
-                    null, null,
-                    input
-            );
+                    List.of(VALID_RECIPIENT), null, null, VALID_SUBJECT, VALID_BODY, "text", null, null, input);
 
             // Assert
             List<Attachment> result = dto.attachments();
@@ -132,11 +126,7 @@ class SendMessageDTOThreadingAttachmentTest {
         void compactConstructor_nullThreadId_remainsNull() {
             // Arrange + Act
             SendMessageDTO dto = new SendMessageDTO(
-                    List.of(VALID_RECIPIENT),
-                    null, null,
-                    VALID_SUBJECT, VALID_BODY, "text",
-                    null, null, null
-            );
+                    List.of(VALID_RECIPIENT), null, null, VALID_SUBJECT, VALID_BODY, "text", null, null, null);
 
             // Assert: no default is applied to optional fields.
             assertThat(dto.threadId()).isNull();
@@ -147,11 +137,7 @@ class SendMessageDTOThreadingAttachmentTest {
         void compactConstructor_nullInReplyToMessageId_remainsNull() {
             // Arrange + Act
             SendMessageDTO dto = new SendMessageDTO(
-                    List.of(VALID_RECIPIENT),
-                    null, null,
-                    VALID_SUBJECT, VALID_BODY, "text",
-                    null, null, null
-            );
+                    List.of(VALID_RECIPIENT), null, null, VALID_SUBJECT, VALID_BODY, "text", null, null, null);
 
             // Assert
             assertThat(dto.inReplyToMessageId()).isNull();
@@ -218,7 +204,8 @@ class SendMessageDTOThreadingAttachmentTest {
         void threadId_validLowerHex_passesValidation() throws Exception {
             // Arrange: use raw JSON so Jackson doesn't filter out null fields and we
             // control exactly what goes on the wire.
-            String json = """
+            String json =
+                    """
                     {
                       "to": ["recruiter@example.com"],
                       "subject": "Follow-up",
@@ -251,7 +238,8 @@ class SendMessageDTOThreadingAttachmentTest {
         @DisplayName("threadId with non-hex characters returns 400 with validation error on threadId")
         void threadId_containsNonHexCharacters_returns400WithFieldExtension() throws Exception {
             // Arrange: 'g' is not a hex character; @Pattern("[0-9a-fA-F]{1,32}") rejects it.
-            String json = """
+            String json =
+                    """
                     {
                       "to": ["recruiter@example.com"],
                       "subject": "Follow-up",
@@ -298,8 +286,9 @@ class SendMessageDTOThreadingAttachmentTest {
             // Arrange: 33 hex chars exceeds the {1,32} quantifier.
             String json = String.format(
                     "{\"to\":[\"recruiter@example.com\"],\"subject\":\"Follow-up\","
-                    + "\"body\":\"Hello!\",\"bodyType\":\"text\","
-                    + "\"threadId\":\"%s\"}", "a".repeat(33));
+                            + "\"body\":\"Hello!\",\"bodyType\":\"text\","
+                            + "\"threadId\":\"%s\"}",
+                    "a".repeat(33));
 
             // Act & Assert
             mockMvc.perform(post(MESSAGES_ENDPOINT)
@@ -320,7 +309,8 @@ class SendMessageDTOThreadingAttachmentTest {
         @DisplayName("inReplyToMessageId with non-hex characters returns 400")
         void inReplyToMessageId_containsNonHexCharacters_returns400WithFieldExtension() throws Exception {
             // Arrange: 'z' is not a hex character.
-            String json = """
+            String json =
+                    """
                     {
                       "to": ["recruiter@example.com"],
                       "subject": "Follow-up",
@@ -337,7 +327,8 @@ class SendMessageDTOThreadingAttachmentTest {
                             .content(json))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.type").value("/problems/validation-error"))
-                    .andExpect(jsonPath("$.extensions['field:inReplyToMessageId']").exists());
+                    .andExpect(
+                            jsonPath("$.extensions['field:inReplyToMessageId']").exists());
         }
 
         @Test
@@ -356,7 +347,8 @@ class SendMessageDTOThreadingAttachmentTest {
                             .content(json))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.type").value("/problems/validation-error"))
-                    .andExpect(jsonPath("$.extensions['field:inReplyToMessageId']").exists());
+                    .andExpect(
+                            jsonPath("$.extensions['field:inReplyToMessageId']").exists());
         }
 
         // -------------------------------------------------------------------------
@@ -369,7 +361,8 @@ class SendMessageDTOThreadingAttachmentTest {
         void attachments_pathTraversalFilename_returns400WithFilenameError() throws Exception {
             // Arrange: "../../etc/passwd" fails @SafeFilename. The @Valid cascade on
             // attachments must propagate the violation to the controller response.
-            String json = """
+            String json =
+                    """
                     {
                       "to": ["recruiter@example.com"],
                       "subject": "Follow-up",
@@ -401,7 +394,8 @@ class SendMessageDTOThreadingAttachmentTest {
         void attachments_invalidBase64_returns400WithBase64Error() throws Exception {
             // Arrange: "not-valid-base64!!!" contains '-' and '!' which the standard
             // Base64.getDecoder() rejects, failing @ValidBase64.
-            String json = """
+            String json =
+                    """
                     {
                       "to": ["recruiter@example.com"],
                       "subject": "Follow-up",
@@ -432,7 +426,8 @@ class SendMessageDTOThreadingAttachmentTest {
         @DisplayName("attachment with malformed MIME type returns 400 with error on mimeType")
         void attachments_malformedMimeType_returns400WithMimeTypeError() throws Exception {
             // Arrange: "application" without "/subtype" fails @ValidMimeType.
-            String json = """
+            String json =
+                    """
                     {
                       "to": ["recruiter@example.com"],
                       "subject": "Follow-up",

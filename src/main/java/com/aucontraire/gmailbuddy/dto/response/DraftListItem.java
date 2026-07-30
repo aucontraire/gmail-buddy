@@ -1,7 +1,6 @@
 package com.aucontraire.gmailbuddy.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-
 import java.util.List;
 
 /**
@@ -22,30 +21,21 @@ import java.util.List;
  */
 @Schema(description = "Summary of a single draft in a list response")
 public record DraftListItem(
-        @Schema(description = "Gmail draft identifier", example = "r-9876543210")
-        String id,
-
-        @Schema(description = "To recipient addresses; empty list if absent",
-                example = "[\"hiring-manager@bigcorp.example\"]")
-        List<String> to,
-
-        @Schema(description = "CC recipient addresses; empty list if absent")
-        List<String> cc,
-
-        @Schema(description = "BCC recipient addresses; empty list if absent")
-        List<String> bcc,
-
-        @Schema(description = "Subject line; null if absent",
-                example = "Following up — Senior Backend Engineer application")
-        String subject,
-
-        @Schema(description = "Gmail-provided body preview (~100 chars)",
-                example = "Hi Sarah, I wanted to follow up on my application...")
-        String snippet,
-
+        @Schema(description = "Gmail draft identifier", example = "r-9876543210") String id,
+        @Schema(
+                        description = "To recipient addresses; empty list if absent",
+                        example = "[\"hiring-manager@bigcorp.example\"]")
+                List<String> to,
+        @Schema(description = "CC recipient addresses; empty list if absent") List<String> cc,
+        @Schema(description = "BCC recipient addresses; empty list if absent") List<String> bcc,
+        @Schema(
+                        description = "Subject line; null if absent",
+                        example = "Following up — Senior Backend Engineer application")
+                String subject,
+        @Schema(
+                        description = "Gmail-provided body preview (~100 chars)",
+                        example = "Hi Sarah, I wanted to follow up on my application...")
+                String snippet,
         @Schema(description = "Gmail thread ID; null if not a threaded draft", example = "1976a4bc3fe89d0c")
-        String threadId,
-
-        @Schema(description = "Count of attachment parts; 0 if no attachments", example = "1")
-        int attachmentCount
-) {}
+                String threadId,
+        @Schema(description = "Count of attachment parts; 0 if no attachments", example = "1") int attachmentCount) {}

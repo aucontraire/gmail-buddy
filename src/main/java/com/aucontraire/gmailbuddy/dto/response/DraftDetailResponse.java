@@ -1,7 +1,6 @@
 package com.aucontraire.gmailbuddy.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-
 import java.util.List;
 
 /**
@@ -17,36 +16,28 @@ import java.util.List;
  */
 @Schema(description = "Full draft contents (no binary attachment data)")
 public record DraftDetailResponse(
-        @Schema(description = "Gmail draft identifier", example = "r-9876543210")
-        String id,
-
-        @Schema(description = "To recipient addresses; empty list if absent",
-                example = "[\"hiring-manager@bigcorp.example\"]")
-        List<String> to,
-
-        @Schema(description = "CC recipient addresses; empty list if absent")
-        List<String> cc,
-
-        @Schema(description = "BCC recipient addresses; empty list if absent")
-        List<String> bcc,
-
-        @Schema(description = "Subject line; null if absent",
-                example = "Following up — Senior Backend Engineer application")
-        String subject,
-
-        @Schema(description = "Decoded body text (HTML or plain per bodyType); null if not extractable")
-        String body,
-
-        @Schema(description = "Body content type", example = "html", allowableValues = {"html", "text"})
-        String bodyType,
-
+        @Schema(description = "Gmail draft identifier", example = "r-9876543210") String id,
+        @Schema(
+                        description = "To recipient addresses; empty list if absent",
+                        example = "[\"hiring-manager@bigcorp.example\"]")
+                List<String> to,
+        @Schema(description = "CC recipient addresses; empty list if absent") List<String> cc,
+        @Schema(description = "BCC recipient addresses; empty list if absent") List<String> bcc,
+        @Schema(
+                        description = "Subject line; null if absent",
+                        example = "Following up — Senior Backend Engineer application")
+                String subject,
+        @Schema(description = "Decoded body text (HTML or plain per bodyType); null if not extractable") String body,
+        @Schema(
+                        description = "Body content type",
+                        example = "html",
+                        allowableValues = {"html", "text"})
+                String bodyType,
         @Schema(description = "Gmail thread ID; null if not a threaded draft", example = "1976a4bc3fe89d0c")
-        String threadId,
-
-        @Schema(description = "Original message ID this draft replies to; null if not a reply",
-                example = "1976a4bc3fe89d0c")
-        String inReplyToMessageId,
-
+                String threadId,
+        @Schema(
+                        description = "Original message ID this draft replies to; null if not a reply",
+                        example = "1976a4bc3fe89d0c")
+                String inReplyToMessageId,
         @Schema(description = "Attachment metadata (filename, mimeType, sizeBytes); empty list if no attachments")
-        List<AttachmentMetadata> attachments
-) {}
+                List<AttachmentMetadata> attachments) {}

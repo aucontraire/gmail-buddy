@@ -5,14 +5,13 @@ import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
+import java.io.IOException;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-
-import java.io.IOException;
-import java.util.UUID;
 
 /**
  * Servlet Filter that adds standardized response headers to all HTTP responses.
@@ -72,8 +71,10 @@ public class ResponseHeaderFilter implements Filter {
         final long startTime = System.currentTimeMillis();
         final String finalRequestId = requestId;
 
-        logger.debug("ResponseHeaderFilter: Processing request {} with requestId: {}",
-                    httpRequest.getRequestURI(), requestId);
+        logger.debug(
+                "ResponseHeaderFilter: Processing request {} with requestId: {}",
+                httpRequest.getRequestURI(),
+                requestId);
 
         // Wrap the response to add headers before commit
         HttpServletResponseWrapper responseWrapper = new HttpServletResponseWrapper(httpResponse) {
@@ -96,8 +97,10 @@ public class ResponseHeaderFilter implements Filter {
 
                     headersAdded = true;
 
-                    logger.debug("ResponseHeaderFilter: Added headers - requestId: {}, responseTime: {}ms",
-                                finalRequestId, responseTime);
+                    logger.debug(
+                            "ResponseHeaderFilter: Added headers - requestId: {}, responseTime: {}ms",
+                            finalRequestId,
+                            responseTime);
                 }
             }
 
@@ -108,8 +111,11 @@ public class ResponseHeaderFilter implements Filter {
                     super.setHeader(RATE_LIMIT_REMAINING_HEADER, String.valueOf(rateLimitInfo.getRemaining()));
                     super.setHeader(RATE_LIMIT_RESET_HEADER, String.valueOf(rateLimitInfo.getResetTimestamp()));
 
-                    logger.debug("ResponseHeaderFilter: Added rate limit headers - limit: {}, remaining: {}, reset: {}",
-                                rateLimitInfo.getLimit(), rateLimitInfo.getRemaining(), rateLimitInfo.getResetTimestamp());
+                    logger.debug(
+                            "ResponseHeaderFilter: Added rate limit headers - limit: {}, remaining: {}, reset: {}",
+                            rateLimitInfo.getLimit(),
+                            rateLimitInfo.getRemaining(),
+                            rateLimitInfo.getResetTimestamp());
                 }
             }
 
@@ -125,7 +131,8 @@ public class ResponseHeaderFilter implements Filter {
                 if (quotaRemainingObj instanceof Integer quotaRemaining) {
                     super.setHeader(GMAIL_QUOTA_REMAINING_HEADER, String.valueOf(quotaRemaining));
 
-                    logger.debug("ResponseHeaderFilter: Added Gmail quota remaining header - remaining: {}", quotaRemaining);
+                    logger.debug(
+                            "ResponseHeaderFilter: Added Gmail quota remaining header - remaining: {}", quotaRemaining);
                 }
             }
 
@@ -179,8 +186,10 @@ public class ResponseHeaderFilter implements Filter {
                 responseWrapper.flushBuffer();
             }
 
-            logger.debug("ResponseHeaderFilter: Completed request {} - committed: {}",
-                        httpRequest.getRequestURI(), responseWrapper.isCommitted());
+            logger.debug(
+                    "ResponseHeaderFilter: Completed request {} - committed: {}",
+                    httpRequest.getRequestURI(),
+                    responseWrapper.isCommitted());
 
         } finally {
             // Always clean up MDC to prevent memory leaks

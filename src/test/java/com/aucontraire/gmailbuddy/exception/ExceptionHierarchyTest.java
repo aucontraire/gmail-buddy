@@ -1,17 +1,16 @@
 package com.aucontraire.gmailbuddy.exception;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 
 /**
  * Comprehensive tests for the Gmail Buddy exception hierarchy.
  * Tests all exception classes, their inheritance, correlation ID generation,
  * HTTP status mapping, and error categorization.
- * 
+ *
  * @author Gmail Buddy Team
  * @since 1.0
  */
@@ -36,7 +35,7 @@ class ExceptionHierarchyTest {
     void testValidationException_basicConstructor() {
         String message = "Validation failed";
         ValidationException exception = new ValidationException(message);
-        
+
         assertEquals("VALIDATION_ERROR", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.BAD_REQUEST.value(), exception.getHttpStatus());
@@ -50,7 +49,7 @@ class ExceptionHierarchyTest {
         String message = "Validation failed";
         IllegalArgumentException cause = new IllegalArgumentException("Invalid input");
         ValidationException exception = new ValidationException(message, cause);
-        
+
         assertEquals("VALIDATION_ERROR", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.BAD_REQUEST.value(), exception.getHttpStatus());
@@ -64,7 +63,7 @@ class ExceptionHierarchyTest {
         String message = "Validation failed";
         String correlationId = "test-correlation-123";
         ValidationException exception = new ValidationException(message, correlationId);
-        
+
         assertEquals("VALIDATION_ERROR", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.BAD_REQUEST.value(), exception.getHttpStatus());
@@ -77,7 +76,7 @@ class ExceptionHierarchyTest {
     void testAuthenticationException_basicConstructor() {
         String message = "Authentication failed";
         AuthenticationException exception = new AuthenticationException(message);
-        
+
         assertEquals("AUTHENTICATION_ERROR", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.UNAUTHORIZED.value(), exception.getHttpStatus());
@@ -90,7 +89,7 @@ class ExceptionHierarchyTest {
         String message = "Authentication failed";
         SecurityException cause = new SecurityException("Invalid token");
         AuthenticationException exception = new AuthenticationException(message, cause);
-        
+
         assertEquals("AUTHENTICATION_ERROR", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.UNAUTHORIZED.value(), exception.getHttpStatus());
@@ -103,7 +102,7 @@ class ExceptionHierarchyTest {
     void testAuthorizationException_basicConstructor() {
         String message = "Access denied";
         AuthorizationException exception = new AuthorizationException(message);
-        
+
         assertEquals("AUTHORIZATION_ERROR", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.FORBIDDEN.value(), exception.getHttpStatus());
@@ -115,7 +114,7 @@ class ExceptionHierarchyTest {
     void testResourceNotFoundException_basicConstructor() {
         String message = "Resource not found";
         ResourceNotFoundException exception = new ResourceNotFoundException(message);
-        
+
         assertEquals("RESOURCE_NOT_FOUND", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.NOT_FOUND.value(), exception.getHttpStatus());
@@ -127,7 +126,7 @@ class ExceptionHierarchyTest {
     void testRateLimitException_basicConstructor() {
         String message = "Rate limit exceeded";
         RateLimitException exception = new RateLimitException(message);
-        
+
         assertEquals("RATE_LIMIT_EXCEEDED", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.TOO_MANY_REQUESTS.value(), exception.getHttpStatus());
@@ -141,7 +140,7 @@ class ExceptionHierarchyTest {
         String message = "Rate limit exceeded";
         long retryAfter = 120L;
         RateLimitException exception = new RateLimitException(message, retryAfter);
-        
+
         assertEquals("RATE_LIMIT_EXCEEDED", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.TOO_MANY_REQUESTS.value(), exception.getHttpStatus());
@@ -156,7 +155,7 @@ class ExceptionHierarchyTest {
         long retryAfter = 300L;
         IOException cause = new IOException("API quota exceeded");
         RateLimitException exception = new RateLimitException(message, cause, retryAfter);
-        
+
         assertEquals("RATE_LIMIT_EXCEEDED", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.TOO_MANY_REQUESTS.value(), exception.getHttpStatus());
@@ -174,7 +173,7 @@ class ExceptionHierarchyTest {
     void testGmailApiException_basicConstructor() {
         String message = "Gmail API error";
         GmailApiException exception = new GmailApiException(message);
-        
+
         assertEquals("GMAIL_API_ERROR", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.BAD_GATEWAY.value(), exception.getHttpStatus());
@@ -188,7 +187,7 @@ class ExceptionHierarchyTest {
         String message = "Gmail API error";
         IOException cause = new IOException("Connection timeout");
         GmailApiException exception = new GmailApiException(message, cause);
-        
+
         assertEquals("GMAIL_API_ERROR", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.BAD_GATEWAY.value(), exception.getHttpStatus());
@@ -203,7 +202,7 @@ class ExceptionHierarchyTest {
         String message = "Gmail API error";
         boolean retryable = true;
         GmailApiException exception = new GmailApiException(message, retryable);
-        
+
         assertEquals("GMAIL_API_ERROR", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.BAD_GATEWAY.value(), exception.getHttpStatus());
@@ -218,7 +217,7 @@ class ExceptionHierarchyTest {
         IOException networkError = new IOException("Network error");
         GmailApiException retryableException = new GmailApiException("Network failure", networkError);
         assertTrue(retryableException.isRetryable());
-        
+
         IllegalArgumentException businessError = new IllegalArgumentException("Invalid request");
         GmailApiException nonRetryableException = new GmailApiException("Business logic error", businessError);
         assertFalse(nonRetryableException.isRetryable());
@@ -228,7 +227,7 @@ class ExceptionHierarchyTest {
     void testServiceUnavailableException_basicConstructor() {
         String message = "Service temporarily unavailable";
         ServiceUnavailableException exception = new ServiceUnavailableException(message);
-        
+
         assertEquals("SERVICE_UNAVAILABLE", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE.value(), exception.getHttpStatus());
@@ -242,7 +241,7 @@ class ExceptionHierarchyTest {
         String message = "Service temporarily unavailable";
         long retryAfter = 180L;
         ServiceUnavailableException exception = new ServiceUnavailableException(message, retryAfter);
-        
+
         assertEquals("SERVICE_UNAVAILABLE", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE.value(), exception.getHttpStatus());
@@ -254,7 +253,7 @@ class ExceptionHierarchyTest {
     @Test
     void testInternalServerException_basicConstructor() {
         InternalServerException exception = new InternalServerException();
-        
+
         assertEquals("INTERNAL_SERVER_ERROR", exception.getErrorCode());
         assertEquals("An unexpected error occurred while processing your request", exception.getMessage());
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR.value(), exception.getHttpStatus());
@@ -266,7 +265,7 @@ class ExceptionHierarchyTest {
     void testInternalServerException_withCause() {
         RuntimeException cause = new RuntimeException("Database connection failed");
         InternalServerException exception = new InternalServerException(cause);
-        
+
         assertEquals("INTERNAL_SERVER_ERROR", exception.getErrorCode());
         assertEquals("An unexpected error occurred while processing your request", exception.getMessage());
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR.value(), exception.getHttpStatus());
@@ -280,7 +279,7 @@ class ExceptionHierarchyTest {
         String message = "Critical system error";
         Exception cause = new Exception("System failure");
         InternalServerException exception = new InternalServerException(message, cause);
-        
+
         assertEquals("INTERNAL_SERVER_ERROR", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR.value(), exception.getHttpStatus());
@@ -297,7 +296,7 @@ class ExceptionHierarchyTest {
     void testResourceNotFoundException_properties() {
         String message = "Resource not found";
         ResourceNotFoundException exception = new ResourceNotFoundException(message);
-        
+
         assertEquals("RESOURCE_NOT_FOUND", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.NOT_FOUND.value(), exception.getHttpStatus());
@@ -309,7 +308,7 @@ class ExceptionHierarchyTest {
     void testGmailApiException_properties() {
         String message = "Gmail API error";
         GmailApiException exception = new GmailApiException(message);
-        
+
         assertEquals("GMAIL_API_ERROR", exception.getErrorCode());
         assertEquals(message, exception.getMessage());
         assertEquals(HttpStatus.BAD_GATEWAY.value(), exception.getHttpStatus());
@@ -326,7 +325,7 @@ class ExceptionHierarchyTest {
     void testCorrelationId_uniqueness() {
         ValidationException exception1 = new ValidationException("Test message 1");
         ValidationException exception2 = new ValidationException("Test message 2");
-        
+
         assertNotNull(exception1.getCorrelationId());
         assertNotNull(exception2.getCorrelationId());
         assertNotEquals(exception1.getCorrelationId(), exception2.getCorrelationId());
@@ -336,18 +335,19 @@ class ExceptionHierarchyTest {
     void testCorrelationId_format() {
         ValidationException exception = new ValidationException("Test message");
         String correlationId = exception.getCorrelationId();
-        
+
         assertNotNull(correlationId);
         assertFalse(correlationId.isEmpty());
         // Correlation ID should be UUID format (36 characters with dashes)
-        assertTrue(correlationId.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"));
+        assertTrue(
+                correlationId.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"));
     }
 
     @Test
     void testCorrelationId_preservation() {
         String customCorrelationId = "custom-correlation-id-123";
         ValidationException exception = new ValidationException("Test message", customCorrelationId);
-        
+
         assertEquals(customCorrelationId, exception.getCorrelationId());
     }
 
@@ -362,21 +362,21 @@ class ExceptionHierarchyTest {
         AuthorizationException authzException = new AuthorizationException("Authz error");
         ResourceNotFoundException notFoundException = new ResourceNotFoundException("Not found");
         RateLimitException rateLimitException = new RateLimitException("Rate limited");
-        
+
         // All should be client exceptions
         assertTrue(validationException instanceof GmailBuddyClientException);
         assertTrue(authException instanceof GmailBuddyClientException);
         assertTrue(authzException instanceof GmailBuddyClientException);
         assertTrue(notFoundException instanceof GmailBuddyClientException);
         assertTrue(rateLimitException instanceof GmailBuddyClientException);
-        
+
         // All should be GmailBuddyExceptions
         assertTrue(validationException instanceof GmailBuddyException);
         assertTrue(authException instanceof GmailBuddyException);
         assertTrue(authzException instanceof GmailBuddyException);
         assertTrue(notFoundException instanceof GmailBuddyException);
         assertTrue(rateLimitException instanceof GmailBuddyException);
-        
+
         // All should be RuntimeExceptions
         assertTrue(validationException instanceof RuntimeException);
         assertTrue(authException instanceof RuntimeException);
@@ -390,17 +390,17 @@ class ExceptionHierarchyTest {
         GmailApiException apiException = new GmailApiException("API error");
         ServiceUnavailableException serviceException = new ServiceUnavailableException("Service unavailable");
         InternalServerException internalException = new InternalServerException("Internal error", "test-correlation");
-        
+
         // All should be server exceptions
         assertTrue(apiException instanceof GmailBuddyServerException);
         assertTrue(serviceException instanceof GmailBuddyServerException);
         assertTrue(internalException instanceof GmailBuddyServerException);
-        
+
         // All should be GmailBuddyExceptions
         assertTrue(apiException instanceof GmailBuddyException);
         assertTrue(serviceException instanceof GmailBuddyException);
         assertTrue(internalException instanceof GmailBuddyException);
-        
+
         // All should be RuntimeExceptions
         assertTrue(apiException instanceof RuntimeException);
         assertTrue(serviceException instanceof RuntimeException);

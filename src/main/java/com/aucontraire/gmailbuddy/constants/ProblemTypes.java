@@ -202,14 +202,14 @@ public final class ProblemTypes {
      * @return true if the problem type is a client error, false otherwise
      */
     public static boolean isClientError(String problemType) {
-        return VALIDATION_ERROR.equals(problemType) ||
-               MESSAGE_NOT_FOUND.equals(problemType) ||
-               RESOURCE_NOT_FOUND.equals(problemType) ||
-               RESOURCE_CONFLICT.equals(problemType) ||
-               AUTHENTICATION_FAILED.equals(problemType) ||
-               AUTHORIZATION_FAILED.equals(problemType) ||
-               RATE_LIMIT_EXCEEDED.equals(problemType) ||
-               CONSTRAINT_VIOLATION.equals(problemType);
+        return VALIDATION_ERROR.equals(problemType)
+                || MESSAGE_NOT_FOUND.equals(problemType)
+                || RESOURCE_NOT_FOUND.equals(problemType)
+                || RESOURCE_CONFLICT.equals(problemType)
+                || AUTHENTICATION_FAILED.equals(problemType)
+                || AUTHORIZATION_FAILED.equals(problemType)
+                || RATE_LIMIT_EXCEEDED.equals(problemType)
+                || CONSTRAINT_VIOLATION.equals(problemType);
     }
 
     /**
@@ -219,11 +219,11 @@ public final class ProblemTypes {
      * @return true if the problem type is a server error, false otherwise
      */
     public static boolean isServerError(String problemType) {
-        return GMAIL_API_ERROR.equals(problemType) ||
-               SERVICE_UNAVAILABLE.equals(problemType) ||
-               INTERNAL_ERROR.equals(problemType) ||
-               QUOTA_EXCEEDED.equals(problemType) ||
-               BATCH_OPERATION_ERROR.equals(problemType);
+        return GMAIL_API_ERROR.equals(problemType)
+                || SERVICE_UNAVAILABLE.equals(problemType)
+                || INTERNAL_ERROR.equals(problemType)
+                || QUOTA_EXCEEDED.equals(problemType)
+                || BATCH_OPERATION_ERROR.equals(problemType);
     }
 
     /**

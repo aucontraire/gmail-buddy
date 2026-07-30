@@ -1,5 +1,14 @@
 package com.aucontraire.gmailbuddy.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.config.RateLimitInterceptor;
 import com.aucontraire.gmailbuddy.config.ResponseHeaderFilter;
 import com.aucontraire.gmailbuddy.exception.AuthorizationException;
@@ -17,27 +26,17 @@ import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
 import com.aucontraire.gmailbuddy.validation.TestGmailBuddyPropertiesConfiguration;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.Map;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Controller-slice tests for threading error-response mapping (T029) and quota-header
@@ -75,23 +74,41 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ThreadingControllerTest {
 
     private static final String MESSAGES_ENDPOINT = "/api/v1/gmail/messages";
-    private static final String DRAFTS_ENDPOINT   = "/api/v1/gmail/drafts";
+    private static final String DRAFTS_ENDPOINT = "/api/v1/gmail/drafts";
 
-    private static final String MESSAGE_ID        = "19a2b3c4d5e6f7a8";
-    private static final String THREAD_ID         = "2a2b3c4d5e6f7a82";
-    private static final String ORIGINAL_MSG_ID   = "1a2b3c4d5e6f7a8b";
+    private static final String MESSAGE_ID = "19a2b3c4d5e6f7a8";
+    private static final String THREAD_ID = "2a2b3c4d5e6f7a82";
+    private static final String ORIGINAL_MSG_ID = "1a2b3c4d5e6f7a8b";
 
-    @Autowired private MockMvc mockMvc;
-    @Autowired private ObjectMapper objectMapper;
+    @Autowired
+    private MockMvc mockMvc;
 
-    @MockitoBean private GmailService gmailService;
-    @MockitoBean private OAuth2AuthorizedClientService authorizedClientService;
-    @MockitoBean private GoogleTokenValidator tokenValidator;
-    @MockitoBean private TokenReferenceService tokenReferenceService;
-    @MockitoBean private ResponseMapper responseMapper;
-    @MockitoBean private RateLimitService rateLimitService;
-    @MockitoBean private GmailQuotaEstimator gmailQuotaEstimator;
-    @MockitoBean private GmailMessageMapper gmailMessageMapper;
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private GmailService gmailService;
+
+    @MockitoBean
+    private OAuth2AuthorizedClientService authorizedClientService;
+
+    @MockitoBean
+    private GoogleTokenValidator tokenValidator;
+
+    @MockitoBean
+    private TokenReferenceService tokenReferenceService;
+
+    @MockitoBean
+    private ResponseMapper responseMapper;
+
+    @MockitoBean
+    private RateLimitService rateLimitService;
+
+    @MockitoBean
+    private GmailQuotaEstimator gmailQuotaEstimator;
+
+    @MockitoBean
+    private GmailMessageMapper gmailMessageMapper;
 
     // -------------------------------------------------------------------------
     // Helper: build the minimal valid send-message JSON with threading fields
@@ -99,45 +116,53 @@ class ThreadingControllerTest {
 
     private String threadedMessageBody(String inReplyToMessageId) throws Exception {
         Map<String, Object> body = Map.of(
-                "to",                   java.util.List.of("recruiter@example.com"),
-                "subject",              "Re: Follow-up",
-                "body",                 "Following up.",
-                "bodyType",             "text",
-                "threadId",             THREAD_ID,
-                "inReplyToMessageId",   inReplyToMessageId
-        );
+                "to",
+                java.util.List.of("recruiter@example.com"),
+                "subject",
+                "Re: Follow-up",
+                "body",
+                "Following up.",
+                "bodyType",
+                "text",
+                "threadId",
+                THREAD_ID,
+                "inReplyToMessageId",
+                inReplyToMessageId);
         return objectMapper.writeValueAsString(body);
     }
 
     private String nonThreadedMessageBody() throws Exception {
         Map<String, Object> body = Map.of(
-                "to",       java.util.List.of("recruiter@example.com"),
-                "subject",  "Hello",
-                "body",     "Plain send.",
-                "bodyType", "text"
-        );
+                "to", java.util.List.of("recruiter@example.com"),
+                "subject", "Hello",
+                "body", "Plain send.",
+                "bodyType", "text");
         return objectMapper.writeValueAsString(body);
     }
 
     private String threadedDraftBody(String inReplyToMessageId) throws Exception {
         Map<String, Object> body = Map.of(
-                "to",                   java.util.List.of("recruiter@example.com"),
-                "subject",              "Re: Follow-up",
-                "body",                 "Draft follow-up.",
-                "bodyType",             "text",
-                "threadId",             THREAD_ID,
-                "inReplyToMessageId",   inReplyToMessageId
-        );
+                "to",
+                java.util.List.of("recruiter@example.com"),
+                "subject",
+                "Re: Follow-up",
+                "body",
+                "Draft follow-up.",
+                "bodyType",
+                "text",
+                "threadId",
+                THREAD_ID,
+                "inReplyToMessageId",
+                inReplyToMessageId);
         return objectMapper.writeValueAsString(body);
     }
 
     private String nonThreadedDraftBody() throws Exception {
         Map<String, Object> body = Map.of(
-                "to",       java.util.List.of("recruiter@example.com"),
-                "subject",  "Hello",
-                "body",     "Plain draft.",
-                "bodyType", "text"
-        );
+                "to", java.util.List.of("recruiter@example.com"),
+                "subject", "Hello",
+                "body", "Plain draft.",
+                "bodyType", "text");
         return objectMapper.writeValueAsString(body);
     }
 
@@ -152,8 +177,7 @@ class ThreadingControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postMessages_inReplyToNonExistentMessage_returns422WithOriginalMessageNotFoundType")
-    void postMessages_inReplyToNonExistentMessage_returns422WithOriginalMessageNotFoundType()
-            throws Exception {
+    void postMessages_inReplyToNonExistentMessage_returns422WithOriginalMessageNotFoundType() throws Exception {
         // Arrange: service throws OriginalMessageNotFoundException when the lookup fails
         when(gmailService.sendMessage(eq("me"), any()))
                 .thenThrow(new OriginalMessageNotFoundException(
@@ -178,8 +202,7 @@ class ThreadingControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postDrafts_inReplyToNonExistentMessage_returns422WithOriginalMessageNotFoundType")
-    void postDrafts_inReplyToNonExistentMessage_returns422WithOriginalMessageNotFoundType()
-            throws Exception {
+    void postDrafts_inReplyToNonExistentMessage_returns422WithOriginalMessageNotFoundType() throws Exception {
         // Arrange
         when(gmailService.createDraft(eq("me"), any()))
                 .thenThrow(new OriginalMessageNotFoundException(
@@ -204,12 +227,10 @@ class ThreadingControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postMessages_lookupTokenLacksGmailReadonlyScope_returns403WithAuthorizationFailedType")
-    void postMessages_lookupTokenLacksGmailReadonlyScope_returns403WithAuthorizationFailedType()
-            throws Exception {
+    void postMessages_lookupTokenLacksGmailReadonlyScope_returns403WithAuthorizationFailedType() throws Exception {
         // Arrange: Gmail returns 403 on the metadata lookup — oauth scope insufficient (FR-008c)
         when(gmailService.sendMessage(eq("me"), any()))
-                .thenThrow(new AuthorizationException(
-                        "Insufficient Gmail permissions to read original message"));
+                .thenThrow(new AuthorizationException("Insufficient Gmail permissions to read original message"));
         when(rateLimitService.recordRequest(any()))
                 .thenReturn(new RateLimitInfo(1000, 999, System.currentTimeMillis()));
 
@@ -230,12 +251,10 @@ class ThreadingControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postMessages_lookupHitsGmail503_returns502WithNonEmptyProblemDetailAndNoStackTrace")
-    void postMessages_lookupHitsGmail503_returns502WithNonEmptyProblemDetailAndNoStackTrace()
-            throws Exception {
+    void postMessages_lookupHitsGmail503_returns502WithNonEmptyProblemDetailAndNoStackTrace() throws Exception {
         // Arrange: transient Gmail API 5xx during the lookup maps to GmailApiException
         when(gmailService.sendMessage(eq("me"), any()))
-                .thenThrow(new GmailApiException(
-                        "Gmail API server error during original-message lookup: HTTP 503"));
+                .thenThrow(new GmailApiException("Gmail API server error during original-message lookup: HTTP 503"));
         when(rateLimitService.recordRequest(any()))
                 .thenReturn(new RateLimitInfo(1000, 999, System.currentTimeMillis()));
 

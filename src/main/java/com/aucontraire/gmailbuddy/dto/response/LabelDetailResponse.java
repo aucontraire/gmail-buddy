@@ -24,41 +24,42 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Schema(description = "Full label detail including counts and color settings")
 public record LabelDetailResponse(
-        @Schema(description = "Gmail label ID", example = "INBOX")
-        String id,
-
-        @Schema(description = "Display name of the label", example = "INBOX")
-        String name,
-
-        @Schema(description = "Label type: system or user", example = "system",
-                allowableValues = {"system", "user"})
-        String type,
-
-        @Schema(description = "Gmail messageListVisibility setting; null if not configured",
-                example = "show", nullable = true)
-        String messageListVisibility,
-
-        @Schema(description = "Gmail labelListVisibility setting; null if not configured",
-                example = "labelShow", nullable = true)
-        String labelListVisibility,
-
-        @Schema(description = "Label color; null if no color is configured on this label",
-                nullable = true)
-        LabelColor color,
-
-        @Schema(description = "Total messages with this label; null if not populated by Gmail",
-                example = "42", nullable = true)
-        Integer messagesTotal,
-
-        @Schema(description = "Unread messages with this label; null if not populated by Gmail",
-                example = "5", nullable = true)
-        Integer messagesUnread,
-
-        @Schema(description = "Total threads with this label; null if not populated by Gmail",
-                example = "38", nullable = true)
-        Integer threadsTotal,
-
-        @Schema(description = "Unread threads with this label; null if not populated by Gmail",
-                example = "4", nullable = true)
-        Integer threadsUnread
-) {}
+        @Schema(description = "Gmail label ID", example = "INBOX") String id,
+        @Schema(description = "Display name of the label", example = "INBOX") String name,
+        @Schema(
+                        description = "Label type: system or user",
+                        example = "system",
+                        allowableValues = {"system", "user"})
+                String type,
+        @Schema(
+                        description = "Gmail messageListVisibility setting; null if not configured",
+                        example = "show",
+                        nullable = true)
+                String messageListVisibility,
+        @Schema(
+                        description = "Gmail labelListVisibility setting; null if not configured",
+                        example = "labelShow",
+                        nullable = true)
+                String labelListVisibility,
+        @Schema(description = "Label color; null if no color is configured on this label", nullable = true)
+                LabelColor color,
+        @Schema(
+                        description = "Total messages with this label; null if not populated by Gmail",
+                        example = "42",
+                        nullable = true)
+                Integer messagesTotal,
+        @Schema(
+                        description = "Unread messages with this label; null if not populated by Gmail",
+                        example = "5",
+                        nullable = true)
+                Integer messagesUnread,
+        @Schema(
+                        description = "Total threads with this label; null if not populated by Gmail",
+                        example = "38",
+                        nullable = true)
+                Integer threadsTotal,
+        @Schema(
+                        description = "Unread threads with this label; null if not populated by Gmail",
+                        example = "4",
+                        nullable = true)
+                Integer threadsUnread) {}

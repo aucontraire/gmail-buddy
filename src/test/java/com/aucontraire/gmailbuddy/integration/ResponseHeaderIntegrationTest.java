@@ -1,5 +1,10 @@
 package com.aucontraire.gmailbuddy.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,11 +13,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Integration tests to verify that response headers are properly added to all HTTP responses.
@@ -90,8 +90,7 @@ class ResponseHeaderIntegrationTest {
         String providedRequestId = "550e8400-e29b-41d4-a716-446655440000";
 
         // Act & Assert
-        MvcResult result = mockMvc.perform(get("/dashboard")
-                        .header("X-Request-ID", providedRequestId))
+        MvcResult result = mockMvc.perform(get("/dashboard").header("X-Request-ID", providedRequestId))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Request-ID", providedRequestId))
                 .andExpect(header().exists("X-Response-Time"))
@@ -122,13 +121,11 @@ class ResponseHeaderIntegrationTest {
     @WithMockUser
     void multipleRequests_shouldHaveDifferentRequestIds() throws Exception {
         // Act - make multiple requests
-        MvcResult result1 = mockMvc.perform(get("/dashboard"))
-                .andExpect(status().isOk())
-                .andReturn();
+        MvcResult result1 =
+                mockMvc.perform(get("/dashboard")).andExpect(status().isOk()).andReturn();
 
-        MvcResult result2 = mockMvc.perform(get("/dashboard"))
-                .andExpect(status().isOk())
-                .andReturn();
+        MvcResult result2 =
+                mockMvc.perform(get("/dashboard")).andExpect(status().isOk()).andReturn();
 
         // Assert - request IDs should be different
         String requestId1 = result1.getResponse().getHeader("X-Request-ID");
@@ -143,13 +140,11 @@ class ResponseHeaderIntegrationTest {
     @WithMockUser
     void requestIdFormat_shouldBeValidUUID() throws Exception {
         // Act
-        MvcResult result = mockMvc.perform(get("/dashboard"))
-                .andExpect(status().isOk())
-                .andReturn();
+        MvcResult result =
+                mockMvc.perform(get("/dashboard")).andExpect(status().isOk()).andReturn();
 
         // Assert
         String requestId = result.getResponse().getHeader("X-Request-ID");
-        assertThat(requestId)
-                .matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        assertThat(requestId).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
     }
 }

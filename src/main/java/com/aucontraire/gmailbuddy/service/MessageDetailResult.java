@@ -1,7 +1,6 @@
 package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.dto.response.MessageAttachmentMetadata;
-
 import java.util.List;
 import java.util.Map;
 
@@ -31,5 +30,4 @@ public record MessageDetailResult(
         String body,
         String bodyType,
         List<String> labelIds,
-        List<MessageAttachmentMetadata> attachments
-) {}
+        List<MessageAttachmentMetadata> attachments) {}

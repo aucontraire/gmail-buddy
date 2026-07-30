@@ -1,9 +1,9 @@
 package com.aucontraire.gmailbuddy.ratelimit;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class RateLimitServiceTest {
 
@@ -39,10 +39,14 @@ class RateLimitServiceTest {
         assertEquals(997, info3.getRemaining(), "Third request: 997 remaining");
 
         // All should have same reset timestamp (same window)
-        assertEquals(info1.getResetTimestamp(), info2.getResetTimestamp(),
-                    "Reset timestamp should be consistent within window");
-        assertEquals(info2.getResetTimestamp(), info3.getResetTimestamp(),
-                    "Reset timestamp should be consistent within window");
+        assertEquals(
+                info1.getResetTimestamp(),
+                info2.getResetTimestamp(),
+                "Reset timestamp should be consistent within window");
+        assertEquals(
+                info2.getResetTimestamp(),
+                info3.getResetTimestamp(),
+                "Reset timestamp should be consistent within window");
     }
 
     @Test

@@ -1,20 +1,19 @@
 package com.aucontraire.gmailbuddy.dto.response;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
 import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for BulkDeleteResponse DTO.
@@ -50,10 +49,8 @@ class BulkDeleteResponseTest {
         failedOps.put("msg4", "Not found");
         failedOps.put("msg5", "Permission denied");
 
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(500L)
-                .quotaUsed(5)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(500L).quotaUsed(5).build();
 
         // When
         BulkDeleteResponse response = BulkDeleteResponse.builder()
@@ -118,9 +115,8 @@ class BulkDeleteResponseTest {
     @DisplayName("getStatus() should return correct status")
     void getStatus_ShouldReturnCorrectStatus() {
         // Given
-        BulkDeleteResponse response = BulkDeleteResponse.builder()
-                .status(OperationStatus.FAILURE)
-                .build();
+        BulkDeleteResponse response =
+                BulkDeleteResponse.builder().status(OperationStatus.FAILURE).build();
 
         // When & Then
         assertThat(response.getStatus()).isEqualTo(OperationStatus.FAILURE);
@@ -130,9 +126,8 @@ class BulkDeleteResponseTest {
     @DisplayName("getTotalOperations() should return correct count")
     void getTotalOperations_ShouldReturnCorrectCount() {
         // Given
-        BulkDeleteResponse response = BulkDeleteResponse.builder()
-                .totalOperations(42)
-                .build();
+        BulkDeleteResponse response =
+                BulkDeleteResponse.builder().totalOperations(42).build();
 
         // When & Then
         assertThat(response.getTotalOperations()).isEqualTo(42);
@@ -142,9 +137,8 @@ class BulkDeleteResponseTest {
     @DisplayName("getSuccessCount() should return correct count")
     void getSuccessCount_ShouldReturnCorrectCount() {
         // Given
-        BulkDeleteResponse response = BulkDeleteResponse.builder()
-                .successCount(15)
-                .build();
+        BulkDeleteResponse response =
+                BulkDeleteResponse.builder().successCount(15).build();
 
         // When & Then
         assertThat(response.getSuccessCount()).isEqualTo(15);
@@ -154,9 +148,8 @@ class BulkDeleteResponseTest {
     @DisplayName("getFailureCount() should return correct count")
     void getFailureCount_ShouldReturnCorrectCount() {
         // Given
-        BulkDeleteResponse response = BulkDeleteResponse.builder()
-                .failureCount(7)
-                .build();
+        BulkDeleteResponse response =
+                BulkDeleteResponse.builder().failureCount(7).build();
 
         // When & Then
         assertThat(response.getFailureCount()).isEqualTo(7);
@@ -167,9 +160,8 @@ class BulkDeleteResponseTest {
     void getSuccessfulOperations_ShouldReturnCorrectList() {
         // Given
         List<String> successList = Arrays.asList("msg1", "msg2", "msg3");
-        BulkDeleteResponse response = BulkDeleteResponse.builder()
-                .successfulOperations(successList)
-                .build();
+        BulkDeleteResponse response =
+                BulkDeleteResponse.builder().successfulOperations(successList).build();
 
         // When & Then
         assertThat(response.getSuccessfulOperations()).containsExactly("msg1", "msg2", "msg3");
@@ -183,9 +175,8 @@ class BulkDeleteResponseTest {
         failedMap.put("msg1", "Error 1");
         failedMap.put("msg2", "Error 2");
 
-        BulkDeleteResponse response = BulkDeleteResponse.builder()
-                .failedOperations(failedMap)
-                .build();
+        BulkDeleteResponse response =
+                BulkDeleteResponse.builder().failedOperations(failedMap).build();
 
         // When & Then
         assertThat(response.getFailedOperations()).hasSize(2);
@@ -197,14 +188,11 @@ class BulkDeleteResponseTest {
     @DisplayName("getMetadata() should return correct metadata")
     void getMetadata_ShouldReturnCorrectMetadata() {
         // Given
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(300L)
-                .quotaUsed(20)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(300L).quotaUsed(20).build();
 
-        BulkDeleteResponse response = BulkDeleteResponse.builder()
-                .metadata(metadata)
-                .build();
+        BulkDeleteResponse response =
+                BulkDeleteResponse.builder().metadata(metadata).build();
 
         // When & Then
         assertThat(response.getMetadata()).isEqualTo(metadata);
@@ -215,9 +203,7 @@ class BulkDeleteResponseTest {
     @DisplayName("toString() should include all relevant information")
     void toString_ShouldIncludeAllRelevantInformation() {
         // Given
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(250L)
-                .build();
+        ResponseMetadata metadata = ResponseMetadata.builder().durationMs(250L).build();
 
         BulkDeleteResponse response = BulkDeleteResponse.builder()
                 .status(OperationStatus.PARTIAL_SUCCESS)
@@ -290,10 +276,8 @@ class BulkDeleteResponseTest {
         Map<String, String> failedMap = new HashMap<>();
         failedMap.put("msg3", "Error");
 
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(400L)
-                .quotaUsed(3)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(400L).quotaUsed(3).build();
 
         BulkDeleteResponse response = BulkDeleteResponse.builder()
                 .status(OperationStatus.PARTIAL_SUCCESS)
@@ -322,9 +306,8 @@ class BulkDeleteResponseTest {
     @DisplayName("JSON deserialization should reconstruct BulkDeleteResponse correctly")
     void jsonDeserialization_ShouldReconstructObject() throws JsonProcessingException {
         // Given
-        String json = "{\"status\":\"SUCCESS\",\"totalOperations\":5," +
-                "\"successCount\":5,\"failureCount\":0," +
-                "\"successfulOperations\":[\"msg1\",\"msg2\"]}";
+        String json = "{\"status\":\"SUCCESS\",\"totalOperations\":5," + "\"successCount\":5,\"failureCount\":0,"
+                + "\"successfulOperations\":[\"msg1\",\"msg2\"]}";
 
         // When
         BulkDeleteResponse response = objectMapper.readValue(json, BulkDeleteResponse.class);
@@ -373,10 +356,8 @@ class BulkDeleteResponseTest {
     @DisplayName("Builder should handle large volume of operations")
     void builder_WithLargeVolume_ShouldHandleCorrectly() {
         // Given
-        List<String> largeSuccessList = Arrays.asList(
-                "msg1", "msg2", "msg3", "msg4", "msg5",
-                "msg6", "msg7", "msg8", "msg9", "msg10"
-        );
+        List<String> largeSuccessList =
+                Arrays.asList("msg1", "msg2", "msg3", "msg4", "msg5", "msg6", "msg7", "msg8", "msg9", "msg10");
 
         // When
         BulkDeleteResponse response = BulkDeleteResponse.builder()

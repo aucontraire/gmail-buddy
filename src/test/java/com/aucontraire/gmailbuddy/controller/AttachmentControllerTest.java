@@ -1,5 +1,13 @@
 package com.aucontraire.gmailbuddy.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
@@ -11,27 +19,18 @@ import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import com.aucontraire.gmailbuddy.validation.TestGmailBuddyPropertiesConfiguration;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.List;
-import java.util.Map;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Controller-slice tests for attachment-related error responses (T039 — Phase 4 US2).
@@ -58,48 +57,63 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AttachmentControllerTest {
 
     private static final String MESSAGES_ENDPOINT = "/api/v1/gmail/messages";
-    private static final String DRAFTS_ENDPOINT   = "/api/v1/gmail/drafts";
+    private static final String DRAFTS_ENDPOINT = "/api/v1/gmail/drafts";
 
     // Valid base64 for %PDF-1.4\n
     private static final String VALID_BASE64 = "JVBERi0xLjQK";
 
-    @Autowired private MockMvc mockMvc;
-    @Autowired private ObjectMapper objectMapper;
+    @Autowired
+    private MockMvc mockMvc;
 
-    @MockitoBean private GmailService gmailService;
-    @MockitoBean private OAuth2AuthorizedClientService authorizedClientService;
-    @MockitoBean private GoogleTokenValidator tokenValidator;
-    @MockitoBean private TokenReferenceService tokenReferenceService;
-    @MockitoBean private ResponseMapper responseMapper;
-    @MockitoBean private RateLimitService rateLimitService;
-    @MockitoBean private GmailQuotaEstimator gmailQuotaEstimator;
-    @MockitoBean private GmailMessageMapper gmailMessageMapper;
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private GmailService gmailService;
+
+    @MockitoBean
+    private OAuth2AuthorizedClientService authorizedClientService;
+
+    @MockitoBean
+    private GoogleTokenValidator tokenValidator;
+
+    @MockitoBean
+    private TokenReferenceService tokenReferenceService;
+
+    @MockitoBean
+    private ResponseMapper responseMapper;
+
+    @MockitoBean
+    private RateLimitService rateLimitService;
+
+    @MockitoBean
+    private GmailQuotaEstimator gmailQuotaEstimator;
+
+    @MockitoBean
+    private GmailMessageMapper gmailMessageMapper;
 
     // -------------------------------------------------------------------------
     // Helper: build the request body JSON
     // -------------------------------------------------------------------------
 
     /** Builds a minimal valid message body with one attachment whose fields can be customised. */
-    private String messageWithAttachment(String filename, String mimeType, String base64Data)
-            throws Exception {
+    private String messageWithAttachment(String filename, String mimeType, String base64Data) throws Exception {
         Map<String, Object> body = Map.of(
-                "to",          List.of("recruiter@example.com"),
-                "subject",     "Test with attachment",
-                "body",        "Please see attached.",
-                "bodyType",    "text",
-                "attachments", List.of(Map.of(
-                        "filename",    filename,
-                        "mimeType",    mimeType,
-                        "base64Data",  base64Data
-                ))
-        );
+                "to", List.of("recruiter@example.com"),
+                "subject", "Test with attachment",
+                "body", "Please see attached.",
+                "bodyType", "text",
+                "attachments",
+                        List.of(Map.of(
+                                "filename", filename,
+                                "mimeType", mimeType,
+                                "base64Data", base64Data)));
         return objectMapper.writeValueAsString(body);
     }
 
     /** Builds a minimal valid draft body with one attachment. */
-    private String draftWithAttachment(String filename, String mimeType, String base64Data)
-            throws Exception {
-        return messageWithAttachment(filename, mimeType, base64Data);  // same shape
+    private String draftWithAttachment(String filename, String mimeType, String base64Data) throws Exception {
+        return messageWithAttachment(filename, mimeType, base64Data); // same shape
     }
 
     // =========================================================================
@@ -109,8 +123,7 @@ class AttachmentControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postMessages_pathTraversalFilename_returns400WithAttachmentFilenameError")
-    void postMessages_pathTraversalFilename_returns400WithAttachmentFilenameError()
-            throws Exception {
+    void postMessages_pathTraversalFilename_returns400WithAttachmentFilenameError() throws Exception {
 
         // Arrange: "../../etc/passwd" contains ".." and "/" — @SafeFilename must reject it
         String requestBody = messageWithAttachment("../../etc/passwd", "application/pdf", VALID_BASE64);
@@ -128,8 +141,7 @@ class AttachmentControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postMessages_backslashInFilename_returns400")
-    void postMessages_backslashInFilename_returns400()
-            throws Exception {
+    void postMessages_backslashInFilename_returns400() throws Exception {
 
         // Arrange: backslash in filename — @SafeFilename must reject it
         String requestBody = messageWithAttachment("..\\evil.exe", "application/octet-stream", VALID_BASE64);
@@ -146,8 +158,7 @@ class AttachmentControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postDrafts_pathTraversalFilename_returns400")
-    void postDrafts_pathTraversalFilename_returns400()
-            throws Exception {
+    void postDrafts_pathTraversalFilename_returns400() throws Exception {
 
         // Arrange: path traversal in draft create endpoint
         String requestBody = draftWithAttachment("../secret.txt", "text/plain", VALID_BASE64);
@@ -168,12 +179,12 @@ class AttachmentControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postMessages_crlfInFilename_returns400HeaderInjectionDetected")
-    void postMessages_crlfInFilename_returns400HeaderInjectionDetected()
-            throws Exception {
+    void postMessages_crlfInFilename_returns400HeaderInjectionDetected() throws Exception {
 
         // Arrange: CRLF in filename — @SafeFilename rejects header-injection characters
         // Use a raw JSON approach to embed actual CRLF bytes in the filename field.
-        String rawJson = """
+        String rawJson =
+                """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Test",
@@ -205,8 +216,7 @@ class AttachmentControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postMessages_invalidBase64_returns400WithBase64Error")
-    void postMessages_invalidBase64_returns400WithBase64Error()
-            throws Exception {
+    void postMessages_invalidBase64_returns400WithBase64Error() throws Exception {
 
         // Arrange: "not-valid-base64!!!" is NOT valid standard Base64 — @ValidBase64 must reject
         String requestBody = messageWithAttachment("resume.pdf", "application/pdf", "not-valid-base64!!!");
@@ -225,8 +235,7 @@ class AttachmentControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postDrafts_invalidBase64_returns400WithBase64Error")
-    void postDrafts_invalidBase64_returns400WithBase64Error()
-            throws Exception {
+    void postDrafts_invalidBase64_returns400WithBase64Error() throws Exception {
 
         // Arrange
         String requestBody = draftWithAttachment("doc.pdf", "application/pdf", "!!!invalid!!!");
@@ -248,8 +257,7 @@ class AttachmentControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postMessages_malformedMimeType_returns400WithMimeTypeError")
-    void postMessages_malformedMimeType_returns400WithMimeTypeError()
-            throws Exception {
+    void postMessages_malformedMimeType_returns400WithMimeTypeError() throws Exception {
 
         // Arrange: "application" lacks the mandatory "/" separator — @ValidMimeType must reject
         String requestBody = messageWithAttachment("resume.pdf", "application", VALID_BASE64);
@@ -268,8 +276,7 @@ class AttachmentControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postMessages_mimeTypeWithSpaces_returns400WithMimeTypeError")
-    void postMessages_mimeTypeWithSpaces_returns400WithMimeTypeError()
-            throws Exception {
+    void postMessages_mimeTypeWithSpaces_returns400WithMimeTypeError() throws Exception {
 
         // Arrange: MIME type with spaces is not RFC 6838 compliant
         String requestBody = messageWithAttachment("file.pdf", "application /pdf", VALID_BASE64);
@@ -287,8 +294,7 @@ class AttachmentControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postDrafts_malformedMimeType_returns400")
-    void postDrafts_malformedMimeType_returns400()
-            throws Exception {
+    void postDrafts_malformedMimeType_returns400() throws Exception {
 
         // Arrange: empty subtype (just "/") is malformed
         String requestBody = draftWithAttachment("doc.pdf", "application/", VALID_BASE64);
@@ -309,8 +315,7 @@ class AttachmentControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postMessages_totalPayloadExceedsLimit_returns413WithMessageTooLargeType")
-    void postMessages_totalPayloadExceedsLimit_returns413WithMessageTooLargeType()
-            throws Exception {
+    void postMessages_totalPayloadExceedsLimit_returns413WithMessageTooLargeType() throws Exception {
 
         // Arrange: service throws MessageTooLargeException (Stage 1 or Stage 2 rejection)
         when(rateLimitService.recordRequest(any()))
@@ -334,8 +339,7 @@ class AttachmentControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postDrafts_totalPayloadExceedsLimit_returns413WithMessageTooLargeType")
-    void postDrafts_totalPayloadExceedsLimit_returns413WithMessageTooLargeType()
-            throws Exception {
+    void postDrafts_totalPayloadExceedsLimit_returns413WithMessageTooLargeType() throws Exception {
 
         // Arrange
         when(rateLimitService.recordRequest(any()))
@@ -363,8 +367,7 @@ class AttachmentControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postMessages_validAttachment_passesValidationLayer")
-    void postMessages_validAttachment_passesValidationLayer()
-            throws Exception {
+    void postMessages_validAttachment_passesValidationLayer() throws Exception {
 
         // Arrange: valid PDF attachment — should reach the service layer (no 400)
         // The service mock will return null (no setup), causing controller to handle

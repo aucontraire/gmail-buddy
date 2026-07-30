@@ -1,7 +1,6 @@
 package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.dto.response.ThreadSummary;
-
 import java.util.List;
 
 /**
@@ -14,8 +13,4 @@ import java.util.List;
  * domain-clean (no Gmail SDK types). Follows the same reasoning as
  * {@code MessageListResult} using {@code MessageSummary} elements.</p>
  */
-public record ThreadListResult(
-        List<ThreadSummary> threads,
-        String nextPageToken,
-        Integer totalCount
-) {}
+public record ThreadListResult(List<ThreadSummary> threads, String nextPageToken, Integer totalCount) {}

@@ -1,13 +1,12 @@
 package com.aucontraire.gmailbuddy.dto.response;
 
-import com.google.api.services.gmail.model.Message;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
+import com.google.api.services.gmail.model.Message;
 import java.util.Arrays;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for MessageSummary DTO.

@@ -13,57 +13,57 @@ import com.aucontraire.gmailbuddy.exception.AuthenticationException;
  * @since Sprint 2
  */
 public interface TokenProvider {
-    
+
     /**
      * Retrieves the OAuth2 access token for the currently authenticated user.
-     * 
+     *
      * @return the OAuth2 access token
      * @throws AuthenticationException if the user is not authenticated, token is expired,
      *                               or token retrieval fails
      */
     String getAccessToken() throws AuthenticationException;
-    
+
     /**
      * Retrieves the OAuth2 access token for the specified user.
-     * 
+     *
      * @param userId the user identifier
      * @return the OAuth2 access token for the specified user
      * @throws AuthenticationException if the user is not authenticated, token is expired,
      *                               or token retrieval fails
      */
     String getAccessToken(String userId) throws AuthenticationException;
-    
+
     /**
      * Checks if the current user's token is valid and not expired.
-     * 
+     *
      * @return true if the token is valid, false otherwise
      */
     boolean isTokenValid();
-    
+
     /**
      * Checks if the specified user's token is valid and not expired.
-     * 
+     *
      * @param userId the user identifier
      * @return true if the token is valid, false otherwise
      */
     boolean isTokenValid(String userId);
-    
+
     /**
      * Refreshes the OAuth2 token if it's expired or about to expire.
      * This method should be called automatically by getAccessToken() if needed.
-     * 
+     *
      * @throws AuthenticationException if token refresh fails
      */
     void refreshTokenIfNeeded() throws AuthenticationException;
-    
+
     /**
      * Refreshes the OAuth2 token for the specified user if it's expired or about to expire.
-     * 
+     *
      * @param userId the user identifier
      * @throws AuthenticationException if token refresh fails
      */
     void refreshTokenIfNeeded(String userId) throws AuthenticationException;
-    
+
     /**
      * Gets the principal name (username) of the currently authenticated user.
      *

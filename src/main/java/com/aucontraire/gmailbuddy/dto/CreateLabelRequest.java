@@ -27,24 +27,25 @@ import jakarta.validation.constraints.Size;
  */
 @Schema(description = "Request to create a new Gmail label (POST /api/v1/gmail/labels)")
 public record CreateLabelRequest(
-
         @Schema(description = "Display name for the new label", example = "pending-purge")
-        @NotBlank(message = "name must not be blank")
-        @Size(max = 225, message = "name must not exceed 225 characters")
-        @NoHeaderInjection
-        @Pattern(regexp = "^[^\\p{Cntrl}]*$", message = "name must not contain control characters")
-        String name,
-
-        @Schema(description = "Gmail messageListVisibility setting; null uses Gmail's default",
-                example = "show", nullable = true, allowableValues = {"show", "hide"})
-        @Pattern(regexp = "^(show|hide)$", message = "messageListVisibility must be 'show' or 'hide'")
-        String messageListVisibility,
-
-        @Schema(description = "Gmail labelListVisibility setting; null uses Gmail's default",
-                example = "labelShow", nullable = true,
-                allowableValues = {"labelShow", "labelShowIfUnread", "labelHide"})
-        @Pattern(regexp = "^(labelShow|labelShowIfUnread|labelHide)$",
-                message = "labelListVisibility must be one of labelShow, labelShowIfUnread, labelHide")
-        String labelListVisibility
-
-) {}
+                @NotBlank(message = "name must not be blank")
+                @Size(max = 225, message = "name must not exceed 225 characters")
+                @NoHeaderInjection
+                @Pattern(regexp = "^[^\\p{Cntrl}]*$", message = "name must not contain control characters")
+                String name,
+        @Schema(
+                        description = "Gmail messageListVisibility setting; null uses Gmail's default",
+                        example = "show",
+                        nullable = true,
+                        allowableValues = {"show", "hide"})
+                @Pattern(regexp = "^(show|hide)$", message = "messageListVisibility must be 'show' or 'hide'")
+                String messageListVisibility,
+        @Schema(
+                        description = "Gmail labelListVisibility setting; null uses Gmail's default",
+                        example = "labelShow",
+                        nullable = true,
+                        allowableValues = {"labelShow", "labelShowIfUnread", "labelHide"})
+                @Pattern(
+                        regexp = "^(labelShow|labelShowIfUnread|labelHide)$",
+                        message = "labelListVisibility must be one of labelShow, labelShowIfUnread, labelHide")
+                String labelListVisibility) {}

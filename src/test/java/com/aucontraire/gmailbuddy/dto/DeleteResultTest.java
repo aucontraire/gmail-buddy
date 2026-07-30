@@ -1,5 +1,8 @@
 package com.aucontreras.gmailbuddy.dto;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.aucontraire.gmailbuddy.dto.DeleteResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -7,9 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit tests for DeleteResult DTO.
@@ -80,10 +80,7 @@ class DeleteResultTest {
         String resultString = result.toString();
 
         // Then
-        assertThat(resultString)
-                .contains("msg12345")
-                .contains("true")
-                .contains("Message deleted successfully");
+        assertThat(resultString).contains("msg12345").contains("true").contains("Message deleted successfully");
     }
 
     @Test

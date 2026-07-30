@@ -14,8 +14,4 @@ package com.aucontraire.gmailbuddy.service;
  * only to set {@code In-Reply-To} and {@code References} headers on the outgoing
  * MIME message (FR-019).</p>
  */
-public record OriginalMessageLookup(
-        String messageId,
-        String threadId,
-        String rfcMessageId
-) {}
+public record OriginalMessageLookup(String messageId, String threadId, String rfcMessageId) {}

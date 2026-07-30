@@ -1,13 +1,12 @@
 package com.aucontraire.gmailbuddy.validation;
 
-import com.aucontraire.gmailbuddy.validation.OptionalEmailValidator;
+import static org.junit.jupiter.api.Assertions.*;
+
 import jakarta.validation.ConstraintValidatorContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class OptionalEmailValidatorTest {
 

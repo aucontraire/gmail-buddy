@@ -1,5 +1,13 @@
 package com.aucontraire.gmailbuddy.controller;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
@@ -14,19 +22,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Controller-slice test for {@code POST /api/v1/gmail/drafts/{draftId}/send}.
@@ -46,9 +46,9 @@ class SendDraftControllerTest {
 
     private static final String SEND_DRAFT_ENDPOINT = "/api/v1/gmail/drafts/{draftId}/send";
 
-    private static final String DRAFT_ID   = "r-9876543210";
+    private static final String DRAFT_ID = "r-9876543210";
     private static final String MESSAGE_ID = "19a2b3c4d5e6f7g8";
-    private static final String THREAD_ID  = "thread-19a2b3c4d5e6f7g8";
+    private static final String THREAD_ID = "thread-19a2b3c4d5e6f7g8";
 
     @Autowired
     private MockMvc mockMvc;
@@ -90,8 +90,7 @@ class SendDraftControllerTest {
         when(gmailService.sendDraft(eq("me"), eq(DRAFT_ID))).thenReturn(stubResult);
 
         // Act & Assert: must be 200 OK, not 201 Created — state transition, not creation.
-        mockMvc.perform(post(SEND_DRAFT_ENDPOINT, DRAFT_ID).with(csrf()))
-                .andExpect(status().isOk());
+        mockMvc.perform(post(SEND_DRAFT_ENDPOINT, DRAFT_ID).with(csrf())).andExpect(status().isOk());
     }
 
     // -------------------------------------------------------------------------

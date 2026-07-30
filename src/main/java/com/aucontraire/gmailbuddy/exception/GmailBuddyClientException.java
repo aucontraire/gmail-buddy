@@ -3,7 +3,7 @@ package com.aucontraire.gmailbuddy.exception;
 /**
  * Base class for client-side errors (4xx HTTP status codes).
  * These exceptions indicate that the client made an error in the request.
- * 
+ *
  * @author Gmail Buddy Team
  * @since 1.0
  */
@@ -11,7 +11,7 @@ public abstract class GmailBuddyClientException extends GmailBuddyException {
 
     /**
      * Constructs a new client exception with the specified error code and message.
-     * 
+     *
      * @param errorCode a unique error code for this exception type
      * @param message the detail message
      */
@@ -21,7 +21,7 @@ public abstract class GmailBuddyClientException extends GmailBuddyException {
 
     /**
      * Constructs a new client exception with the specified error code, message and cause.
-     * 
+     *
      * @param errorCode a unique error code for this exception type
      * @param message the detail message
      * @param cause the cause of this exception
@@ -32,7 +32,7 @@ public abstract class GmailBuddyClientException extends GmailBuddyException {
 
     /**
      * Constructs a new client exception with the specified error code, message and correlation ID.
-     * 
+     *
      * @param errorCode a unique error code for this exception type
      * @param message the detail message
      * @param correlationId the correlation ID for request tracing

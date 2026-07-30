@@ -1,10 +1,15 @@
 package com.aucontraire.gmailbuddy.mapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
-import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
 import com.aucontraire.gmailbuddy.dto.response.BulkDeleteResponse;
 import com.aucontraire.gmailbuddy.dto.response.LabelModificationResponse;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -12,13 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Comprehensive unit tests for ResponseMapper.
@@ -44,7 +42,8 @@ class ResponseMapperTest {
         @DisplayName("Should map all fields correctly from BulkOperationResult")
         void shouldMapAllFieldsCorrectly() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addSuccess("msg-001");
             serviceResult.addSuccess("msg-002");
             serviceResult.addSuccess("msg-003");
@@ -69,7 +68,8 @@ class ResponseMapperTest {
         @DisplayName("Should copy successfulOperations list correctly")
         void shouldCopySuccessfulOperationsList() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addSuccess("msg-001");
             serviceResult.addSuccess("msg-002");
             serviceResult.addSuccess("msg-003");
@@ -80,16 +80,17 @@ class ResponseMapperTest {
 
             // Assert
             assertThat(response.getSuccessfulOperations())
-                .isNotNull()
-                .hasSize(3)
-                .containsExactlyInAnyOrder("msg-001", "msg-002", "msg-003");
+                    .isNotNull()
+                    .hasSize(3)
+                    .containsExactlyInAnyOrder("msg-001", "msg-002", "msg-003");
         }
 
         @Test
         @DisplayName("Should copy failedOperations map correctly")
         void shouldCopyFailedOperationsMap() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addSuccess("msg-001");
             serviceResult.addFailure("msg-002", "Permission denied");
             serviceResult.addFailure("msg-003", "Message not found");
@@ -101,18 +102,19 @@ class ResponseMapperTest {
 
             // Assert
             assertThat(response.getFailedOperations())
-                .isNotNull()
-                .hasSize(3)
-                .containsEntry("msg-002", "Permission denied")
-                .containsEntry("msg-003", "Message not found")
-                .containsEntry("msg-004", "Invalid request");
+                    .isNotNull()
+                    .hasSize(3)
+                    .containsEntry("msg-002", "Permission denied")
+                    .containsEntry("msg-003", "Message not found")
+                    .containsEntry("msg-004", "Invalid request");
         }
 
         @Test
         @DisplayName("Should create ResponseMetadata with correct durationMs")
         void shouldCreateResponseMetadataWithDuration() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed();
 
@@ -139,7 +141,8 @@ class ResponseMapperTest {
         @DisplayName("Should calculate quotaUsed correctly - single batch")
         void shouldCalculateQuotaUsedForSingleBatch() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addSuccess("msg-001");
             serviceResult.addSuccess("msg-002");
             serviceResult.incrementBatchesProcessed(); // 1 batch
@@ -156,7 +159,8 @@ class ResponseMapperTest {
         @DisplayName("Should calculate quotaUsed correctly - multiple batches")
         void shouldCalculateQuotaUsedForMultipleBatches() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             for (int i = 1; i <= 10; i++) {
                 serviceResult.addSuccess("msg-" + String.format("%03d", i));
             }
@@ -176,7 +180,8 @@ class ResponseMapperTest {
         @DisplayName("Should calculate quotaUsed as zero when no batches processed")
         void shouldCalculateQuotaUsedAsZeroForNoBatches() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             // No batches processed
             serviceResult.markCompleted();
 
@@ -191,7 +196,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle empty successful operations list")
         void shouldHandleEmptySuccessfulOperations() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addFailure("msg-001", "Failed operation");
             serviceResult.incrementBatchesProcessed();
             serviceResult.markCompleted();
@@ -200,9 +206,7 @@ class ResponseMapperTest {
             BulkDeleteResponse response = responseMapper.toBulkDeleteResponse(serviceResult);
 
             // Assert
-            assertThat(response.getSuccessfulOperations())
-                .isNotNull()
-                .isEmpty();
+            assertThat(response.getSuccessfulOperations()).isNotNull().isEmpty();
             assertThat(response.getSuccessCount()).isEqualTo(0);
             assertThat(response.getStatus()).isEqualTo(OperationStatus.FAILURE);
         }
@@ -211,7 +215,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle empty failed operations map")
         void shouldHandleEmptyFailedOperations() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addSuccess("msg-001");
             serviceResult.addSuccess("msg-002");
             serviceResult.incrementBatchesProcessed();
@@ -221,9 +226,7 @@ class ResponseMapperTest {
             BulkDeleteResponse response = responseMapper.toBulkDeleteResponse(serviceResult);
 
             // Assert
-            assertThat(response.getFailedOperations())
-                .isNotNull()
-                .isEmpty();
+            assertThat(response.getFailedOperations()).isNotNull().isEmpty();
             assertThat(response.getFailureCount()).isEqualTo(0);
             assertThat(response.getStatus()).isEqualTo(OperationStatus.SUCCESS);
         }
@@ -232,7 +235,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle partial success scenario correctly")
         void shouldHandlePartialSuccessScenario() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             // Add 7 successes and 3 failures
             for (int i = 1; i <= 7; i++) {
                 serviceResult.addSuccess("success-" + i);
@@ -259,7 +263,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle complete success scenario")
         void shouldHandleCompleteSuccessScenario() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addSuccess("msg-001");
             serviceResult.addSuccess("msg-002");
             serviceResult.addSuccess("msg-003");
@@ -280,7 +285,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle complete failure scenario")
         void shouldHandleCompleteFailureScenario() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addFailure("msg-001", "Error 1");
             serviceResult.addFailure("msg-002", "Error 2");
             serviceResult.addFailure("msg-003", "Error 3");
@@ -301,7 +307,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle no results scenario")
         void shouldHandleNoResultsScenario() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             // No operations added
             serviceResult.markCompleted();
 
@@ -321,7 +328,8 @@ class ResponseMapperTest {
         @DisplayName("Should create independent copies of collections")
         void shouldCreateIndependentCopiesOfCollections() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addSuccess("msg-001");
             serviceResult.addFailure("msg-002", "Error");
             serviceResult.markCompleted();
@@ -349,7 +357,8 @@ class ResponseMapperTest {
         @DisplayName("Should map status correctly from BulkOperationResult")
         void shouldMapStatusCorrectly() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.addSuccess("msg-002");
             serviceResult.incrementBatchesProcessed();
@@ -359,8 +368,8 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Collections.emptyList();
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getStatus()).isEqualTo(OperationStatus.SUCCESS);
@@ -370,7 +379,8 @@ class ResponseMapperTest {
         @DisplayName("Should set messagesModified from successCount")
         void shouldSetMessagesModifiedFromSuccessCount() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.addSuccess("msg-002");
             serviceResult.addSuccess("msg-003");
@@ -384,8 +394,8 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Arrays.asList("INBOX");
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getMessagesModified()).isEqualTo(5);
@@ -395,7 +405,8 @@ class ResponseMapperTest {
         @DisplayName("Should set labelsAdded correctly")
         void shouldSetLabelsAddedCorrectly() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed();
             serviceResult.markCompleted();
@@ -404,21 +415,22 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Collections.emptyList();
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getLabelsAdded())
-                .isNotNull()
-                .hasSize(3)
-                .containsExactly("INBOX", "IMPORTANT", "CATEGORY_PERSONAL");
+                    .isNotNull()
+                    .hasSize(3)
+                    .containsExactly("INBOX", "IMPORTANT", "CATEGORY_PERSONAL");
         }
 
         @Test
         @DisplayName("Should set labelsRemoved correctly")
         void shouldSetLabelsRemovedCorrectly() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed();
             serviceResult.markCompleted();
@@ -427,21 +439,19 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Arrays.asList("SPAM", "TRASH");
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
-            assertThat(response.getLabelsRemoved())
-                .isNotNull()
-                .hasSize(2)
-                .containsExactly("SPAM", "TRASH");
+            assertThat(response.getLabelsRemoved()).isNotNull().hasSize(2).containsExactly("SPAM", "TRASH");
         }
 
         @Test
         @DisplayName("Should set affectedMessageIds from successfulOperations")
         void shouldSetAffectedMessageIdsFromSuccessfulOperations() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.addSuccess("msg-002");
             serviceResult.addSuccess("msg-003");
@@ -452,21 +462,22 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Collections.emptyList();
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getAffectedMessageIds())
-                .isNotNull()
-                .hasSize(3)
-                .containsExactlyInAnyOrder("msg-001", "msg-002", "msg-003");
+                    .isNotNull()
+                    .hasSize(3)
+                    .containsExactlyInAnyOrder("msg-001", "msg-002", "msg-003");
         }
 
         @Test
         @DisplayName("Should create ResponseMetadata with correct durationMs")
         void shouldCreateResponseMetadataWithDuration() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed();
 
@@ -483,8 +494,8 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Collections.emptyList();
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getMetadata()).isNotNull();
@@ -496,7 +507,8 @@ class ResponseMapperTest {
         @DisplayName("Should calculate quotaUsed correctly - single batch")
         void shouldCalculateQuotaUsedForSingleBatch() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed(); // 1 batch
             serviceResult.markCompleted();
@@ -505,8 +517,8 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Collections.emptyList();
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getMetadata().getQuotaUsed()).isEqualTo(50); // 1 batch * 50
@@ -516,7 +528,8 @@ class ResponseMapperTest {
         @DisplayName("Should calculate quotaUsed correctly - multiple batches")
         void shouldCalculateQuotaUsedForMultipleBatches() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             for (int i = 1; i <= 15; i++) {
                 serviceResult.addSuccess("msg-" + String.format("%03d", i));
             }
@@ -531,8 +544,8 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Arrays.asList("SPAM");
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getMetadata().getQuotaUsed()).isEqualTo(250); // 5 batches * 50
@@ -542,7 +555,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle empty labelsAdded list")
         void shouldHandleEmptyLabelsAddedList() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed();
             serviceResult.markCompleted();
@@ -551,20 +565,19 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Arrays.asList("SPAM");
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
-            assertThat(response.getLabelsAdded())
-                .isNotNull()
-                .isEmpty();
+            assertThat(response.getLabelsAdded()).isNotNull().isEmpty();
         }
 
         @Test
         @DisplayName("Should handle empty labelsRemoved list")
         void shouldHandleEmptyLabelsRemovedList() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed();
             serviceResult.markCompleted();
@@ -573,20 +586,19 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Collections.emptyList();
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
-            assertThat(response.getLabelsRemoved())
-                .isNotNull()
-                .isEmpty();
+            assertThat(response.getLabelsRemoved()).isNotNull().isEmpty();
         }
 
         @Test
         @DisplayName("Should handle null labelsAdded list")
         void shouldHandleNullLabelsAddedList() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed();
             serviceResult.markCompleted();
@@ -595,8 +607,8 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Arrays.asList("SPAM");
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getLabelsAdded()).isNull();
@@ -606,7 +618,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle null labelsRemoved list")
         void shouldHandleNullLabelsRemovedList() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed();
             serviceResult.markCompleted();
@@ -615,8 +628,8 @@ class ResponseMapperTest {
             List<String> labelsRemoved = null;
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getLabelsRemoved()).isNull();
@@ -626,14 +639,14 @@ class ResponseMapperTest {
         @DisplayName("Should handle both label lists being null")
         void shouldHandleBothLabelListsBeingNull() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed();
             serviceResult.markCompleted();
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, null, null);
+            LabelModificationResponse response = responseMapper.toLabelModificationResponse(serviceResult, null, null);
 
             // Assert
             assertThat(response.getLabelsAdded()).isNull();
@@ -646,7 +659,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle both label lists being empty")
         void shouldHandleBothLabelListsBeingEmpty() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed();
             serviceResult.markCompleted();
@@ -655,8 +669,8 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Collections.emptyList();
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getLabelsAdded()).isEmpty();
@@ -668,7 +682,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle partial success with label modifications")
         void shouldHandlePartialSuccessWithLabelModifications() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.addSuccess("msg-002");
             serviceResult.addSuccess("msg-003");
@@ -681,8 +696,8 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Arrays.asList("INBOX");
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getStatus()).isEqualTo(OperationStatus.PARTIAL_SUCCESS);
@@ -696,7 +711,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle complete failure scenario")
         void shouldHandleCompleteFailureScenario() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addFailure("msg-001", "Error 1");
             serviceResult.addFailure("msg-002", "Error 2");
             serviceResult.incrementBatchesProcessed();
@@ -706,8 +722,8 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Collections.emptyList();
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getStatus()).isEqualTo(OperationStatus.FAILURE);
@@ -719,7 +735,8 @@ class ResponseMapperTest {
         @DisplayName("Should create independent copy of affectedMessageIds")
         void shouldCreateIndependentCopyOfAffectedMessageIds() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             serviceResult.addSuccess("msg-001");
             serviceResult.addSuccess("msg-002");
             serviceResult.incrementBatchesProcessed();
@@ -729,8 +746,8 @@ class ResponseMapperTest {
             List<String> labelsRemoved = Collections.emptyList();
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Modify service result after mapping
             serviceResult.addSuccess("msg-003");
@@ -744,21 +761,21 @@ class ResponseMapperTest {
         @DisplayName("Should handle large number of labels being modified")
         void shouldHandleLargeNumberOfLabelsBeingModified() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             for (int i = 1; i <= 100; i++) {
                 serviceResult.addSuccess("msg-" + String.format("%03d", i));
             }
             serviceResult.incrementBatchesProcessed();
             serviceResult.markCompleted();
 
-            List<String> labelsAdded = Arrays.asList(
-                "INBOX", "IMPORTANT", "STARRED", "CATEGORY_PERSONAL", "CATEGORY_SOCIAL");
-            List<String> labelsRemoved = Arrays.asList(
-                "SPAM", "TRASH", "UNREAD");
+            List<String> labelsAdded =
+                    Arrays.asList("INBOX", "IMPORTANT", "STARRED", "CATEGORY_PERSONAL", "CATEGORY_SOCIAL");
+            List<String> labelsRemoved = Arrays.asList("SPAM", "TRASH", "UNREAD");
 
             // Act
-            LabelModificationResponse response = responseMapper.toLabelModificationResponse(
-                serviceResult, labelsAdded, labelsRemoved);
+            LabelModificationResponse response =
+                    responseMapper.toLabelModificationResponse(serviceResult, labelsAdded, labelsRemoved);
 
             // Assert
             assertThat(response.getStatus()).isEqualTo(OperationStatus.SUCCESS);
@@ -778,7 +795,8 @@ class ResponseMapperTest {
         @DisplayName("Should calculate quota correctly for various batch counts")
         void shouldCalculateQuotaCorrectly(int batchCount, int expectedQuota) {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addSuccess("msg-001");
             for (int i = 0; i < batchCount; i++) {
                 serviceResult.incrementBatchesProcessed();
@@ -794,14 +812,14 @@ class ResponseMapperTest {
 
         static Stream<Arguments> quotaCalculationTestCases() {
             return Stream.of(
-                Arguments.of(0, 0),     // 0 batches * 50 = 0
-                Arguments.of(1, 50),    // 1 batch * 50 = 50
-                Arguments.of(2, 100),   // 2 batches * 50 = 100
-                Arguments.of(5, 250),   // 5 batches * 50 = 250
-                Arguments.of(10, 500),  // 10 batches * 50 = 500
-                Arguments.of(20, 1000), // 20 batches * 50 = 1000
-                Arguments.of(100, 5000) // 100 batches * 50 = 5000
-            );
+                    Arguments.of(0, 0), // 0 batches * 50 = 0
+                    Arguments.of(1, 50), // 1 batch * 50 = 50
+                    Arguments.of(2, 100), // 2 batches * 50 = 100
+                    Arguments.of(5, 250), // 5 batches * 50 = 250
+                    Arguments.of(10, 500), // 10 batches * 50 = 500
+                    Arguments.of(20, 1000), // 20 batches * 50 = 1000
+                    Arguments.of(100, 5000) // 100 batches * 50 = 5000
+                    );
         }
     }
 
@@ -813,7 +831,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle BulkOperationResult that is not yet completed")
         void shouldHandleNotYetCompletedResult() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed();
             // Note: NOT calling markCompleted()
@@ -829,7 +848,8 @@ class ResponseMapperTest {
         @DisplayName("Should handle very large operation counts")
         void shouldHandleVeryLargeOperationCounts() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             for (int i = 1; i <= 1000; i++) {
                 serviceResult.addSuccess("msg-" + String.format("%04d", i));
             }
@@ -851,7 +871,8 @@ class ResponseMapperTest {
         @DisplayName("Should preserve metadata timestamp")
         void shouldPreserveMetadataTimestamp() {
             // Arrange
-            BulkOperationResult serviceResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_DELETE);
             serviceResult.addSuccess("msg-001");
             serviceResult.incrementBatchesProcessed();
             serviceResult.markCompleted();

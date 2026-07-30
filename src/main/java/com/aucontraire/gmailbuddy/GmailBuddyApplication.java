@@ -11,5 +11,4 @@ public class GmailBuddyApplication {
     public static void main(String[] args) {
         SpringApplication.run(GmailBuddyApplication.class, args);
     }
-
 }

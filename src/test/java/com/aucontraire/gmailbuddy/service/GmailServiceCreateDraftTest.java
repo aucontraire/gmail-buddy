@@ -1,5 +1,15 @@
 package com.aucontraire.gmailbuddy.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.exception.GmailApiException;
@@ -10,24 +20,13 @@ import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.util.Properties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.util.unit.DataSize;
-
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.util.Properties;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 /**
  * Pure Mockito unit tests for {@link GmailService#createDraft(String, SendMessageDTO)}.
@@ -45,9 +44,9 @@ class GmailServiceCreateDraftTest {
     // Constants
     // -------------------------------------------------------------------------
 
-    private static final String USER_ID        = "me";
-    private static final String TEST_DRAFT_ID  = "r-9876543210";
-    private static final String TEST_MSG_ID    = "19a2b3c4d5e6f7g8";
+    private static final String USER_ID = "me";
+    private static final String TEST_DRAFT_ID = "r-9876543210";
+    private static final String TEST_MSG_ID = "19a2b3c4d5e6f7g8";
     private static final String TEST_THREAD_ID = "19a2b3c4d5e6f7g8";
 
     // -------------------------------------------------------------------------
@@ -64,17 +63,21 @@ class GmailServiceCreateDraftTest {
 
     @BeforeEach
     void setUp() {
-        gmailRepository      = mock(GmailRepository.class);
-        gmailQueryBuilder    = mock(GmailQueryBuilder.class);
+        gmailRepository = mock(GmailRepository.class);
+        gmailQueryBuilder = mock(GmailQueryBuilder.class);
         filterCriteriaMapper = mock(FilterCriteriaMapper.class);
-        mimeMessageBuilder   = mock(MimeMessageBuilder.class);
-        properties           = mock(GmailBuddyProperties.class);
-        send                 = mock(GmailBuddyProperties.Send.class);
+        mimeMessageBuilder = mock(MimeMessageBuilder.class);
+        properties = mock(GmailBuddyProperties.class);
+        send = mock(GmailBuddyProperties.Send.class);
         when(properties.send()).thenReturn(send);
         when(send.maxTotalPayloadSize()).thenReturn(DataSize.ofMegabytes(25));
         gmailService = new GmailService(
-                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder,
-                mock(GmailMessageMapper.class), properties);
+                gmailRepository,
+                gmailQueryBuilder,
+                filterCriteriaMapper,
+                mimeMessageBuilder,
+                mock(GmailMessageMapper.class),
+                properties);
     }
 
     // -------------------------------------------------------------------------
@@ -98,16 +101,15 @@ class GmailServiceCreateDraftTest {
 
     @Test
     @DisplayName("createDraft_validDto_callsMimeMessageBuilderExactlyOnce")
-    void createDraft_validDto_callsMimeMessageBuilderExactlyOnce()
-            throws Exception {
+    void createDraft_validDto_callsMimeMessageBuilderExactlyOnce() throws Exception {
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         MimeMessage mimeMessage = emptyMimeMessage();
-        DraftCreationResult expected =
-                new DraftCreationResult(TEST_DRAFT_ID, TEST_MSG_ID, TEST_THREAD_ID);
+        DraftCreationResult expected = new DraftCreationResult(TEST_DRAFT_ID, TEST_MSG_ID, TEST_THREAD_ID);
 
         when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
-        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull())).thenReturn(expected);
+        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull()))
+                .thenReturn(expected);
 
         // Act
         gmailService.createDraft(USER_ID, dto);
@@ -118,16 +120,15 @@ class GmailServiceCreateDraftTest {
 
     @Test
     @DisplayName("createDraft_validDto_callsRepositoryCreateDraftExactlyOnce")
-    void createDraft_validDto_callsRepositoryCreateDraftExactlyOnce()
-            throws Exception {
+    void createDraft_validDto_callsRepositoryCreateDraftExactlyOnce() throws Exception {
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         MimeMessage mimeMessage = emptyMimeMessage();
-        DraftCreationResult expected =
-                new DraftCreationResult(TEST_DRAFT_ID, TEST_MSG_ID, TEST_THREAD_ID);
+        DraftCreationResult expected = new DraftCreationResult(TEST_DRAFT_ID, TEST_MSG_ID, TEST_THREAD_ID);
 
         when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
-        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull())).thenReturn(expected);
+        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull()))
+                .thenReturn(expected);
 
         // Act
         gmailService.createDraft(USER_ID, dto);
@@ -143,11 +144,11 @@ class GmailServiceCreateDraftTest {
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         MimeMessage mimeMessage = emptyMimeMessage();
-        DraftCreationResult expected =
-                new DraftCreationResult(TEST_DRAFT_ID, TEST_MSG_ID, TEST_THREAD_ID);
+        DraftCreationResult expected = new DraftCreationResult(TEST_DRAFT_ID, TEST_MSG_ID, TEST_THREAD_ID);
 
         when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
-        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull())).thenReturn(expected);
+        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull()))
+                .thenReturn(expected);
 
         // Act
         DraftCreationResult actual = gmailService.createDraft(USER_ID, dto);
@@ -165,8 +166,7 @@ class GmailServiceCreateDraftTest {
 
     @Test
     @DisplayName("createDraft_mimeMessageBuilderThrowsMessagingException_wrapsToGmailApiException")
-    void createDraft_mimeMessageBuilderThrowsMessagingException_wrapsToGmailApiException()
-            throws Exception {
+    void createDraft_mimeMessageBuilderThrowsMessagingException_wrapsToGmailApiException() throws Exception {
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         MessagingException cause = new MessagingException("JavaMail header set failure");
@@ -185,8 +185,7 @@ class GmailServiceCreateDraftTest {
 
     @Test
     @DisplayName("createDraft_mimeMessageBuilderThrowsUnsupportedEncodingException_wrapsToGmailApiException")
-    void createDraft_mimeMessageBuilderThrowsUnsupportedEncodingException_wrapsToGmailApiException()
-            throws Exception {
+    void createDraft_mimeMessageBuilderThrowsUnsupportedEncodingException_wrapsToGmailApiException() throws Exception {
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         UnsupportedEncodingException cause = new UnsupportedEncodingException("UTF-8 not supported");
@@ -215,7 +214,8 @@ class GmailServiceCreateDraftTest {
         IOException cause = new IOException("Network timeout reaching Gmail API");
 
         when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
-        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull())).thenThrow(cause);
+        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull()))
+                .thenThrow(cause);
 
         // Act & Assert
         assertThatThrownBy(() -> gmailService.createDraft(USER_ID, dto))
@@ -230,16 +230,15 @@ class GmailServiceCreateDraftTest {
 
     @Test
     @DisplayName("createDraft_multiRecipientDto_delegatesToBuilderAndRepositoryCorrectly")
-    void createDraft_multiRecipientDto_delegatesToBuilderAndRepositoryCorrectly()
-            throws Exception {
+    void createDraft_multiRecipientDto_delegatesToBuilderAndRepositoryCorrectly() throws Exception {
         // Arrange: multi-recipient DTO to confirm service is not hard-coding recipient handling.
         SendMessageDTO dto = SendMessageRequestFixtures.validMultiRecipientWithCcAndBcc();
         MimeMessage mimeMessage = emptyMimeMessage();
-        DraftCreationResult expected =
-                new DraftCreationResult(TEST_DRAFT_ID, TEST_MSG_ID, TEST_THREAD_ID);
+        DraftCreationResult expected = new DraftCreationResult(TEST_DRAFT_ID, TEST_MSG_ID, TEST_THREAD_ID);
 
         when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mimeMessage);
-        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull())).thenReturn(expected);
+        when(gmailRepository.createDraft(eq(USER_ID), eq(mimeMessage), isNull()))
+                .thenReturn(expected);
 
         // Act
         DraftCreationResult actual = gmailService.createDraft(USER_ID, dto);

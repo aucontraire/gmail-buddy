@@ -55,12 +55,11 @@ public class BatchOperationException extends GmailBuddyServerException {
      */
     public static BatchOperationException partialFailure(BulkOperationResult operationResult) {
         String message = String.format(
-            "Batch %s operation partially failed: %d/%d operations succeeded (%.1f%% success rate)",
-            operationResult.getOperationType(),
-            operationResult.getSuccessCount(),
-            operationResult.getTotalOperations(),
-            operationResult.getSuccessRate()
-        );
+                "Batch %s operation partially failed: %d/%d operations succeeded (%.1f%% success rate)",
+                operationResult.getOperationType(),
+                operationResult.getSuccessCount(),
+                operationResult.getTotalOperations(),
+                operationResult.getSuccessRate());
 
         BatchOperationException exception = new BatchOperationException(message, operationResult);
         return exception;
@@ -75,10 +74,8 @@ public class BatchOperationException extends GmailBuddyServerException {
      */
     public static BatchOperationException completeFailure(BulkOperationResult operationResult) {
         String message = String.format(
-            "Batch %s operation completely failed: 0/%d operations succeeded",
-            operationResult.getOperationType(),
-            operationResult.getTotalOperations()
-        );
+                "Batch %s operation completely failed: 0/%d operations succeeded",
+                operationResult.getOperationType(), operationResult.getTotalOperations());
 
         return new BatchOperationException(message, operationResult);
     }
@@ -92,10 +89,8 @@ public class BatchOperationException extends GmailBuddyServerException {
      */
     public static BatchOperationException completeFailure(BulkOperationResult operationResult, Throwable cause) {
         String message = String.format(
-            "Batch %s operation completely failed: 0/%d operations succeeded",
-            operationResult.getOperationType(),
-            operationResult.getTotalOperations()
-        );
+                "Batch %s operation completely failed: 0/%d operations succeeded",
+                operationResult.getOperationType(), operationResult.getTotalOperations());
 
         return new BatchOperationException(message, operationResult, cause);
     }

@@ -16,12 +16,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Schema(description = "Attachment summary (no binary content)")
 public record AttachmentMetadata(
-        @Schema(description = "Original filename of the attachment", example = "resume-2026.pdf")
-        String filename,
-
-        @Schema(description = "MIME type of the attachment", example = "application/pdf")
-        String mimeType,
-
-        @Schema(description = "Decoded byte size estimate from Gmail API", example = "245760")
-        long sizeBytes
-) {}
+        @Schema(description = "Original filename of the attachment", example = "resume-2026.pdf") String filename,
+        @Schema(description = "MIME type of the attachment", example = "application/pdf") String mimeType,
+        @Schema(description = "Decoded byte size estimate from Gmail API", example = "245760") long sizeBytes) {}

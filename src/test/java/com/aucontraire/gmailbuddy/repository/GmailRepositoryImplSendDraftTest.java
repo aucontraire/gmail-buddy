@@ -1,5 +1,13 @@
 package com.aucontraire.gmailbuddy.repository;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
@@ -16,6 +24,9 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.Draft;
 import com.google.api.services.gmail.model.Message;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,18 +34,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link GmailRepositoryImpl#sendDraft(String, String)}.
@@ -55,28 +54,46 @@ class GmailRepositoryImplSendDraftTest {
     // Standard test constants
     // -------------------------------------------------------------------------
 
-    private static final String TEST_USER_ID      = "me";
+    private static final String TEST_USER_ID = "me";
     private static final String TEST_ACCESS_TOKEN = "test-access-token-xyz";
-    private static final String TEST_DRAFT_ID     = "r-9876543210";
-    private static final String TEST_MESSAGE_ID   = "19a2b3c4d5e6f7g8";
-    private static final String TEST_THREAD_ID    = "thread-19a2b3c4d5e6f7g8";
+    private static final String TEST_DRAFT_ID = "r-9876543210";
+    private static final String TEST_MESSAGE_ID = "19a2b3c4d5e6f7g8";
+    private static final String TEST_THREAD_ID = "thread-19a2b3c4d5e6f7g8";
 
     // -------------------------------------------------------------------------
     // Mocks for the full Gmail service dependency chain
     // -------------------------------------------------------------------------
 
-    @Mock private GmailClient gmailClient;
-    @Mock private GmailBatchClient gmailBatchClient;
-    @Mock private TokenProvider tokenProvider;
-    @Mock private GmailBuddyProperties properties;
-    @Mock private GmailMessageMapper gmailMessageMapper;
-    @Mock private GmailQueryBuilder gmailQueryBuilder;
+    @Mock
+    private GmailClient gmailClient;
+
+    @Mock
+    private GmailBatchClient gmailBatchClient;
+
+    @Mock
+    private TokenProvider tokenProvider;
+
+    @Mock
+    private GmailBuddyProperties properties;
+
+    @Mock
+    private GmailMessageMapper gmailMessageMapper;
+
+    @Mock
+    private GmailQueryBuilder gmailQueryBuilder;
 
     // Gmail API call chain: Gmail → Users → Drafts → Send
-    @Mock private Gmail gmail;
-    @Mock private Gmail.Users users;
-    @Mock private Gmail.Users.Drafts drafts;
-    @Mock private Gmail.Users.Drafts.Send draftsSend;
+    @Mock
+    private Gmail gmail;
+
+    @Mock
+    private Gmail.Users users;
+
+    @Mock
+    private Gmail.Users.Drafts drafts;
+
+    @Mock
+    private Gmail.Users.Drafts.Send draftsSend;
 
     private GmailRepositoryImpl repository;
 
@@ -207,11 +224,9 @@ class GmailRepositoryImplSendDraftTest {
 
     @Test
     @DisplayName("sendDraft_dailySendLimitExceededError_throwsRateLimitExceptionWithRetryAfter86400")
-    void sendDraft_dailySendLimitExceededError_throwsRateLimitExceptionWithRetryAfter86400()
-            throws Exception {
+    void sendDraft_dailySendLimitExceededError_throwsRateLimitExceptionWithRetryAfter86400() throws Exception {
         // Arrange
-        GoogleJsonResponseException gmailError =
-                buildGoogleJsonException(403, "dailySendLimitExceeded");
+        GoogleJsonResponseException gmailError = buildGoogleJsonException(403, "dailySendLimitExceeded");
 
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
@@ -237,8 +252,7 @@ class GmailRepositoryImplSendDraftTest {
     @DisplayName("sendDraft_invalidArgumentError_throwsInvalidRecipientException")
     void sendDraft_invalidArgumentError_throwsInvalidRecipientException() throws Exception {
         // Arrange: Gmail rejects the draft recipient with 400 invalidArgument.
-        GoogleJsonResponseException gmailError =
-                buildGoogleJsonException(400, "invalidArgument");
+        GoogleJsonResponseException gmailError = buildGoogleJsonException(400, "invalidArgument");
 
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
@@ -261,8 +275,7 @@ class GmailRepositoryImplSendDraftTest {
     @DisplayName("sendDraft_messageTooLargeError_throwsMessageTooLargeException")
     void sendDraft_messageTooLargeError_throwsMessageTooLargeException() throws Exception {
         // Arrange: Gmail rejects the draft's assembled MIME payload as too large.
-        GoogleJsonResponseException gmailError =
-                buildGoogleJsonException(413, "messageTooLarge");
+        GoogleJsonResponseException gmailError = buildGoogleJsonException(413, "messageTooLarge");
 
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
@@ -309,8 +322,7 @@ class GmailRepositoryImplSendDraftTest {
 
     @Test
     @DisplayName("sendDraft_generalSecurityExceptionFromServiceCreation_wrapsToIOException")
-    void sendDraft_generalSecurityExceptionFromServiceCreation_wrapsToIOException()
-            throws Exception {
+    void sendDraft_generalSecurityExceptionFromServiceCreation_wrapsToIOException() throws Exception {
         // Arrange: gmailClient.createGmailService throws GeneralSecurityException.
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN))

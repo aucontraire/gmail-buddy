@@ -1,9 +1,9 @@
 package com.aucontraire.gmailbuddy.ratelimit;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class GmailQuotaEstimatorTest {
 
@@ -160,8 +160,7 @@ class GmailQuotaEstimatorTest {
         int quota = estimator.estimateThreadedSendMessageQuota();
 
         // Assert
-        assertEquals(105, quota,
-                "Threaded send message should cost 105 quota units (5 lookup + 100 send)");
+        assertEquals(105, quota, "Threaded send message should cost 105 quota units (5 lookup + 100 send)");
     }
 
     @Test
@@ -171,8 +170,7 @@ class GmailQuotaEstimatorTest {
         int quota = estimator.estimateThreadedCreateDraftQuota();
 
         // Assert
-        assertEquals(15, quota,
-                "Threaded create draft should cost 15 quota units (5 lookup + 10 draft create)");
+        assertEquals(15, quota, "Threaded create draft should cost 15 quota units (5 lookup + 10 draft create)");
     }
 
     // -------------------------------------------------------------------------
@@ -182,8 +180,7 @@ class GmailQuotaEstimatorTest {
     @Test
     void estimateListDraftsQuota_zeroItems_returnsOne() {
         // 1 (list call) + 0 * 5 = 1
-        assertEquals(1, estimator.estimateListDraftsQuota(0),
-                "Zero items: only the list call costs 1 unit");
+        assertEquals(1, estimator.estimateListDraftsQuota(0), "Zero items: only the list call costs 1 unit");
     }
 
     @Test
@@ -206,22 +203,19 @@ class GmailQuotaEstimatorTest {
 
     @Test
     void estimateGetDraftQuota_returnsFive() {
-        assertEquals(5, estimator.estimateGetDraftQuota(),
-                "Get draft should cost 5 quota units");
+        assertEquals(5, estimator.estimateGetDraftQuota(), "Get draft should cost 5 quota units");
     }
 
     // T021 — Delete draft quota
     @Test
     void estimateDeleteDraftQuota_returnsTen() {
-        assertEquals(10, estimator.estimateDeleteDraftQuota(),
-                "Delete draft should cost 10 quota units");
+        assertEquals(10, estimator.estimateDeleteDraftQuota(), "Delete draft should cost 10 quota units");
     }
 
     // T031 — Update draft quota
     @Test
     void estimateUpdateDraftQuota_returnsFifteen() {
-        assertEquals(15, estimator.estimateUpdateDraftQuota(),
-                "Update draft should cost 15 quota units");
+        assertEquals(15, estimator.estimateUpdateDraftQuota(), "Update draft should cost 15 quota units");
     }
 
     // =========================================================================
@@ -230,49 +224,53 @@ class GmailQuotaEstimatorTest {
 
     @Test
     void estimateListThreadsQuota_returnsTen() {
-        assertEquals(10, estimator.estimateListThreadsQuota(),
+        assertEquals(
+                10,
+                estimator.estimateListThreadsQuota(),
                 "List threads should cost 10 quota units (flat regardless of page size)");
     }
 
     @Test
     void estimateGetThreadQuota_returnsTen() {
-        assertEquals(10, estimator.estimateGetThreadQuota(),
+        assertEquals(
+                10,
+                estimator.estimateGetThreadQuota(),
                 "Get thread should cost 10 quota units (users.threads.get with format=FULL)");
     }
 
     @Test
     void estimateGetMessageDetailQuota_formatFull_returnsTen() {
-        assertEquals(10, estimator.estimateGetMessageDetailQuota("full"),
+        assertEquals(
+                10,
+                estimator.estimateGetMessageDetailQuota("full"),
                 "Get message detail with format=full should cost 10 quota units");
     }
 
     @Test
     void estimateGetMessageDetailQuota_formatMetadata_returnsFive() {
-        assertEquals(5, estimator.estimateGetMessageDetailQuota("metadata"),
+        assertEquals(
+                5,
+                estimator.estimateGetMessageDetailQuota("metadata"),
                 "Get message detail with format=metadata should cost 5 quota units");
     }
 
     @Test
     void estimateListLabelsQuota_returnsOne() {
-        assertEquals(1, estimator.estimateListLabelsQuota(),
-                "List labels should cost 1 quota unit");
+        assertEquals(1, estimator.estimateListLabelsQuota(), "List labels should cost 1 quota unit");
     }
 
     @Test
     void estimateGetLabelQuota_returnsOne() {
-        assertEquals(1, estimator.estimateGetLabelQuota(),
-                "Get label should cost 1 quota unit");
+        assertEquals(1, estimator.estimateGetLabelQuota(), "Get label should cost 1 quota unit");
     }
 
     @Test
     void estimateListAttachmentsQuota_returnsFive() {
-        assertEquals(5, estimator.estimateListAttachmentsQuota(),
-                "List attachments should cost 5 quota units");
+        assertEquals(5, estimator.estimateListAttachmentsQuota(), "List attachments should cost 5 quota units");
     }
 
     @Test
     void estimateGetAttachmentQuota_returnsFive() {
-        assertEquals(5, estimator.estimateGetAttachmentQuota(),
-                "Get attachment should cost 5 quota units");
+        assertEquals(5, estimator.estimateGetAttachmentQuota(), "Get attachment should cost 5 quota units");
     }
 }

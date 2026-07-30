@@ -20,7 +20,7 @@ public class TestTokenProvider implements TokenProvider {
     private boolean shouldThrowException = false;
     private boolean simulateJwtAuthentication = false;
     private boolean simulateBearerTokenAuthentication = false;
-    
+
     @Override
     public String getAccessToken() throws AuthenticationException {
         if (shouldThrowException) {
@@ -28,7 +28,7 @@ public class TestTokenProvider implements TokenProvider {
         }
         return accessToken;
     }
-    
+
     @Override
     public String getAccessToken(String userId) throws AuthenticationException {
         if (shouldThrowException) {
@@ -36,17 +36,17 @@ public class TestTokenProvider implements TokenProvider {
         }
         return accessToken;
     }
-    
+
     @Override
     public boolean isTokenValid() {
         return tokenValid;
     }
-    
+
     @Override
     public boolean isTokenValid(String userId) {
         return tokenValid;
     }
-    
+
     @Override
     public void refreshTokenIfNeeded() throws AuthenticationException {
         if (shouldThrowException) {
@@ -54,7 +54,7 @@ public class TestTokenProvider implements TokenProvider {
         }
         // No-op for test implementation
     }
-    
+
     @Override
     public void refreshTokenIfNeeded(String userId) throws AuthenticationException {
         if (shouldThrowException) {
@@ -62,7 +62,7 @@ public class TestTokenProvider implements TokenProvider {
         }
         // No-op for test implementation
     }
-    
+
     @Override
     public String getCurrentPrincipalName() throws AuthenticationException {
         if (shouldThrowException) {
@@ -107,7 +107,7 @@ public class TestTokenProvider implements TokenProvider {
         // 3. OAuth2 fallback (lowest priority)
         return accessToken;
     }
-    
+
     // Test utility methods for Phase 1 dual authentication testing
 
     public void setAccessToken(String accessToken) {

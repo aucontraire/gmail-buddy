@@ -1,18 +1,17 @@
 package com.aucontraire.gmailbuddy.dto.response;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
 import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for LabelModificationResponse DTO.
@@ -47,10 +46,8 @@ class LabelModificationResponseTest {
         List<String> labelsRemoved = Arrays.asList("UNREAD", "SPAM");
         List<String> affectedIds = Arrays.asList("msg1", "msg2", "msg3");
 
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(300L)
-                .quotaUsed(3)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(300L).quotaUsed(3).build();
 
         // When
         LabelModificationResponse response = LabelModificationResponse.builder()
@@ -124,9 +121,8 @@ class LabelModificationResponseTest {
     @DisplayName("getMessagesModified() should return correct count")
     void getMessagesModified_ShouldReturnCorrectCount() {
         // Given
-        LabelModificationResponse response = LabelModificationResponse.builder()
-                .messagesModified(42)
-                .build();
+        LabelModificationResponse response =
+                LabelModificationResponse.builder().messagesModified(42).build();
 
         // When & Then
         assertThat(response.getMessagesModified()).isEqualTo(42);
@@ -137,9 +133,8 @@ class LabelModificationResponseTest {
     void getLabelsAdded_ShouldReturnCorrectList() {
         // Given
         List<String> labels = Arrays.asList("INBOX", "STARRED", "IMPORTANT");
-        LabelModificationResponse response = LabelModificationResponse.builder()
-                .labelsAdded(labels)
-                .build();
+        LabelModificationResponse response =
+                LabelModificationResponse.builder().labelsAdded(labels).build();
 
         // When & Then
         assertThat(response.getLabelsAdded()).containsExactly("INBOX", "STARRED", "IMPORTANT");
@@ -150,9 +145,8 @@ class LabelModificationResponseTest {
     void getLabelsRemoved_ShouldReturnCorrectList() {
         // Given
         List<String> labels = Arrays.asList("UNREAD", "SPAM");
-        LabelModificationResponse response = LabelModificationResponse.builder()
-                .labelsRemoved(labels)
-                .build();
+        LabelModificationResponse response =
+                LabelModificationResponse.builder().labelsRemoved(labels).build();
 
         // When & Then
         assertThat(response.getLabelsRemoved()).containsExactly("UNREAD", "SPAM");
@@ -175,14 +169,11 @@ class LabelModificationResponseTest {
     @DisplayName("getMetadata() should return correct metadata")
     void getMetadata_ShouldReturnCorrectMetadata() {
         // Given
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(450L)
-                .quotaUsed(15)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(450L).quotaUsed(15).build();
 
-        LabelModificationResponse response = LabelModificationResponse.builder()
-                .metadata(metadata)
-                .build();
+        LabelModificationResponse response =
+                LabelModificationResponse.builder().metadata(metadata).build();
 
         // When & Then
         assertThat(response.getMetadata()).isEqualTo(metadata);
@@ -193,9 +184,7 @@ class LabelModificationResponseTest {
     @DisplayName("toString() should include all relevant information")
     void toString_ShouldIncludeAllRelevantInformation() {
         // Given
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(200L)
-                .build();
+        ResponseMetadata metadata = ResponseMetadata.builder().durationMs(200L).build();
 
         LabelModificationResponse response = LabelModificationResponse.builder()
                 .status(OperationStatus.SUCCESS)
@@ -267,10 +256,8 @@ class LabelModificationResponseTest {
         List<String> labelsRemoved = Arrays.asList("UNREAD");
         List<String> affectedIds = Arrays.asList("msg1", "msg2");
 
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(350L)
-                .quotaUsed(2)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(350L).quotaUsed(2).build();
 
         LabelModificationResponse response = LabelModificationResponse.builder()
                 .status(OperationStatus.SUCCESS)
@@ -297,9 +284,9 @@ class LabelModificationResponseTest {
     @DisplayName("JSON deserialization should reconstruct LabelModificationResponse correctly")
     void jsonDeserialization_ShouldReconstructObject() throws JsonProcessingException {
         // Given
-        String json = "{\"status\":\"SUCCESS\",\"messagesModified\":3," +
-                "\"labelsAdded\":[\"INBOX\"],\"labelsRemoved\":[\"SPAM\"]," +
-                "\"affectedMessageIds\":[\"msg1\",\"msg2\",\"msg3\"]}";
+        String json = "{\"status\":\"SUCCESS\",\"messagesModified\":3,"
+                + "\"labelsAdded\":[\"INBOX\"],\"labelsRemoved\":[\"SPAM\"],"
+                + "\"affectedMessageIds\":[\"msg1\",\"msg2\",\"msg3\"]}";
 
         // When
         LabelModificationResponse response = objectMapper.readValue(json, LabelModificationResponse.class);
@@ -368,10 +355,8 @@ class LabelModificationResponseTest {
     @DisplayName("Builder should handle large number of affected messages")
     void builder_WithLargeNumberOfAffectedMessages_ShouldHandleCorrectly() {
         // Given
-        List<String> largeIdList = Arrays.asList(
-                "msg1", "msg2", "msg3", "msg4", "msg5",
-                "msg6", "msg7", "msg8", "msg9", "msg10"
-        );
+        List<String> largeIdList =
+                Arrays.asList("msg1", "msg2", "msg3", "msg4", "msg5", "msg6", "msg7", "msg8", "msg9", "msg10");
 
         // When
         LabelModificationResponse response = LabelModificationResponse.builder()

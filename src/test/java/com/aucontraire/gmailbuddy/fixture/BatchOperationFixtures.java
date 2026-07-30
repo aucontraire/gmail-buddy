@@ -1,7 +1,6 @@
 package com.aucontraire.gmailbuddy.fixture;
 
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,18 +34,12 @@ public final class BatchOperationFixtures {
     private static final String DEFAULT_ERROR_MESSAGE = "Gmail message not found";
 
     /** Small, well-formed hex message ids (matches {@code [0-9a-fA-F]{1,32}}). */
-    private static final List<String> VALID_MESSAGE_IDS = List.of(
-            "18e1f9a2b3c4d5e6",
-            "18e1f9a2b3c4d5e7",
-            "18e1f9a2b3c4d5e8",
-            "18e1f9a2b3c4d5e9",
-            "18e1f9a2b3c4d5ea"
-    );
+    private static final List<String> VALID_MESSAGE_IDS =
+            List.of("18e1f9a2b3c4d5e6", "18e1f9a2b3c4d5e7", "18e1f9a2b3c4d5e8", "18e1f9a2b3c4d5e9", "18e1f9a2b3c4d5ea");
 
     // Utility class — no instances.
     private BatchOperationFixtures() {
-        throw new AssertionError(
-                "BatchOperationFixtures is a static factory class and must not be instantiated");
+        throw new AssertionError("BatchOperationFixtures is a static factory class and must not be instantiated");
     }
 
     // -------------------------------------------------------------------------
@@ -64,8 +57,7 @@ public final class BatchOperationFixtures {
      */
     public static List<String> validMessageIds(int n) {
         if (n < 1 || n > VALID_MESSAGE_IDS.size()) {
-            throw new IllegalArgumentException(
-                    "n must be between 1 and " + VALID_MESSAGE_IDS.size() + " but was " + n);
+            throw new IllegalArgumentException("n must be between 1 and " + VALID_MESSAGE_IDS.size() + " but was " + n);
         }
         return VALID_MESSAGE_IDS.subList(0, n);
     }
@@ -117,9 +109,8 @@ public final class BatchOperationFixtures {
      */
     public static BulkOperationResult buildPartialResult(List<String> messageIds, int successCount) {
         if (successCount < 1 || successCount >= messageIds.size()) {
-            throw new IllegalArgumentException(
-                    "successCount must be between 1 and messageIds.size() - 1 (inclusive) "
-                            + "but was " + successCount + " for a list of size " + messageIds.size());
+            throw new IllegalArgumentException("successCount must be between 1 and messageIds.size() - 1 (inclusive) "
+                    + "but was " + successCount + " for a list of size " + messageIds.size());
         }
         BulkOperationResult result = new BulkOperationResult(FIXTURE_OPERATION_TYPE);
         List<String> successes = messageIds.subList(0, successCount);

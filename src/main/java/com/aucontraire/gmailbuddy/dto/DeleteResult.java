@@ -79,7 +79,6 @@ public class DeleteResult {
 
     @Override
     public String toString() {
-        return String.format("DeleteResult{messageId='%s', success=%s, message='%s'}",
-            messageId, success, message);
+        return String.format("DeleteResult{messageId='%s', success=%s, message='%s'}", messageId, success, message);
     }
 }

@@ -1,19 +1,18 @@
 package com.aucontraire.gmailbuddy.service;
 
-import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.*;
 
+import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Unit tests for BulkOperationResult class.
@@ -343,7 +342,7 @@ class BulkOperationResultTest {
         // Even indices (0, 2, 4, ...) go to success
         // Odd indices (1, 3, 5, ...) go to failure
         int expectedSuccessCount = (operationCount + 1) / 2; // Ceiling division
-        int expectedFailureCount = operationCount / 2;        // Floor division
+        int expectedFailureCount = operationCount / 2; // Floor division
 
         // Assert
         assertThat(result.getTotalOperations()).isEqualTo(operationCount);

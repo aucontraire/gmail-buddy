@@ -1,19 +1,5 @@
 package com.aucontraire.gmailbuddy.service;
 
-import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
-import com.aucontraire.gmailbuddy.exception.ValidationException;
-import com.aucontraire.gmailbuddy.fixture.BatchOperationFixtures;
-import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
-import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
-import com.aucontraire.gmailbuddy.repository.GmailRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-
-import java.util.Collections;
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -22,6 +8,19 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
+import com.aucontraire.gmailbuddy.exception.ValidationException;
+import com.aucontraire.gmailbuddy.fixture.BatchOperationFixtures;
+import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
+import com.aucontraire.gmailbuddy.repository.GmailRepository;
+import java.util.Collections;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for {@link GmailService#batchModifyLabelsByIds} (feature 005 US2, T021).
@@ -70,8 +69,13 @@ class GmailServiceBatchModifyLabelsTest {
         when(properties.gmailApi()).thenReturn(gmailApiProperties);
         when(gmailApiProperties.batchDeleteMaxResults()).thenReturn(TEST_MAX_BATCH_SIZE);
 
-        gmailService = new GmailService(gmailRepository, gmailQueryBuilder, filterCriteriaMapper,
-                mimeMessageBuilder, gmailMessageMapper, properties);
+        gmailService = new GmailService(
+                gmailRepository,
+                gmailQueryBuilder,
+                filterCriteriaMapper,
+                mimeMessageBuilder,
+                gmailMessageMapper,
+                properties);
     }
 
     // -------------------------------------------------------------------------
@@ -90,8 +94,8 @@ class GmailServiceBatchModifyLabelsTest {
                 .thenReturn(repositoryResult);
 
         // Act
-        BulkOperationResult result = gmailService.batchModifyLabelsByIds(
-                USER_ID, messageIds, labelIdsToAdd, labelIdsToRemove);
+        BulkOperationResult result =
+                gmailService.batchModifyLabelsByIds(USER_ID, messageIds, labelIdsToAdd, labelIdsToRemove);
 
         // Assert: same instance returned, so per-id success/failure detail survives untouched
         assertThat(result).isSameAs(repositoryResult);
@@ -110,8 +114,7 @@ class GmailServiceBatchModifyLabelsTest {
         List<String> labelIdsToAdd = List.of("Label_1", "STARRED");
         List<String> labelIdsToRemove = List.of("INBOX");
         BulkOperationResult repositoryResult = BatchOperationFixtures.buildAllSuccessResult(messageIds);
-        when(gmailRepository.batchModifyLabelsByIds(any(), any(), any(), any()))
-                .thenReturn(repositoryResult);
+        when(gmailRepository.batchModifyLabelsByIds(any(), any(), any(), any())).thenReturn(repositoryResult);
 
         // Act
         gmailService.batchModifyLabelsByIds(USER_ID, messageIds, labelIdsToAdd, labelIdsToRemove);
@@ -121,8 +124,9 @@ class GmailServiceBatchModifyLabelsTest {
         ArgumentCaptor<List<String>> messageIdsCaptor = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<String>> addCaptor = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<String>> removeCaptor = ArgumentCaptor.forClass(List.class);
-        verify(gmailRepository).batchModifyLabelsByIds(
-                eq(USER_ID), messageIdsCaptor.capture(), addCaptor.capture(), removeCaptor.capture());
+        verify(gmailRepository)
+                .batchModifyLabelsByIds(
+                        eq(USER_ID), messageIdsCaptor.capture(), addCaptor.capture(), removeCaptor.capture());
 
         assertThat(messageIdsCaptor.getValue()).isEqualTo(messageIds);
         assertThat(addCaptor.getValue()).isEqualTo(labelIdsToAdd);
@@ -143,7 +147,8 @@ class GmailServiceBatchModifyLabelsTest {
         List<String> labelIdsToRemove = Collections.emptyList();
 
         // Act & Assert
-        assertThrows(ValidationException.class,
+        assertThrows(
+                ValidationException.class,
                 () -> gmailService.batchModifyLabelsByIds(USER_ID, oversizedIds, labelIdsToAdd, labelIdsToRemove));
         verify(gmailRepository, never()).batchModifyLabelsByIds(any(), any(), any(), any());
     }
@@ -160,8 +165,8 @@ class GmailServiceBatchModifyLabelsTest {
                 .thenReturn(repositoryResult);
 
         // Act
-        BulkOperationResult result = gmailService.batchModifyLabelsByIds(
-                USER_ID, messageIdsAtMax, labelIdsToAdd, labelIdsToRemove);
+        BulkOperationResult result =
+                gmailService.batchModifyLabelsByIds(USER_ID, messageIdsAtMax, labelIdsToAdd, labelIdsToRemove);
 
         // Assert: no exception, repository invoked, result passed through
         assertThat(result).isSameAs(repositoryResult);

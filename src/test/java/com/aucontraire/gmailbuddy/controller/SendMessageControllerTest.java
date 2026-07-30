@@ -1,5 +1,14 @@
 package com.aucontraire.gmailbuddy.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.exception.InvalidRecipientException;
 import com.aucontraire.gmailbuddy.exception.MessageTooLargeException;
@@ -18,21 +27,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Controller-slice test for {@code POST /api/v1/gmail/messages} — direct send.
@@ -59,7 +59,7 @@ class SendMessageControllerTest {
     private static final String MESSAGES_ENDPOINT = "/api/v1/gmail/messages";
 
     private static final String MESSAGE_ID = "19a2b3c4d5e6f7g8";
-    private static final String THREAD_ID  = "thread-19a2b3c4d5e6f7g8";
+    private static final String THREAD_ID = "thread-19a2b3c4d5e6f7g8";
 
     @Autowired
     private MockMvc mockMvc;
@@ -104,8 +104,7 @@ class SendMessageControllerTest {
         String requestBody = objectMapper.writeValueAsString(dto);
 
         SentMessageResult stubResult = new SentMessageResult(MESSAGE_ID, THREAD_ID);
-        when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class)))
-                .thenReturn(stubResult);
+        when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class))).thenReturn(stubResult);
 
         // Act & Assert: must be 201 Created (new message resource created per Decision 3).
         mockMvc.perform(post(MESSAGES_ENDPOINT)
@@ -128,8 +127,7 @@ class SendMessageControllerTest {
         String requestBody = objectMapper.writeValueAsString(dto);
 
         SentMessageResult stubResult = new SentMessageResult(MESSAGE_ID, THREAD_ID);
-        when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class)))
-                .thenReturn(stubResult);
+        when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class))).thenReturn(stubResult);
 
         // Act & Assert: Location header must point to /api/v1/gmail/messages/{messageId}/body
         // per contracts/api-endpoints.md Endpoint 1 and Decision 3.
@@ -138,8 +136,7 @@ class SendMessageControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location",
-                        "/api/v1/gmail/messages/" + MESSAGE_ID + "/body"));
+                .andExpect(header().string("Location", "/api/v1/gmail/messages/" + MESSAGE_ID + "/body"));
     }
 
     // -------------------------------------------------------------------------
@@ -155,8 +152,7 @@ class SendMessageControllerTest {
         String requestBody = objectMapper.writeValueAsString(dto);
 
         SentMessageResult stubResult = new SentMessageResult(MESSAGE_ID, THREAD_ID);
-        when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class)))
-                .thenReturn(stubResult);
+        when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class))).thenReturn(stubResult);
 
         // Act & Assert: response body must contain messageId, threadId, and status="SENT"
         // per api-endpoints.md Endpoint 1 success-response example.
@@ -185,8 +181,7 @@ class SendMessageControllerTest {
         String requestBody = objectMapper.writeValueAsString(dto);
 
         SentMessageResult stubResult = new SentMessageResult(MESSAGE_ID, THREAD_ID);
-        when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class)))
-                .thenReturn(stubResult);
+        when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class))).thenReturn(stubResult);
 
         // Act & Assert
         mockMvc.perform(post(MESSAGES_ENDPOINT)
@@ -204,8 +199,7 @@ class SendMessageControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postSendMessage_gmailRejectsRecipient_returns422WithInvalidRecipientProblemType")
-    void postSendMessage_gmailRejectsRecipient_returns422WithInvalidRecipientProblemType()
-            throws Exception {
+    void postSendMessage_gmailRejectsRecipient_returns422WithInvalidRecipientProblemType() throws Exception {
         // Arrange: the repository maps Gmail's 400 invalidArgument reason to
         // InvalidRecipientException (not ValidationException), which propagates as a
         // RuntimeException through the service layer uncaught (only IOException is caught).
@@ -235,8 +229,7 @@ class SendMessageControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postSendMessage_gmailMessageTooLarge_returns413WithMessageTooLargeProblemType")
-    void postSendMessage_gmailMessageTooLarge_returns413WithMessageTooLargeProblemType()
-            throws Exception {
+    void postSendMessage_gmailMessageTooLarge_returns413WithMessageTooLargeProblemType() throws Exception {
         // Arrange: the repository maps Gmail's messageTooLarge reason to
         // MessageTooLargeException (not ValidationException), which propagates as a
         // RuntimeException through the service layer uncaught (only IOException is caught).
@@ -247,8 +240,7 @@ class SendMessageControllerTest {
         String requestBody = objectMapper.writeValueAsString(dto);
 
         when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class)))
-                .thenThrow(new MessageTooLargeException(
-                        "Message exceeds Gmail's maximum allowed size"));
+                .thenThrow(new MessageTooLargeException("Message exceeds Gmail's maximum allowed size"));
 
         // Act & Assert
         mockMvc.perform(post(MESSAGES_ENDPOINT)
@@ -272,8 +264,7 @@ class SendMessageControllerTest {
         String requestBody = objectMapper.writeValueAsString(dto);
 
         SentMessageResult stubResult = new SentMessageResult(MESSAGE_ID, THREAD_ID);
-        when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class)))
-                .thenReturn(stubResult);
+        when(gmailService.sendMessage(eq("me"), any(SendMessageDTO.class))).thenReturn(stubResult);
 
         // Act & Assert
         mockMvc.perform(post(MESSAGES_ENDPOINT)

@@ -52,7 +52,8 @@ public @interface GmailDraftId {
      *
      * @return the error message template
      */
-    String message() default "must be a valid Gmail draft identifier (alphanumeric, hyphen, or underscore; max 128 characters)";
+    String message() default
+            "must be a valid Gmail draft identifier (alphanumeric, hyphen, or underscore; max 128 characters)";
 
     /**
      * Validation groups this constraint belongs to.

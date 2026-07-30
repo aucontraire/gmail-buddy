@@ -1,7 +1,6 @@
 package com.aucontraire.gmailbuddy.fixture;
 
 import com.aucontraire.gmailbuddy.dto.Attachment;
-
 import java.util.List;
 
 /**
@@ -30,14 +29,13 @@ import java.util.List;
 public final class AttachmentFixtures {
 
     // Reusable constants — kept package-accessible so companion tests can reference them.
-    static final String VALID_PDF_BASE64 = "JVBERi0xLjQK";   // %PDF-1.4\n
-    static final String VALID_PNG_BASE64 = "iVBORw0KGgo=";   // PNG IDAT header bytes
+    static final String VALID_PDF_BASE64 = "JVBERi0xLjQK"; // %PDF-1.4\n
+    static final String VALID_PNG_BASE64 = "iVBORw0KGgo="; // PNG IDAT header bytes
     static final String VALID_TXT_BASE64 = "SGVsbG8gV29ybGQ="; // "Hello World"
 
     // Utility class — no instances.
     private AttachmentFixtures() {
-        throw new AssertionError(
-                "AttachmentFixtures is a static factory class and must not be instantiated");
+        throw new AssertionError("AttachmentFixtures is a static factory class and must not be instantiated");
     }
 
     // -------------------------------------------------------------------------
@@ -54,11 +52,7 @@ public final class AttachmentFixtures {
      * @return a valid PDF attachment
      */
     public static Attachment validSinglePdf() {
-        return new Attachment(
-                "resume.pdf",
-                "application/pdf",
-                VALID_PDF_BASE64
-        );
+        return new Attachment("resume.pdf", "application/pdf", VALID_PDF_BASE64);
     }
 
     /**
@@ -70,8 +64,7 @@ public final class AttachmentFixtures {
     public static List<Attachment> validMultiAttachmentList() {
         return List.of(
                 new Attachment("resume.pdf", "application/pdf", VALID_PDF_BASE64),
-                new Attachment("cover-letter.txt", "text/plain", VALID_TXT_BASE64)
-        );
+                new Attachment("cover-letter.txt", "text/plain", VALID_TXT_BASE64));
     }
 
     // -------------------------------------------------------------------------
@@ -88,11 +81,7 @@ public final class AttachmentFixtures {
      * @return an attachment with a path-traversal filename
      */
     public static Attachment invalidPathTraversalFilename() {
-        return new Attachment(
-                "../../etc/passwd",
-                "application/pdf",
-                VALID_PDF_BASE64
-        );
+        return new Attachment("../../etc/passwd", "application/pdf", VALID_PDF_BASE64);
     }
 
     /**
@@ -107,11 +96,7 @@ public final class AttachmentFixtures {
      * @return an attachment with a header-injection filename
      */
     public static Attachment invalidHeaderInjectionFilename() {
-        return new Attachment(
-                "innocent.pdf\r\nContent-Type: text/html",
-                "application/pdf",
-                VALID_PDF_BASE64
-        );
+        return new Attachment("innocent.pdf\r\nContent-Type: text/html", "application/pdf", VALID_PDF_BASE64);
     }
 
     /**
@@ -127,11 +112,7 @@ public final class AttachmentFixtures {
      * @return an attachment with invalid Base64 data
      */
     public static Attachment invalidBase64() {
-        return new Attachment(
-                "resume.pdf",
-                "application/pdf",
-                "not-valid-base64!!!"
-        );
+        return new Attachment("resume.pdf", "application/pdf", "not-valid-base64!!!");
     }
 
     /**
@@ -148,8 +129,7 @@ public final class AttachmentFixtures {
     public static Attachment invalidMalformedMimeType() {
         return new Attachment(
                 "resume.pdf",
-                "application",   // missing /subtype
-                VALID_PDF_BASE64
-        );
+                "application", // missing /subtype
+                VALID_PDF_BASE64);
     }
 }

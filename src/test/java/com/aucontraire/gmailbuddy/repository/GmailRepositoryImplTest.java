@@ -1,11 +1,16 @@
 package com.aucontraire.gmailbuddy.repository;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.client.GmailBatchClient;
+import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
@@ -15,30 +20,18 @@ import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.ListMessagesResponse;
 import com.google.api.services.gmail.model.Message;
-import com.google.api.services.gmail.model.MessagePart;
-import com.google.api.services.gmail.model.MessagePartBody;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.IntStream;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for GmailRepositoryImpl with TokenProvider abstraction.
@@ -100,7 +93,8 @@ class GmailRepositoryImplTest {
 
     @BeforeEach
     void setUp() {
-        repository = new GmailRepositoryImpl(gmailClient, gmailBatchClient, tokenProvider, properties, gmailMessageMapper, gmailQueryBuilder);
+        repository = new GmailRepositoryImpl(
+                gmailClient, gmailBatchClient, tokenProvider, properties, gmailMessageMapper, gmailQueryBuilder);
 
         repositoryLogger = (Logger) LoggerFactory.getLogger(GmailRepositoryImpl.class);
         repositoryLogger.setLevel(Level.DEBUG);
@@ -116,7 +110,8 @@ class GmailRepositoryImplTest {
     }
 
     @Test
-    void getMessages_WithValidToken_ReturnsMessages() throws IOException, GeneralSecurityException, AuthenticationException {
+    void getMessages_WithValidToken_ReturnsMessages()
+            throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
         Message message1 = new Message().setId("msg1");
         Message message2 = new Message().setId("msg2");
@@ -142,15 +137,14 @@ class GmailRepositoryImplTest {
     }
 
     @Test
-    void getMessages_WithAuthenticationException_ThrowsIllegalStateException() throws AuthenticationException, GeneralSecurityException {
+    void getMessages_WithAuthenticationException_ThrowsIllegalStateException()
+            throws AuthenticationException, GeneralSecurityException {
         // Given
         when(tokenProvider.getAccessToken()).thenThrow(new AuthenticationException("Token expired"));
 
         // When & Then
-        IllegalStateException exception = assertThrows(
-            IllegalStateException.class,
-            () -> repository.getMessages(TEST_USER_ID)
-        );
+        IllegalStateException exception =
+                assertThrows(IllegalStateException.class, () -> repository.getMessages(TEST_USER_ID));
 
         assertTrue(exception.getMessage().contains("Failed to authenticate with Gmail API"));
         assertTrue(exception.getCause() instanceof AuthenticationException);
@@ -159,7 +153,8 @@ class GmailRepositoryImplTest {
     }
 
     @Test
-    void getLatestMessages_WithValidToken_ReturnsLimitedMessages() throws IOException, GeneralSecurityException, AuthenticationException {
+    void getLatestMessages_WithValidToken_ReturnsLimitedMessages()
+            throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
         long maxResults = 10L;
         Message message = new Message().setId("latest-msg");
@@ -185,7 +180,8 @@ class GmailRepositoryImplTest {
     }
 
     @Test
-    void getMessagesByFilterCriteria_WithValidQuery_ReturnsFilteredMessages() throws IOException, GeneralSecurityException, AuthenticationException {
+    void getMessagesByFilterCriteria_WithValidQuery_ReturnsFilteredMessages()
+            throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
         Message message = new Message().setId("filtered-msg");
         List<Message> expectedMessages = Arrays.asList(message);
@@ -210,7 +206,8 @@ class GmailRepositoryImplTest {
     }
 
     @Test
-    void deleteMessage_WithValidToken_DeletesMessage() throws IOException, GeneralSecurityException, AuthenticationException {
+    void deleteMessage_WithValidToken_DeletesMessage()
+            throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
         BulkOperationResult successResult = new BulkOperationResult("DELETE");
         successResult.addSuccess(TEST_MESSAGE_ID);
@@ -219,7 +216,7 @@ class GmailRepositoryImplTest {
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
         when(gmailBatchClient.batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID)))
-            .thenReturn(successResult);
+                .thenReturn(successResult);
 
         // When
         repository.deleteMessage(TEST_USER_ID, TEST_MESSAGE_ID);
@@ -230,24 +227,24 @@ class GmailRepositoryImplTest {
     }
 
     @Test
-    void deleteMessage_WithGmailClientException_ThrowsIOException() throws IOException, GeneralSecurityException, AuthenticationException {
+    void deleteMessage_WithGmailClientException_ThrowsIOException()
+            throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN))
-            .thenThrow(new GeneralSecurityException("Gmail service creation failed"));
+                .thenThrow(new GeneralSecurityException("Gmail service creation failed"));
 
         // When & Then
-        IOException exception = assertThrows(
-            IOException.class,
-            () -> repository.deleteMessage(TEST_USER_ID, TEST_MESSAGE_ID)
-        );
+        IOException exception =
+                assertThrows(IOException.class, () -> repository.deleteMessage(TEST_USER_ID, TEST_MESSAGE_ID));
 
         assertTrue(exception.getMessage().contains("Security exception creating Gmail service"));
         verify(tokenProvider).getAccessToken();
     }
 
     @Test
-    void deleteMessage_WithBatchFailure_ReturnsBulkOperationResultWithFailures() throws IOException, GeneralSecurityException, AuthenticationException {
+    void deleteMessage_WithBatchFailure_ReturnsBulkOperationResultWithFailures()
+            throws IOException, GeneralSecurityException, AuthenticationException {
         // Given
         BulkOperationResult failureResult = new BulkOperationResult("DELETE");
         failureResult.addFailure(TEST_MESSAGE_ID, "Message not found");
@@ -256,7 +253,7 @@ class GmailRepositoryImplTest {
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
         when(gmailBatchClient.batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID)))
-            .thenReturn(failureResult);
+                .thenReturn(failureResult);
 
         // When
         BulkOperationResult result = repository.deleteMessage(TEST_USER_ID, TEST_MESSAGE_ID);
@@ -296,9 +293,7 @@ class GmailRepositoryImplTest {
         // which was the main goal of the refactoring
 
         // Given - different token per call to simulate token refresh
-        when(tokenProvider.getAccessToken())
-            .thenReturn("token-1")
-            .thenReturn("token-2");
+        when(tokenProvider.getAccessToken()).thenReturn("token-1").thenReturn("token-2");
 
         // When
         String firstToken = tokenProvider.getAccessToken();
@@ -329,7 +324,8 @@ class GmailRepositoryImplTest {
 
     @Test
     @DisplayName("Should use batch client for single message deletion")
-    void deleteMessage_ShouldUseBatchClientInternally() throws IOException, GeneralSecurityException, AuthenticationException {
+    void deleteMessage_ShouldUseBatchClientInternally()
+            throws IOException, GeneralSecurityException, AuthenticationException {
         // This test verifies that the single message delete operation
         // now uses the batch client internally for consistency
 
@@ -341,7 +337,7 @@ class GmailRepositoryImplTest {
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
         when(gmailBatchClient.batchDeleteMessages(gmail, TEST_USER_ID, List.of(TEST_MESSAGE_ID)))
-            .thenReturn(successResult);
+                .thenReturn(successResult);
 
         // Act
         repository.deleteMessage(TEST_USER_ID, TEST_MESSAGE_ID);
@@ -354,7 +350,8 @@ class GmailRepositoryImplTest {
     // ========== Tests for PII / Constitution VII compliance ==========
 
     @Test
-    @DisplayName("getMessageBody log must contain messageId and must NOT contain message body payload (Constitution VII)")
+    @DisplayName(
+            "getMessageBody log must contain messageId and must NOT contain message body payload (Constitution VII)")
     void getMessageBody_LogMustNotContainBodyPayload_OnlyMessageId()
             throws IOException, GeneralSecurityException, AuthenticationException {
         // Arrange - build a Message with no payload parts so getMessageBodyFromParts

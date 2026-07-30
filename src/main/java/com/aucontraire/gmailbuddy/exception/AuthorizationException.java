@@ -5,7 +5,7 @@ import org.springframework.http.HttpStatus;
 /**
  * Exception thrown when authorization fails.
  * This includes insufficient permissions and forbidden operations.
- * 
+ *
  * @author Gmail Buddy Team
  * @since 1.0
  */
@@ -15,7 +15,7 @@ public class AuthorizationException extends GmailBuddyClientException {
 
     /**
      * Constructs a new authorization exception with the specified message.
-     * 
+     *
      * @param message the detail message explaining the authorization failure
      */
     public AuthorizationException(String message) {
@@ -24,7 +24,7 @@ public class AuthorizationException extends GmailBuddyClientException {
 
     /**
      * Constructs a new authorization exception with the specified message and cause.
-     * 
+     *
      * @param message the detail message explaining the authorization failure
      * @param cause the underlying cause of the authorization failure
      */
@@ -34,7 +34,7 @@ public class AuthorizationException extends GmailBuddyClientException {
 
     /**
      * Constructs a new authorization exception with the specified message and correlation ID.
-     * 
+     *
      * @param message the detail message explaining the authorization failure
      * @param correlationId the correlation ID for request tracing
      */

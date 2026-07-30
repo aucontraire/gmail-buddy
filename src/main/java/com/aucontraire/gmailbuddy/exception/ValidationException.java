@@ -5,7 +5,7 @@ import org.springframework.http.HttpStatus;
 /**
  * Exception thrown when request validation fails.
  * This includes both bean validation failures and business rule validation.
- * 
+ *
  * @author Gmail Buddy Team
  * @since 1.0
  */
@@ -15,7 +15,7 @@ public class ValidationException extends GmailBuddyClientException {
 
     /**
      * Constructs a new validation exception with the specified message.
-     * 
+     *
      * @param message the detail message explaining the validation failure
      */
     public ValidationException(String message) {
@@ -24,7 +24,7 @@ public class ValidationException extends GmailBuddyClientException {
 
     /**
      * Constructs a new validation exception with the specified message and cause.
-     * 
+     *
      * @param message the detail message explaining the validation failure
      * @param cause the underlying cause of the validation failure
      */
@@ -34,7 +34,7 @@ public class ValidationException extends GmailBuddyClientException {
 
     /**
      * Constructs a new validation exception with the specified message and correlation ID.
-     * 
+     *
      * @param message the detail message explaining the validation failure
      * @param correlationId the correlation ID for request tracing
      */

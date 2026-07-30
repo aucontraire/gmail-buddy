@@ -1,11 +1,18 @@
 package com.aucontraire.gmailbuddy.integration;
 
-import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
-import com.aucontraire.gmailbuddy.service.GmailService;
-import com.aucontraire.gmailbuddy.service.MessageListResult;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
+import com.aucontraire.gmailbuddy.service.GmailService;
+import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
+import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.api.services.gmail.model.Message;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -13,20 +20,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
  * End-to-end integration tests for API client authentication.
@@ -89,10 +86,10 @@ class ApiClientAuthenticationIntegrationTest {
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON));
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -106,11 +103,11 @@ class ApiClientAuthenticationIntegrationTest {
 
             // When & Then
             mockMvc.perform(post(API_BASE_PATH + "/messages/filter")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(filterRequest))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(filterRequest))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON));
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -124,10 +121,10 @@ class ApiClientAuthenticationIntegrationTest {
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages/" + messageId + "/body")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
-                // Note: Content-Type varies based on message body content
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
+            // Note: Content-Type varies based on message body content
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -141,11 +138,11 @@ class ApiClientAuthenticationIntegrationTest {
 
             // When & Then
             mockMvc.perform(delete(API_BASE_PATH + "/messages/filter")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(deleteRequest))
-                .andExpect(status().isOk()) // 200 OK with BulkOperationResult in body
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(deleteRequest))
+                    .andExpect(status().isOk()) // 200 OK with BulkOperationResult in body
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON));
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -159,10 +156,10 @@ class ApiClientAuthenticationIntegrationTest {
 
             // When & Then
             mockMvc.perform(post(API_BASE_PATH + "/messages/filter/modifyLabels")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(labelModificationRequest))
-                .andExpect(status().isOk()); // 200 OK with LabelModificationResponse body
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(labelModificationRequest))
+                    .andExpect(status().isOk()); // 200 OK with LabelModificationResponse body
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -176,10 +173,10 @@ class ApiClientAuthenticationIntegrationTest {
             // When & Then - Multiple requests should all succeed
             for (int i = 0; i < 5; i++) {
                 mockMvc.perform(get(API_BASE_PATH + "/messages/latest")
-                        .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                        .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isOk())
-                    .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                                .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                                .contentType(MediaType.APPLICATION_JSON))
+                        .andExpect(status().isOk())
+                        .andExpect(content().contentType(MediaType.APPLICATION_JSON));
             }
 
             verify(tokenValidator, times(5)).getTokenInfo(VALID_GOOGLE_TOKEN);
@@ -196,13 +193,13 @@ class ApiClientAuthenticationIntegrationTest {
         void shouldRejectRequestWithInvalidBearerToken() throws Exception {
             // Given
             when(tokenValidator.getTokenInfo(INVALID_TOKEN))
-                .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token"));
+                    .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token"));
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
-                    .header("Authorization", "Bearer " + INVALID_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                            .header("Authorization", "Bearer " + INVALID_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
 
             verify(tokenValidator).getTokenInfo(INVALID_TOKEN);
         }
@@ -212,13 +209,13 @@ class ApiClientAuthenticationIntegrationTest {
         void shouldRejectRequestWithExpiredBearerToken() throws Exception {
             // Given
             when(tokenValidator.getTokenInfo(EXPIRED_TOKEN))
-                .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Token expired"));
+                    .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Token expired"));
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
-                    .header("Authorization", "Bearer " + EXPIRED_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                            .header("Authorization", "Bearer " + EXPIRED_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
 
             verify(tokenValidator).getTokenInfo(EXPIRED_TOKEN);
         }
@@ -228,10 +225,10 @@ class ApiClientAuthenticationIntegrationTest {
         void shouldRejectRequestWithMalformedAuthorizationHeader() throws Exception {
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
-                    .header("Authorization", "Malformed " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                            .header("Authorization", "Malformed " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
 
             verifyNoInteractions(tokenValidator);
         }
@@ -240,10 +237,9 @@ class ApiClientAuthenticationIntegrationTest {
         @DisplayName("Should reject request with missing Authorization header")
         void shouldRejectRequestWithMissingAuthorizationHeader() throws Exception {
             // When & Then
-            mockMvc.perform(get(API_BASE_PATH + "/messages")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+            mockMvc.perform(get(API_BASE_PATH + "/messages").contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
 
             verifyNoInteractions(tokenValidator);
         }
@@ -253,13 +249,13 @@ class ApiClientAuthenticationIntegrationTest {
         void shouldRejectRequestWithEmptyBearerToken() throws Exception {
             // Given - empty token will trigger validation which fails
             when(tokenValidator.getTokenInfo(""))
-                .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Empty token"));
+                    .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Empty token"));
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
-                    .header("Authorization", "Bearer ")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                            .header("Authorization", "Bearer ")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
 
             verify(tokenValidator).getTokenInfo("");
         }
@@ -269,13 +265,13 @@ class ApiClientAuthenticationIntegrationTest {
         void shouldHandleTokenValidationServiceFailuresGracefully() throws Exception {
             // Given
             when(tokenValidator.getTokenInfo(VALID_GOOGLE_TOKEN))
-                .thenThrow(new RuntimeException("Google TokenInfo service unavailable"));
+                    .thenThrow(new RuntimeException("Google TokenInfo service unavailable"));
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
 
             verify(tokenValidator).getTokenInfo(VALID_GOOGLE_TOKEN);
         }
@@ -294,10 +290,10 @@ class ApiClientAuthenticationIntegrationTest {
 
             // When & Then - POST request should work without CSRF token
             mockMvc.perform(post(API_BASE_PATH + "/messages/filter")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(filterRequest))
-                .andExpect(status().isOk());
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(filterRequest))
+                    .andExpect(status().isOk());
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -311,11 +307,11 @@ class ApiClientAuthenticationIntegrationTest {
 
             // When & Then - DELETE request should work without CSRF token
             mockMvc.perform(delete(API_BASE_PATH + "/messages/filter")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(deleteRequest))
-                .andExpect(status().isOk()) // 200 OK with BulkOperationResult in body
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(deleteRequest))
+                    .andExpect(status().isOk()) // 200 OK with BulkOperationResult in body
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON));
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -329,9 +325,9 @@ class ApiClientAuthenticationIntegrationTest {
 
             // When & Then - PUT request should work without CSRF token
             mockMvc.perform(put(API_BASE_PATH + "/messages/" + messageId + "/read")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk()); // 200 OK with LabelModificationResponse body
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk()); // 200 OK with LabelModificationResponse body
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -345,10 +341,9 @@ class ApiClientAuthenticationIntegrationTest {
         @DisplayName("Should fallback to OAuth2 for browser requests without Bearer token")
         void shouldFallbackToOAuth2ForBrowserRequestsWithoutBearerToken() throws Exception {
             // When & Then
-            mockMvc.perform(get(API_BASE_PATH + "/messages")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+            mockMvc.perform(get(API_BASE_PATH + "/messages").contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
 
             verifyNoInteractions(tokenValidator);
         }
@@ -358,10 +353,10 @@ class ApiClientAuthenticationIntegrationTest {
         void shouldNotProcessBearerTokensForNonApiEndpoints() throws Exception {
             // When & Then
             mockMvc.perform(get("/dashboard")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
 
             verifyNoInteractions(tokenValidator);
         }
@@ -382,9 +377,9 @@ class ApiClientAuthenticationIntegrationTest {
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
 
             verify(tokenValidator).getTokenInfo(VALID_GOOGLE_TOKEN);
             verify(tokenValidator).hasValidGmailScopes(tokenInfo.getScope());
@@ -399,13 +394,14 @@ class ApiClientAuthenticationIntegrationTest {
             when(tokenValidator.getTokenInfo(longToken)).thenReturn(tokenInfo);
             when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
             MessageListResult mockResult = new MessageListResult(new ArrayList<>(), null, 0);
-        when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
+            when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt()))
+                    .thenReturn(mockResult);
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
-                    .header("Authorization", "Bearer " + longToken)
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                            .header("Authorization", "Bearer " + longToken)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
 
             verify(tokenValidator).getTokenInfo(longToken);
         }
@@ -419,13 +415,14 @@ class ApiClientAuthenticationIntegrationTest {
             when(tokenValidator.getTokenInfo(tokenWithSpecialChars)).thenReturn(tokenInfo);
             when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
             MessageListResult mockResult = new MessageListResult(new ArrayList<>(), null, 0);
-        when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
+            when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt()))
+                    .thenReturn(mockResult);
 
             // When & Then
             mockMvc.perform(get(API_BASE_PATH + "/messages")
-                    .header("Authorization", "Bearer " + tokenWithSpecialChars)
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                            .header("Authorization", "Bearer " + tokenWithSpecialChars)
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
 
             verify(tokenValidator).getTokenInfo(tokenWithSpecialChars);
         }
@@ -443,15 +440,15 @@ class ApiClientAuthenticationIntegrationTest {
 
             // When & Then - GET all messages
             mockMvc.perform(get(API_BASE_PATH + "/messages")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .header("User-Agent", "PostmanRuntime/7.29.2")
-                    .header("Accept", "*/*")
-                    .header("Cache-Control", "no-cache")
-                    .header("Host", "localhost")
-                    .header("Accept-Encoding", "gzip, deflate, br")
-                    .header("Connection", "keep-alive"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .header("User-Agent", "PostmanRuntime/7.29.2")
+                            .header("Accept", "*/*")
+                            .header("Cache-Control", "no-cache")
+                            .header("Host", "localhost")
+                            .header("Accept-Encoding", "gzip, deflate, br")
+                            .header("Connection", "keep-alive"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON));
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -465,12 +462,12 @@ class ApiClientAuthenticationIntegrationTest {
 
             // When & Then
             mockMvc.perform(post(API_BASE_PATH + "/messages/filter")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .header("Content-Type", "application/json")
-                    .header("User-Agent", "PostmanRuntime/7.29.2")
-                    .content(complexFilterRequest))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .header("Content-Type", "application/json")
+                            .header("User-Agent", "PostmanRuntime/7.29.2")
+                            .content(complexFilterRequest))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON));
 
             verifyTokenValidation(VALID_GOOGLE_TOKEN);
         }
@@ -484,27 +481,27 @@ class ApiClientAuthenticationIntegrationTest {
             // Step 1: Filter messages
             String filterRequest = createFilterRequest();
             mockMvc.perform(post(API_BASE_PATH + "/messages/filter")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(filterRequest))
-                .andExpect(status().isOk());
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(filterRequest))
+                    .andExpect(status().isOk());
 
             // Step 2: Modify labels on filtered messages
             String labelModRequest = createLabelModificationRequest();
             mockMvc.perform(post(API_BASE_PATH + "/messages/filter/modifyLabels")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(labelModRequest))
-                .andExpect(status().isOk()); // 200 OK with LabelModificationResponse body
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(labelModRequest))
+                    .andExpect(status().isOk()); // 200 OK with LabelModificationResponse body
 
             // Step 3: Bulk delete filtered messages
             String deleteRequest = createDeleteFilterRequest();
             mockMvc.perform(delete(API_BASE_PATH + "/messages/filter")
-                    .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(deleteRequest))
-                .andExpect(status().isOk()) // 200 OK with BulkOperationResult in body
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(deleteRequest))
+                    .andExpect(status().isOk()) // 200 OK with BulkOperationResult in body
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON));
 
             verify(tokenValidator, times(3)).getTokenInfo(VALID_GOOGLE_TOKEN);
             verify(tokenValidator, times(3)).hasValidGmailScopes(anyString());
@@ -520,28 +517,32 @@ class ApiClientAuthenticationIntegrationTest {
 
         // Mock GmailService to return empty list (we're testing auth, not Gmail functionality)
         MessageListResult mockResult = new MessageListResult(new ArrayList<>(), null, 0);
-        when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
+        when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt()))
+                .thenReturn(mockResult);
         MessageListResult mockLatestResult = new MessageListResult(new ArrayList<>(), null, 0);
-        when(gmailService.listLatestMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockLatestResult);
+        when(gmailService.listLatestMessagesWithPagination(anyString(), any(), anyInt()))
+                .thenReturn(mockLatestResult);
         MessageListResult mockFilterResult = new MessageListResult(new ArrayList<>(), null, 0);
-        when(gmailService.listMessagesByFilterCriteriaWithPagination(anyString(), any(), any(), anyInt())).thenReturn(mockFilterResult);
+        when(gmailService.listMessagesByFilterCriteriaWithPagination(anyString(), any(), any(), anyInt()))
+                .thenReturn(mockFilterResult);
         when(gmailService.getMessageBody(anyString(), anyString())).thenReturn("");
 
         // Mock delete operations to return successful results
         com.aucontraire.gmailbuddy.dto.DeleteResult successDeleteResult =
-            new com.aucontraire.gmailbuddy.dto.DeleteResult("test-id", true, null);
+                new com.aucontraire.gmailbuddy.dto.DeleteResult("test-id", true, null);
         when(gmailService.deleteMessage(anyString(), anyString())).thenReturn(successDeleteResult);
 
         com.aucontraire.gmailbuddy.service.BulkOperationResult successBulkResult =
-            new com.aucontraire.gmailbuddy.service.BulkOperationResult("DELETE");
+                new com.aucontraire.gmailbuddy.service.BulkOperationResult("DELETE");
         successBulkResult.markCompleted();
         when(gmailService.deleteMessagesByFilterCriteria(anyString(), any())).thenReturn(successBulkResult);
 
         // Mock label modification operations
         com.aucontraire.gmailbuddy.service.BulkOperationResult successLabelResult =
-            new com.aucontraire.gmailbuddy.service.BulkOperationResult("LABEL_MODIFY");
+                new com.aucontraire.gmailbuddy.service.BulkOperationResult("LABEL_MODIFY");
         successLabelResult.markCompleted();
-        when(gmailService.modifyMessagesLabelsByFilterCriteria(anyString(), any())).thenReturn(successLabelResult);
+        when(gmailService.modifyMessagesLabelsByFilterCriteria(anyString(), any()))
+                .thenReturn(successLabelResult);
         when(gmailService.markMessageAsRead(anyString(), anyString())).thenReturn(successLabelResult);
     }
 
@@ -554,7 +555,8 @@ class ApiClientAuthenticationIntegrationTest {
         GoogleTokenValidator.TokenInfoResponse tokenInfo = new GoogleTokenValidator.TokenInfoResponse();
         tokenInfo.setEmail("api-user@example.com");
         tokenInfo.setUserId("123456789");
-        tokenInfo.setScope("https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify");
+        tokenInfo.setScope(
+                "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify");
         tokenInfo.setAudience("test-client-id");
         tokenInfo.setExpiresIn("3600");
         tokenInfo.setAccessType("offline");
@@ -599,8 +601,8 @@ class ApiClientAuthenticationIntegrationTest {
 
         // Label modifications
         Map<String, Object> labelModifications = new HashMap<>();
-        labelModifications.put("addLabelIds", new String[]{"INBOX", "IMPORTANT"});
-        labelModifications.put("removeLabelIds", new String[]{"UNREAD"});
+        labelModifications.put("addLabelIds", new String[] {"INBOX", "IMPORTANT"});
+        labelModifications.put("removeLabelIds", new String[] {"UNREAD"});
 
         labelMod.put("filterCriteria", filterCriteria);
         labelMod.put("labelModifications", labelModifications);

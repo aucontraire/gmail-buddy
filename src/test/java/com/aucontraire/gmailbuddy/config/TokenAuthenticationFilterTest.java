@@ -1,5 +1,9 @@
 package com.aucontraire.gmailbuddy.config;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
 import com.aucontraire.gmailbuddy.security.TokenReference;
 import com.aucontraire.gmailbuddy.security.TokenReferenceService;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
@@ -7,6 +11,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -16,17 +21,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-
-import java.io.IOException;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 /**
  * Comprehensive test suite for TokenAuthenticationFilter.
@@ -94,7 +92,9 @@ class TokenAuthenticationFilterTest {
 
         // Setup default token reference mock behavior (lenient for tests that don't use them)
         lenient().when(tokenReference.getReferenceId()).thenReturn(TEST_REFERENCE_ID);
-        lenient().when(tokenReferenceService.createTokenReference(anyString(), anyString(), anyString())).thenReturn(tokenReference);
+        lenient()
+                .when(tokenReferenceService.createTokenReference(anyString(), anyString(), anyString()))
+                .thenReturn(tokenReference);
     }
 
     @Nested
@@ -102,12 +102,13 @@ class TokenAuthenticationFilterTest {
     class ApiEndpointFilteringTests {
 
         @ParameterizedTest
-        @ValueSource(strings = {
-            "/api/v1/gmail/messages",
-            "/api/v1/gmail/messages/123",
-            "/api/v1/gmail/messages/filter",
-            "/api/v1/gmail/messages/123/body"
-        })
+        @ValueSource(
+                strings = {
+                    "/api/v1/gmail/messages",
+                    "/api/v1/gmail/messages/123",
+                    "/api/v1/gmail/messages/filter",
+                    "/api/v1/gmail/messages/123/body"
+                })
         @DisplayName("Should process API endpoints")
         void shouldProcessApiEndpoints(String apiPath) throws ServletException, IOException {
             // Given
@@ -131,13 +132,9 @@ class TokenAuthenticationFilterTest {
         }
 
         @ParameterizedTest
-        @ValueSource(strings = {
-            "/dashboard",
-            "/login",
-            "/oauth2/authorization/google",
-            "/static/css/app.css",
-            "/favicon.ico"
-        })
+        @ValueSource(
+                strings = {"/dashboard", "/login", "/oauth2/authorization/google", "/static/css/app.css", "/favicon.ico"
+                })
         @DisplayName("Should skip non-API endpoints")
         void shouldSkipNonApiEndpoints(String nonApiPath) throws ServletException, IOException {
             // Given
@@ -293,7 +290,8 @@ class TokenAuthenticationFilterTest {
             when(request.getHeader(AUTHORIZATION_HEADER)).thenReturn("Bearer ");
             when(securityContext.getAuthentication()).thenReturn(null);
             when(tokenValidator.getTokenInfo(""))
-                .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Access token cannot be null or empty"));
+                    .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException(
+                            "Access token cannot be null or empty"));
 
             // When
             filter.doFilterInternal(request, response, filterChain);
@@ -375,7 +373,8 @@ class TokenAuthenticationFilterTest {
                 assertThat(auth.getCredentials()).isEqualTo(TEST_REFERENCE_ID);
                 assertThat(auth.getCredentials()).isNotEqualTo(VALID_BEARER_TOKEN); // Must NOT be raw token
                 assertThat(auth.getAuthorities()).hasSize(1);
-                assertThat(auth.getAuthorities().iterator().next().getAuthority()).isEqualTo("ROLE_API_USER");
+                assertThat(auth.getAuthorities().iterator().next().getAuthority())
+                        .isEqualTo("ROLE_API_USER");
                 return true;
             }));
             // Verify token reference was created
@@ -497,7 +496,7 @@ class TokenAuthenticationFilterTest {
             when(request.getHeader(AUTHORIZATION_HEADER)).thenReturn(BEARER_PREFIX + INVALID_BEARER_TOKEN);
             when(securityContext.getAuthentication()).thenReturn(null);
             when(tokenValidator.getTokenInfo(INVALID_BEARER_TOKEN))
-                .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token"));
+                    .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token"));
 
             // When
             filter.doFilterInternal(request, response, filterChain);
@@ -762,7 +761,7 @@ class TokenAuthenticationFilterTest {
             when(request.getHeader(AUTHORIZATION_HEADER)).thenReturn(BEARER_PREFIX + VALID_BEARER_TOKEN);
             when(securityContext.getAuthentication()).thenReturn(null);
             when(tokenValidator.getTokenInfo(VALID_BEARER_TOKEN))
-                .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Token expired"));
+                    .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Token expired"));
 
             // When
             filter.doFilterInternal(request, response, filterChain);
@@ -783,8 +782,7 @@ class TokenAuthenticationFilterTest {
             when(request.getRequestURI()).thenReturn("/api/v1/gmail/messages");
             when(request.getHeader(AUTHORIZATION_HEADER)).thenReturn(BEARER_PREFIX + VALID_BEARER_TOKEN);
             when(securityContext.getAuthentication()).thenReturn(null);
-            when(tokenValidator.getTokenInfo(VALID_BEARER_TOKEN))
-                .thenThrow(new RuntimeException("Unexpected error"));
+            when(tokenValidator.getTokenInfo(VALID_BEARER_TOKEN)).thenThrow(new RuntimeException("Unexpected error"));
 
             // When
             filter.doFilterInternal(request, response, filterChain);
@@ -808,7 +806,9 @@ class TokenAuthenticationFilterTest {
             GoogleTokenValidator.TokenInfoResponse tokenInfo = createTokenInfo("user@example.com");
             when(tokenValidator.getTokenInfo(VALID_BEARER_TOKEN)).thenReturn(tokenInfo);
             when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
-            doThrow(new RuntimeException("SecurityContext error")).when(securityContext).setAuthentication(any());
+            doThrow(new RuntimeException("SecurityContext error"))
+                    .when(securityContext)
+                    .setAuthentication(any());
 
             // When
             filter.doFilterInternal(request, response, filterChain);

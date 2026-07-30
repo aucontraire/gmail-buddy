@@ -13,7 +13,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "RFC 7807 Problem Details error response")
 public class ErrorResponse {
 
-    @Schema(description = "URI identifying the problem type", example = "https://gmailbuddy.example.com/problems/unauthorized")
+    @Schema(
+            description = "URI identifying the problem type",
+            example = "https://gmailbuddy.example.com/problems/unauthorized")
     private String type;
 
     @Schema(description = "Short, human-readable summary of the problem", example = "Unauthorized")
@@ -22,7 +24,9 @@ public class ErrorResponse {
     @Schema(description = "HTTP status code", example = "401")
     private Integer status;
 
-    @Schema(description = "Human-readable explanation specific to this occurrence", example = "Invalid or expired access token")
+    @Schema(
+            description = "Human-readable explanation specific to this occurrence",
+            example = "Invalid or expired access token")
     private String detail;
 
     @Schema(description = "URI reference to the specific occurrence", example = "/api/v1/gmail/messages")
@@ -41,30 +45,75 @@ public class ErrorResponse {
     private String category;
 
     // Getters and setters
-    public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
+    public String getType() {
+        return type;
+    }
 
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
+    public void setType(String type) {
+        this.type = type;
+    }
 
-    public Integer getStatus() { return status; }
-    public void setStatus(Integer status) { this.status = status; }
+    public String getTitle() {
+        return title;
+    }
 
-    public String getDetail() { return detail; }
-    public void setDetail(String detail) { this.detail = detail; }
+    public void setTitle(String title) {
+        this.title = title;
+    }
 
-    public String getInstance() { return instance; }
-    public void setInstance(String instance) { this.instance = instance; }
+    public Integer getStatus() {
+        return status;
+    }
 
-    public String getRequestId() { return requestId; }
-    public void setRequestId(String requestId) { this.requestId = requestId; }
+    public void setStatus(Integer status) {
+        this.status = status;
+    }
 
-    public String getTimestamp() { return timestamp; }
-    public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
+    public String getDetail() {
+        return detail;
+    }
 
-    public Boolean getRetryable() { return retryable; }
-    public void setRetryable(Boolean retryable) { this.retryable = retryable; }
+    public void setDetail(String detail) {
+        this.detail = detail;
+    }
 
-    public String getCategory() { return category; }
-    public void setCategory(String category) { this.category = category; }
+    public String getInstance() {
+        return instance;
+    }
+
+    public void setInstance(String instance) {
+        this.instance = instance;
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
+    }
+
+    public String getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(String timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    public Boolean getRetryable() {
+        return retryable;
+    }
+
+    public void setRetryable(Boolean retryable) {
+        this.retryable = retryable;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
 }

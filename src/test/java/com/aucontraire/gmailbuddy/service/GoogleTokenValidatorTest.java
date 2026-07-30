@@ -1,6 +1,12 @@
 package com.aucontraire.gmailbuddy.service;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -15,13 +21,6 @@ import org.springframework.http.*;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 /**
  * Comprehensive test suite for GoogleTokenValidator service.
@@ -67,9 +66,8 @@ class GoogleTokenValidatorTest {
         void shouldReturnTrueForValidTokenWithGmailReadonlyScope() throws Exception {
             // Given
             Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email",
-                "3600"
-            );
+                    "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email",
+                    "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -85,9 +83,8 @@ class GoogleTokenValidatorTest {
         void shouldReturnTrueForValidTokenWithGmailModifyScope() throws Exception {
             // Given
             Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.profile",
-                "3600"
-            );
+                    "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.profile",
+                    "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -103,9 +100,7 @@ class GoogleTokenValidatorTest {
         void shouldReturnTrueForValidTokenWithFullGmailScope() throws Exception {
             // Given
             Map<String, Object> validResponse = createValidTokenResponse(
-                "https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email",
-                "7200"
-            );
+                    "https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email", "7200");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -121,9 +116,8 @@ class GoogleTokenValidatorTest {
         void shouldReturnFalseForTokenWithoutGmailScopes() throws Exception {
             // Given
             Map<String, Object> responseWithoutGmailScopes = createValidTokenResponse(
-                "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
-                "3600"
-            );
+                    "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
+                    "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, responseWithoutGmailScopes);
 
             // When
@@ -212,8 +206,9 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should return false when Google returns empty response body")
         void shouldReturnFalseWhenGoogleReturnsEmptyResponseBody() throws Exception {
             // Given
-            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
-                .thenReturn(new ResponseEntity<>(null, HttpStatus.OK));
+            when(restTemplate.exchange(
+                            eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                    .thenReturn(new ResponseEntity<>(null, HttpStatus.OK));
 
             // When
             boolean result = tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
@@ -232,8 +227,9 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should return false when RestTemplate throws RestClientException")
         void shouldReturnFalseWhenRestTemplateThrowsException() throws Exception {
             // Given
-            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
-                .thenThrow(new RestClientException("Connection timeout"));
+            when(restTemplate.exchange(
+                            eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                    .thenThrow(new RestClientException("Connection timeout"));
 
             // When
             boolean result = tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
@@ -247,8 +243,9 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should return false when network error occurs")
         void shouldReturnFalseWhenNetworkErrorOccurs() throws Exception {
             // Given
-            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
-                .thenThrow(new RuntimeException("Network unreachable"));
+            when(restTemplate.exchange(
+                            eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                    .thenThrow(new RuntimeException("Network unreachable"));
 
             // When
             boolean result = tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
@@ -267,10 +264,8 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should return token info for valid token")
         void shouldReturnTokenInfoForValidToken() throws Exception {
             // Given
-            Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly",
-                "3600"
-            );
+            Map<String, Object> validResponse =
+                    createValidTokenResponse("https://www.googleapis.com/auth/gmail.readonly", "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -292,8 +287,8 @@ class GoogleTokenValidatorTest {
         void shouldThrowAuthenticationExceptionForNullToken() {
             // When & Then
             assertThatThrownBy(() -> tokenValidator.getTokenInfo(null))
-                .isInstanceOf(AuthenticationException.class)
-                .hasMessage("Access token cannot be null or empty");
+                    .isInstanceOf(AuthenticationException.class)
+                    .hasMessage("Access token cannot be null or empty");
 
             verifyNoInteractions(restTemplate);
         }
@@ -303,8 +298,8 @@ class GoogleTokenValidatorTest {
         void shouldThrowAuthenticationExceptionForEmptyToken() {
             // When & Then
             assertThatThrownBy(() -> tokenValidator.getTokenInfo("   "))
-                .isInstanceOf(AuthenticationException.class)
-                .hasMessage("Access token cannot be null or empty");
+                    .isInstanceOf(AuthenticationException.class)
+                    .hasMessage("Access token cannot be null or empty");
 
             verifyNoInteractions(restTemplate);
         }
@@ -313,14 +308,15 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should throw AuthenticationException when Google API call fails")
         void shouldThrowAuthenticationExceptionWhenGoogleApiCallFails() throws Exception {
             // Given
-            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
-                .thenThrow(new RestClientException("API unavailable"));
+            when(restTemplate.exchange(
+                            eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                    .thenThrow(new RestClientException("API unavailable"));
 
             // When & Then
             assertThatThrownBy(() -> tokenValidator.getTokenInfo(VALID_GOOGLE_TOKEN))
-                .isInstanceOf(AuthenticationException.class)
-                .hasMessageContaining("Token validation failed:")
-                .hasCauseInstanceOf(RestClientException.class);
+                    .isInstanceOf(AuthenticationException.class)
+                    .hasMessageContaining("Token validation failed:")
+                    .hasCauseInstanceOf(RestClientException.class);
 
             verifyTokenInfoRequest(VALID_GOOGLE_TOKEN);
         }
@@ -329,10 +325,8 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should handle expires_in as integer value")
         void shouldHandleExpiresInAsInteger() throws Exception {
             // Given
-            Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly",
-                null
-            );
+            Map<String, Object> validResponse =
+                    createValidTokenResponse("https://www.googleapis.com/auth/gmail.readonly", null);
             validResponse.put("expires_in", 3600); // Integer instead of String
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
@@ -349,10 +343,8 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should handle missing expires_in field")
         void shouldHandleMissingExpiresInField() throws Exception {
             // Given
-            Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly",
-                null
-            );
+            Map<String, Object> validResponse =
+                    createValidTokenResponse("https://www.googleapis.com/auth/gmail.readonly", null);
             validResponse.remove("expires_in");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
@@ -375,9 +367,8 @@ class GoogleTokenValidatorTest {
         void shouldValidateMultipleGmailScopesInSingleToken() throws Exception {
             // Given
             Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://mail.google.com/",
-                "3600"
-            );
+                    "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://mail.google.com/",
+                    "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -392,9 +383,8 @@ class GoogleTokenValidatorTest {
         void shouldValidateMixedGmailAndNonGmailScopes() throws Exception {
             // Given
             Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.profile",
-                "3600"
-            );
+                    "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.profile",
+                    "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -437,9 +427,8 @@ class GoogleTokenValidatorTest {
         void shouldHandleScopesWithExtraWhitespace() throws Exception {
             // Given
             Map<String, Object> validResponse = createValidTokenResponse(
-                "  https://www.googleapis.com/auth/gmail.readonly   https://www.googleapis.com/auth/userinfo.email  ",
-                "3600"
-            );
+                    "  https://www.googleapis.com/auth/gmail.readonly   https://www.googleapis.com/auth/userinfo.email  ",
+                    "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -458,10 +447,8 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should create TokenInfoResponse with all fields populated")
         void shouldCreateTokenInfoResponseWithAllFields() throws Exception {
             // Given
-            Map<String, Object> completeResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly",
-                "3600"
-            );
+            Map<String, Object> completeResponse =
+                    createValidTokenResponse("https://www.googleapis.com/auth/gmail.readonly", "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, completeResponse);
 
             // When
@@ -502,10 +489,8 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should generate proper toString representation")
         void shouldGenerateProperToStringRepresentation() throws Exception {
             // Given
-            Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly",
-                "3600"
-            );
+            Map<String, Object> validResponse =
+                    createValidTokenResponse("https://www.googleapis.com/auth/gmail.readonly", "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -529,10 +514,8 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should use POST method instead of GET to prevent token exposure in URL")
         void shouldUsePOSTMethodInsteadOfGET() throws Exception {
             // Given
-            Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly",
-                "3600"
-            );
+            Map<String, Object> validResponse =
+                    createValidTokenResponse("https://www.googleapis.com/auth/gmail.readonly", "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -549,10 +532,8 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should send token in request body with application/x-www-form-urlencoded content type")
         void shouldSendTokenInRequestBodyWithCorrectContentType() throws Exception {
             // Given
-            Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly",
-                "3600"
-            );
+            Map<String, Object> validResponse =
+                    createValidTokenResponse("https://www.googleapis.com/auth/gmail.readonly", "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -577,10 +558,8 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should not include token in URL parameters")
         void shouldNotIncludeTokenInURLParameters() throws Exception {
             // Given
-            Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly",
-                "3600"
-            );
+            Map<String, Object> validResponse =
+                    createValidTokenResponse("https://www.googleapis.com/auth/gmail.readonly", "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -588,7 +567,8 @@ class GoogleTokenValidatorTest {
 
             // Then
             ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
-            verify(restTemplate).exchange(urlCaptor.capture(), any(HttpMethod.class), any(HttpEntity.class), eq(Map.class));
+            verify(restTemplate)
+                    .exchange(urlCaptor.capture(), any(HttpMethod.class), any(HttpEntity.class), eq(Map.class));
 
             String capturedUrl = urlCaptor.getValue();
 
@@ -604,10 +584,8 @@ class GoogleTokenValidatorTest {
         void shouldHandleDifferentTokenFormatsSecurelyInPOSTBody() throws Exception {
             // Given - Test with realistic Google OAuth2 token format
             String realisticToken = "ya29.a0ARrdaM-AbCdEfGhIjKlMnOpQrStUvWxYz123456789_abcdefghijklmnopqrstuvwxyz";
-            Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly",
-                "3600"
-            );
+            Map<String, Object> validResponse =
+                    createValidTokenResponse("https://www.googleapis.com/auth/gmail.readonly", "3600");
             mockSuccessfulTokenInfoResponse(realisticToken, validResponse);
 
             // When
@@ -627,10 +605,8 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should prevent token logging by using debug messages without token content")
         void shouldPreventTokenLoggingInDebugMessages() throws Exception {
             // Given
-            Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly",
-                "3600"
-            );
+            Map<String, Object> validResponse =
+                    createValidTokenResponse("https://www.googleapis.com/auth/gmail.readonly", "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -640,7 +616,8 @@ class GoogleTokenValidatorTest {
             // The actual logging verification would require a logging framework test,
             // but we can verify that the method completes without exposing tokens in the call signature
             ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
-            verify(restTemplate).exchange(urlCaptor.capture(), any(HttpMethod.class), any(HttpEntity.class), eq(Map.class));
+            verify(restTemplate)
+                    .exchange(urlCaptor.capture(), any(HttpMethod.class), any(HttpEntity.class), eq(Map.class));
 
             // Verify the URL passed to RestTemplate doesn't contain token
             assertThat(urlCaptor.getValue()).doesNotContain(VALID_GOOGLE_TOKEN);
@@ -651,8 +628,9 @@ class GoogleTokenValidatorTest {
         void shouldMaintainSecurityEvenWithMalformedTokens() throws Exception {
             // Given - Token with special characters that could cause URL encoding issues
             String malformedToken = "invalid+token&with=special?chars#fragment";
-            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
-                .thenThrow(new RestClientException("Invalid token format"));
+            when(restTemplate.exchange(
+                            eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                    .thenThrow(new RestClientException("Invalid token format"));
 
             // When
             boolean result = tokenValidator.isValidGoogleToken(malformedToken);
@@ -662,7 +640,8 @@ class GoogleTokenValidatorTest {
 
             // Verify token was still sent in POST body, not URL
             ArgumentCaptor<HttpEntity> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
-            verify(restTemplate).exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), entityCaptor.capture(), eq(Map.class));
+            verify(restTemplate)
+                    .exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), entityCaptor.capture(), eq(Map.class));
 
             HttpEntity<?> capturedEntity = entityCaptor.getValue();
             MultiValueMap<String, String> body = (MultiValueMap<String, String>) capturedEntity.getBody();
@@ -673,10 +652,8 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should use secure POST method in getTokenInfo as well")
         void shouldUseSecurePOSTMethodInGetTokenInfo() throws Exception {
             // Given
-            Map<String, Object> validResponse = createValidTokenResponse(
-                "https://www.googleapis.com/auth/gmail.readonly",
-                "3600"
-            );
+            Map<String, Object> validResponse =
+                    createValidTokenResponse("https://www.googleapis.com/auth/gmail.readonly", "3600");
             mockSuccessfulTokenInfoResponse(VALID_GOOGLE_TOKEN, validResponse);
 
             // When
@@ -705,8 +682,9 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should handle connection timeout with POST request gracefully")
         void shouldHandleConnectionTimeoutWithPOSTRequestGracefully() throws Exception {
             // Given
-            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
-                .thenThrow(new RestClientException("Read timed out"));
+            when(restTemplate.exchange(
+                            eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                    .thenThrow(new RestClientException("Read timed out"));
 
             // When
             boolean result = tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
@@ -716,7 +694,8 @@ class GoogleTokenValidatorTest {
 
             // Verify the request was made with POST and proper headers
             ArgumentCaptor<HttpEntity> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
-            verify(restTemplate).exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), entityCaptor.capture(), eq(Map.class));
+            verify(restTemplate)
+                    .exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), entityCaptor.capture(), eq(Map.class));
 
             HttpEntity<?> capturedEntity = entityCaptor.getValue();
             assertThat(capturedEntity.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_FORM_URLENCODED);
@@ -726,8 +705,9 @@ class GoogleTokenValidatorTest {
         @DisplayName("Should handle SSL/TLS errors with POST request")
         void shouldHandleSSLTLSErrorsWithPOSTRequest() throws Exception {
             // Given
-            when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
-                .thenThrow(new RestClientException("SSL handshake failed"));
+            when(restTemplate.exchange(
+                            eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                    .thenThrow(new RestClientException("SSL handshake failed"));
 
             // When
             boolean result = tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
@@ -784,18 +764,21 @@ class GoogleTokenValidatorTest {
     private void mockSuccessfulTokenInfoResponse(String token, Map<String, Object> responseBody) throws Exception {
         ResponseEntity<Map> responseEntity = new ResponseEntity<>(responseBody, HttpStatus.OK);
 
-        when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
-            .thenReturn(responseEntity);
+        when(restTemplate.exchange(
+                        eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(responseEntity);
     }
 
     private void mockErrorResponse(String token, HttpStatus status) throws Exception {
         ResponseEntity<Map> errorResponse = new ResponseEntity<>(new HashMap<>(), status);
 
-        when(restTemplate.exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
-            .thenReturn(errorResponse);
+        when(restTemplate.exchange(
+                        eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(errorResponse);
     }
 
     private void verifyTokenInfoRequest(String token) {
-        verify(restTemplate).exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class));
+        verify(restTemplate)
+                .exchange(eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class));
     }
 }

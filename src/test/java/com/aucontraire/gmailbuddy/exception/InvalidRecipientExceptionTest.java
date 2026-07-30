@@ -1,10 +1,10 @@
 package com.aucontraire.gmailbuddy.exception;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link InvalidRecipientException}.
@@ -88,20 +88,16 @@ class InvalidRecipientExceptionTest {
     @DisplayName("getHttpStatus returns 422 Unprocessable Entity for all constructor variants")
     void getHttpStatus_Always_Returns422UnprocessableEntity() {
         // Arrange
-        InvalidRecipientException fromMessage =
-                new InvalidRecipientException("recipient rejected");
+        InvalidRecipientException fromMessage = new InvalidRecipientException("recipient rejected");
         InvalidRecipientException fromMessageAndCause =
                 new InvalidRecipientException("recipient rejected", new Exception("api error"));
         InvalidRecipientException fromMessageAndCorrelation =
                 new InvalidRecipientException("recipient rejected", "corr-id-001");
 
         // Act & Assert: all three constructors must resolve to 422, not 400.
-        assertThat(fromMessage.getHttpStatus())
-                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.value());
-        assertThat(fromMessageAndCause.getHttpStatus())
-                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.value());
-        assertThat(fromMessageAndCorrelation.getHttpStatus())
-                .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.value());
+        assertThat(fromMessage.getHttpStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.value());
+        assertThat(fromMessageAndCause.getHttpStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.value());
+        assertThat(fromMessageAndCorrelation.getHttpStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.value());
     }
 
     // ---------------------------------------------------------------
@@ -112,8 +108,7 @@ class InvalidRecipientExceptionTest {
     @DisplayName("isClientError returns true because the rejection is a client-addressable condition")
     void isClientError_Always_ReturnsTrue() {
         // Arrange
-        InvalidRecipientException exception =
-                new InvalidRecipientException("Gmail rejected recipient");
+        InvalidRecipientException exception = new InvalidRecipientException("Gmail rejected recipient");
 
         // Act
         boolean clientError = exception.isClientError();
@@ -130,8 +125,7 @@ class InvalidRecipientExceptionTest {
     @DisplayName("InvalidRecipientException extends GmailBuddyClientException, not ValidationException")
     void classhierarchy_ExtendsClientExceptionNotValidationException() {
         // Arrange
-        InvalidRecipientException exception =
-                new InvalidRecipientException("recipient rejected");
+        InvalidRecipientException exception = new InvalidRecipientException("recipient rejected");
 
         // Assert: extends the client base, not ValidationException, so that
         // GlobalExceptionHandler.handleValidationException does NOT catch it.

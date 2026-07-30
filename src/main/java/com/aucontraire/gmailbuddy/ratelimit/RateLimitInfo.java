@@ -52,10 +52,9 @@ public class RateLimitInfo {
 
     @Override
     public String toString() {
-        return "RateLimitInfo{" +
-                "limit=" + limit +
-                ", remaining=" + remaining +
-                ", resetTimestamp=" + resetTimestamp +
-                '}';
+        return "RateLimitInfo{" + "limit="
+                + limit + ", remaining="
+                + remaining + ", resetTimestamp="
+                + resetTimestamp + '}';
     }
 }

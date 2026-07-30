@@ -29,8 +29,6 @@ import com.google.api.services.gmail.model.Message;
 import com.google.api.services.gmail.model.MessagePart;
 import com.google.api.services.gmail.model.MessagePartHeader;
 import com.google.api.services.gmail.model.Thread;
-import org.springframework.stereotype.Component;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -39,6 +37,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.stereotype.Component;
 
 /**
  * Boundary mapper that converts Gmail SDK types into project-internal domain
@@ -71,10 +70,8 @@ public class GmailMessageMapper {
      * limiting Gmail's METADATA-format response to only the headers we'll
      * surface (research.md Decision 1).</p>
      */
-    public static final List<String> WHITELISTED_HEADERS_LIST = List.of(
-            "From", "To", "Cc", "Bcc", "Subject", "Date",
-            "In-Reply-To", "Message-ID", "References"
-    );
+    public static final List<String> WHITELISTED_HEADERS_LIST =
+            List.of("From", "To", "Cc", "Bcc", "Subject", "Date", "In-Reply-To", "Message-ID", "References");
 
     /** Set form of {@link #WHITELISTED_HEADERS_LIST} for membership checks. */
     private static final Set<String> WHITELISTED_HEADERS = Set.copyOf(WHITELISTED_HEADERS_LIST);
@@ -92,8 +89,7 @@ public class GmailMessageMapper {
             "date", "Date",
             "in-reply-to", "In-Reply-To",
             "message-id", "Message-ID",
-            "references", "References"
-    );
+            "references", "References");
 
     /**
      * Converts a Gmail API {@link Message} (as returned by
@@ -128,7 +124,7 @@ public class GmailMessageMapper {
     public DraftCreationResult toDraftCreationResult(Draft draft) {
         Message nestedMessage = draft.getMessage();
         String messageId = nestedMessage != null ? nestedMessage.getId() : null;
-        String threadId  = nestedMessage != null ? nestedMessage.getThreadId() : null;
+        String threadId = nestedMessage != null ? nestedMessage.getThreadId() : null;
         return new DraftCreationResult(draft.getId(), messageId, threadId);
     }
 
@@ -149,10 +145,7 @@ public class GmailMessageMapper {
         Message message = draft.getMessage();
         if (message == null) {
             return new DraftDetailResult(
-                    draftId, null, null,
-                    List.of(), List.of(), List.of(),
-                    null, null, null, "text", null, List.of()
-            );
+                    draftId, null, null, List.of(), List.of(), List.of(), null, null, null, "text", null, List.of());
         }
 
         String messageId = message.getId();
@@ -185,7 +178,9 @@ public class GmailMessageMapper {
                         case "bcc" -> parseAddressList(value, bccList);
                         case "subject" -> subject = value;
                         case "in-reply-to" -> inReplyToMessageId = stripAngleBrackets(value);
-                        default -> { /* ignore other headers */ }
+                        default -> {
+                            /* ignore other headers */
+                        }
                     }
                 }
 
@@ -207,12 +202,18 @@ public class GmailMessageMapper {
         String bodyType = bodyResult.bodyType != null ? bodyResult.bodyType : "text";
 
         return new DraftDetailResult(
-                draftId, messageId, threadId,
-                to, cc, bcc,
-                subject, snippet, body, bodyType,
+                draftId,
+                messageId,
+                threadId,
+                to,
+                cc,
+                bcc,
+                subject,
+                snippet,
+                body,
+                bodyType,
                 inReplyToMessageId,
-                attachments.isEmpty() ? List.of() : List.copyOf(attachments)
-        );
+                attachments.isEmpty() ? List.of() : List.copyOf(attachments));
     }
 
     /**
@@ -231,8 +232,7 @@ public class GmailMessageMapper {
                 result.subject(),
                 result.snippet(),
                 result.threadId(),
-                result.attachments().size()
-        );
+                result.attachments().size());
     }
 
     /**
@@ -254,8 +254,7 @@ public class GmailMessageMapper {
                 result.bodyType(),
                 result.threadId(),
                 result.inReplyToMessageId(),
-                result.attachments()
-        );
+                result.attachments());
     }
 
     /**
@@ -268,9 +267,8 @@ public class GmailMessageMapper {
      * @return a {@link DraftListResponse} ready for serialization
      */
     public DraftListResponse toDraftListResponse(DraftListResult result) {
-        List<DraftListItem> items = result.drafts().stream()
-                .map(this::toDraftListItem)
-                .toList();
+        List<DraftListItem> items =
+                result.drafts().stream().map(this::toDraftListItem).toList();
         return new DraftListResponse(items, result.nextPageToken(), result.totalCount());
     }
 
@@ -298,9 +296,7 @@ public class GmailMessageMapper {
         String id = message.getId();
         String threadId = message.getThreadId();
         String snippet = message.getSnippet();
-        List<String> labelIds = message.getLabelIds() != null
-                ? List.copyOf(message.getLabelIds())
-                : List.of();
+        List<String> labelIds = message.getLabelIds() != null ? List.copyOf(message.getLabelIds()) : List.of();
 
         Map<String, String> headers = new LinkedHashMap<>();
         BodyExtractionResult bodyResult = new BodyExtractionResult();
@@ -325,8 +321,7 @@ public class GmailMessageMapper {
                 body,
                 bodyType,
                 labelIds,
-                attachments.isEmpty() ? List.of() : List.copyOf(attachments)
-        );
+                attachments.isEmpty() ? List.of() : List.copyOf(attachments));
     }
 
     /**
@@ -347,8 +342,7 @@ public class GmailMessageMapper {
                 result.body(),
                 result.bodyType(),
                 result.labelIds(),
-                result.attachments()
-        );
+                result.attachments());
     }
 
     /**
@@ -363,9 +357,8 @@ public class GmailMessageMapper {
      */
     public MessageAttachmentMetadata toMessageAttachmentMetadata(MessagePart part) {
         String attachmentId = part.getBody() != null ? part.getBody().getAttachmentId() : null;
-        String filename = (part.getFilename() != null && !part.getFilename().isBlank())
-                ? part.getFilename()
-                : "unnamed";
+        String filename =
+                (part.getFilename() != null && !part.getFilename().isBlank()) ? part.getFilename() : "unnamed";
         String mimeType = part.getMimeType() != null ? part.getMimeType() : "application/octet-stream";
         long sizeBytes = (part.getBody() != null && part.getBody().getSize() != null)
                 ? part.getBody().getSize()
@@ -399,9 +392,7 @@ public class GmailMessageMapper {
         if (payload != null) {
             collectAttachmentParts(payload, collected);
         }
-        return new AttachmentListResult(
-                collected.isEmpty() ? List.of() : List.copyOf(collected)
-        );
+        return new AttachmentListResult(collected.isEmpty() ? List.of() : List.copyOf(collected));
     }
 
     /**
@@ -474,10 +465,7 @@ public class GmailMessageMapper {
         }
 
         return new ThreadDetailResult(
-                thread.getId(),
-                labelUnion.isEmpty() ? List.of() : List.copyOf(labelUnion),
-                List.copyOf(messages)
-        );
+                thread.getId(), labelUnion.isEmpty() ? List.of() : List.copyOf(labelUnion), List.copyOf(messages));
     }
 
     /**
@@ -488,11 +476,7 @@ public class GmailMessageMapper {
      * @return a {@link ThreadListResponse} ready for serialization
      */
     public ThreadListResponse toThreadListResponse(ThreadListResult result) {
-        return new ThreadListResponse(
-                result.threads(),
-                result.nextPageToken(),
-                result.totalCount()
-        );
+        return new ThreadListResponse(result.threads(), result.nextPageToken(), result.totalCount());
     }
 
     /**
@@ -505,14 +489,9 @@ public class GmailMessageMapper {
      * @return a {@link ThreadDetailResponse} ready for serialization
      */
     public ThreadDetailResponse toThreadDetailResponse(ThreadDetailResult result) {
-        List<MessageDetailResponse> messages = result.messages().stream()
-                .map(this::toMessageDetailResponse)
-                .toList();
-        return new ThreadDetailResponse(
-                result.threadId(),
-                result.labelIds(),
-                messages
-        );
+        List<MessageDetailResponse> messages =
+                result.messages().stream().map(this::toMessageDetailResponse).toList();
+        return new ThreadDetailResponse(result.threadId(), result.labelIds(), messages);
     }
 
     // -------------------------------------------------------------------------
@@ -537,8 +516,7 @@ public class GmailMessageMapper {
                 label.getName(),
                 label.getType() != null ? label.getType().toLowerCase() : null,
                 label.getMessageListVisibility(),
-                label.getLabelListVisibility()
-        );
+                label.getLabelListVisibility());
     }
 
     /**
@@ -577,8 +555,7 @@ public class GmailMessageMapper {
                 label.getMessagesTotal(),
                 label.getMessagesUnread(),
                 label.getThreadsTotal(),
-                label.getThreadsUnread()
-        );
+                label.getThreadsUnread());
     }
 
     /**
@@ -616,8 +593,7 @@ public class GmailMessageMapper {
                 result.messagesTotal(),
                 result.messagesUnread(),
                 result.threadsTotal(),
-                result.threadsUnread()
-        );
+                result.threadsUnread());
     }
 
     // -------------------------------------------------------------------------
@@ -662,10 +638,11 @@ public class GmailMessageMapper {
      * {@link MessageAttachmentMetadata} (with {@code attachmentId}) instead of
      * {@link AttachmentMetadata}.
      */
-    private void extractBodyAndMessageAttachments(MessagePart part,
-                                                  BodyExtractionResult bodyResult,
-                                                  List<MessageAttachmentMetadata> attachments,
-                                                  boolean metadataOnly) {
+    private void extractBodyAndMessageAttachments(
+            MessagePart part,
+            BodyExtractionResult bodyResult,
+            List<MessageAttachmentMetadata> attachments,
+            boolean metadataOnly) {
         if (part == null) return;
 
         String mimeType = part.getMimeType() != null ? part.getMimeType().toLowerCase() : "";
@@ -758,9 +735,8 @@ public class GmailMessageMapper {
      * </ul>
      * </p>
      */
-    private void extractBodyAndAttachments(MessagePart part,
-                                           BodyExtractionResult bodyResult,
-                                           List<AttachmentMetadata> attachments) {
+    private void extractBodyAndAttachments(
+            MessagePart part, BodyExtractionResult bodyResult, List<AttachmentMetadata> attachments) {
         if (part == null) return;
 
         String mimeType = part.getMimeType() != null ? part.getMimeType().toLowerCase() : "";
@@ -772,7 +748,8 @@ public class GmailMessageMapper {
             if (part.getBody() != null && part.getBody().getSize() != null) {
                 sizeBytes = part.getBody().getSize();
             }
-            attachments.add(new AttachmentMetadata(filename, part.getMimeType() != null ? part.getMimeType() : "", sizeBytes));
+            attachments.add(
+                    new AttachmentMetadata(filename, part.getMimeType() != null ? part.getMimeType() : "", sizeBytes));
             return;
         }
 

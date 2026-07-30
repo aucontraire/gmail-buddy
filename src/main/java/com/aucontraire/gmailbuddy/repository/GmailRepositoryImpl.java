@@ -1,7 +1,7 @@
 package com.aucontraire.gmailbuddy.repository;
 
-import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.client.GmailBatchClient;
+import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
@@ -15,9 +15,9 @@ import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
 import com.aucontraire.gmailbuddy.exception.RateLimitException;
 import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.exception.ServiceUnavailableException;
-import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
-import com.aucontraire.gmailbuddy.exception.ValidationException;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
+import com.aucontraire.gmailbuddy.service.AttachmentListResult;
+import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
 import com.aucontraire.gmailbuddy.service.DraftDetailResult;
 import com.aucontraire.gmailbuddy.service.DraftListResult;
@@ -25,23 +25,16 @@ import com.aucontraire.gmailbuddy.service.GmailQueryBuilder;
 import com.aucontraire.gmailbuddy.service.LabelDetailResult;
 import com.aucontraire.gmailbuddy.service.LabelListResult;
 import com.aucontraire.gmailbuddy.service.MessageDetailResult;
+import com.aucontraire.gmailbuddy.service.MessageListResult;
+import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
 import com.aucontraire.gmailbuddy.service.ThreadDetailResult;
 import com.aucontraire.gmailbuddy.service.ThreadListResult;
-import com.aucontraire.gmailbuddy.service.AttachmentListResult;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
-import com.aucontraire.gmailbuddy.service.BulkOperationResult;
-import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.*;
 import jakarta.mail.internet.MimeMessage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -49,6 +42,11 @@ import java.net.SocketTimeoutException;
 import java.security.GeneralSecurityException;
 import java.util.*;
 import java.util.Base64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @Component
 public class GmailRepositoryImpl implements GmailRepository {
@@ -62,10 +60,13 @@ public class GmailRepositoryImpl implements GmailRepository {
     private final Logger logger = LoggerFactory.getLogger(GmailRepositoryImpl.class);
 
     @Autowired
-    public GmailRepositoryImpl(GmailClient gmailClient, GmailBatchClient gmailBatchClient,
-                              TokenProvider tokenProvider, GmailBuddyProperties properties,
-                              GmailMessageMapper gmailMessageMapper,
-                              GmailQueryBuilder gmailQueryBuilder) {
+    public GmailRepositoryImpl(
+            GmailClient gmailClient,
+            GmailBatchClient gmailBatchClient,
+            TokenProvider tokenProvider,
+            GmailBuddyProperties properties,
+            GmailMessageMapper gmailMessageMapper,
+            GmailQueryBuilder gmailQueryBuilder) {
         this.gmailClient = gmailClient;
         this.gmailBatchClient = gmailBatchClient;
         this.tokenProvider = tokenProvider;
@@ -88,7 +89,12 @@ public class GmailRepositoryImpl implements GmailRepository {
     public List<Message> getMessages(String userId) throws IOException {
         try {
             var gmail = getGmailService();
-            return gmail.users().messages().list(userId).setMaxResults(50L).execute().getMessages();
+            return gmail.users()
+                    .messages()
+                    .list(userId)
+                    .setMaxResults(50L)
+                    .execute()
+                    .getMessages();
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
@@ -98,7 +104,8 @@ public class GmailRepositoryImpl implements GmailRepository {
     public List<Message> getLatestMessages(String userId, long maxResults) throws IOException {
         try {
             var gmail = getGmailService();
-            return gmail.users().messages()
+            return gmail.users()
+                    .messages()
                     .list(userId)
                     .setMaxResults(maxResults)
                     .execute()
@@ -112,11 +119,7 @@ public class GmailRepositoryImpl implements GmailRepository {
     public List<Message> getMessagesByFilterCriteria(String userId, String query) throws IOException {
         try {
             var gmail = getGmailService();
-            return gmail.users().messages()
-                    .list(userId)
-                    .setQ(query)
-                    .execute()
-                    .getMessages();
+            return gmail.users().messages().list(userId).setQ(query).execute().getMessages();
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
@@ -126,8 +129,8 @@ public class GmailRepositoryImpl implements GmailRepository {
     public MessageListResult getMessagesWithPagination(String userId, String pageToken, int limit) throws IOException {
         try {
             var gmail = getGmailService();
-            Gmail.Users.Messages.List request = gmail.users().messages().list(userId)
-                    .setMaxResults((long) limit);
+            Gmail.Users.Messages.List request =
+                    gmail.users().messages().list(userId).setMaxResults((long) limit);
 
             if (pageToken != null && !pageToken.isEmpty()) {
                 request.setPageToken(pageToken);
@@ -137,19 +140,21 @@ public class GmailRepositoryImpl implements GmailRepository {
             return new MessageListResult(
                     response.getMessages(),
                     response.getNextPageToken(),
-                    response.getResultSizeEstimate() != null ? response.getResultSizeEstimate().intValue() : null
-            );
+                    response.getResultSizeEstimate() != null
+                            ? response.getResultSizeEstimate().intValue()
+                            : null);
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
     }
 
     @Override
-    public MessageListResult getLatestMessagesWithPagination(String userId, String pageToken, int maxResults) throws IOException {
+    public MessageListResult getLatestMessagesWithPagination(String userId, String pageToken, int maxResults)
+            throws IOException {
         try {
             var gmail = getGmailService();
-            Gmail.Users.Messages.List request = gmail.users().messages().list(userId)
-                    .setMaxResults((long) maxResults);
+            Gmail.Users.Messages.List request =
+                    gmail.users().messages().list(userId).setMaxResults((long) maxResults);
 
             if (pageToken != null && !pageToken.isEmpty()) {
                 request.setPageToken(pageToken);
@@ -159,20 +164,21 @@ public class GmailRepositoryImpl implements GmailRepository {
             return new MessageListResult(
                     response.getMessages(),
                     response.getNextPageToken(),
-                    response.getResultSizeEstimate() != null ? response.getResultSizeEstimate().intValue() : null
-            );
+                    response.getResultSizeEstimate() != null
+                            ? response.getResultSizeEstimate().intValue()
+                            : null);
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
     }
 
     @Override
-    public MessageListResult getMessagesByFilterCriteriaWithPagination(String userId, String query, String pageToken, int limit) throws IOException {
+    public MessageListResult getMessagesByFilterCriteriaWithPagination(
+            String userId, String query, String pageToken, int limit) throws IOException {
         try {
             var gmail = getGmailService();
-            Gmail.Users.Messages.List request = gmail.users().messages().list(userId)
-                    .setQ(query)
-                    .setMaxResults((long) limit);
+            Gmail.Users.Messages.List request =
+                    gmail.users().messages().list(userId).setQ(query).setMaxResults((long) limit);
 
             if (pageToken != null && !pageToken.isEmpty()) {
                 request.setPageToken(pageToken);
@@ -182,8 +188,9 @@ public class GmailRepositoryImpl implements GmailRepository {
             return new MessageListResult(
                     response.getMessages(),
                     response.getNextPageToken(),
-                    response.getResultSizeEstimate() != null ? response.getResultSizeEstimate().intValue() : null
-            );
+                    response.getResultSizeEstimate() != null
+                            ? response.getResultSizeEstimate().intValue()
+                            : null);
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
         }
@@ -215,7 +222,8 @@ public class GmailRepositoryImpl implements GmailRepository {
             var gmail = getGmailService();
 
             // 1. Find all messages matching the query
-            var messages = gmail.users().messages()
+            var messages = gmail.users()
+                    .messages()
                     .list(userId)
                     .setQ(query)
                     .setMaxResults(properties.gmailApi().batchDeleteMaxResults())
@@ -242,12 +250,16 @@ public class GmailRepositoryImpl implements GmailRepository {
             BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
 
             // 4. Log the results
-            logger.info("Batch delete completed: {} successful, {} failed out of {} total",
-                       result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations());
+            logger.info(
+                    "Batch delete completed: {} successful, {} failed out of {} total",
+                    result.getSuccessCount(),
+                    result.getFailureCount(),
+                    result.getTotalOperations());
 
             if (result.hasFailures()) {
-                logger.warn("Some deletions failed. Failed message IDs: {}",
-                           String.join(", ", result.getFailedOperations().keySet()));
+                logger.warn(
+                        "Some deletions failed. Failed message IDs: {}",
+                        String.join(", ", result.getFailedOperations().keySet()));
                 // For bulk operations, we don't throw an exception for partial failures
                 // The caller can check the result if needed
             }
@@ -285,7 +297,8 @@ public class GmailRepositoryImpl implements GmailRepository {
     }
 
     @Override
-    public BulkOperationResult modifyMessagesLabels(String userId, List<String> labelsToAdd, List<String> labelsToRemove, String query) throws IOException {
+    public BulkOperationResult modifyMessagesLabels(
+            String userId, List<String> labelsToAdd, List<String> labelsToRemove, String query) throws IOException {
         try {
             var gmail = getGmailService();
 
@@ -293,17 +306,16 @@ public class GmailRepositoryImpl implements GmailRepository {
             List<String> labelIdsToAdd = getLabelIdList(labelsMap, labelsToAdd);
             List<String> labelIdsToRemove = getLabelIdList(labelsMap, labelsToRemove);
 
-            ModifyMessageRequest mods = new ModifyMessageRequest().setAddLabelIds(labelIdsToAdd).setRemoveLabelIds(labelIdsToRemove);
+            ModifyMessageRequest mods =
+                    new ModifyMessageRequest().setAddLabelIds(labelIdsToAdd).setRemoveLabelIds(labelIdsToRemove);
 
-            List<Message> messages = gmail.users().messages()
-                    .list(userId)
-                    .setQ(query)
-                    .execute()
-                    .getMessages();
+            List<Message> messages =
+                    gmail.users().messages().list(userId).setQ(query).execute().getMessages();
 
             if (messages == null || messages.isEmpty()) {
                 logger.info("Found 0 matching messages for label modification");
-                BulkOperationResult emptyResult = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+                BulkOperationResult emptyResult =
+                        new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
                 emptyResult.markCompleted();
                 return emptyResult;
             }
@@ -311,19 +323,21 @@ public class GmailRepositoryImpl implements GmailRepository {
             logger.info("Found {} matching messages for label modification", messages.size());
 
             // Extract message IDs for batch operation
-            List<String> messageIds = messages.stream()
-                    .map(Message::getId)
-                    .toList();
+            List<String> messageIds = messages.stream().map(Message::getId).toList();
 
             // Use batch modify labels operation
             BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, mods);
 
-            logger.info("Batch label modification completed: {} successful, {} failed out of {} total",
-                       result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations());
+            logger.info(
+                    "Batch label modification completed: {} successful, {} failed out of {} total",
+                    result.getSuccessCount(),
+                    result.getFailureCount(),
+                    result.getTotalOperations());
 
             if (result.hasFailures()) {
-                logger.warn("Some label modifications failed. Failed message IDs: {}",
-                           String.join(", ", result.getFailedOperations().keySet()));
+                logger.warn(
+                        "Some label modifications failed. Failed message IDs: {}",
+                        String.join(", ", result.getFailedOperations().keySet()));
             }
 
             return result;
@@ -348,8 +362,11 @@ public class GmailRepositoryImpl implements GmailRepository {
 
             BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, mods);
 
-            logger.info("Batch trash completed: {} successful, {} failed out of {} total",
-                       result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations());
+            logger.info(
+                    "Batch trash completed: {} successful, {} failed out of {} total",
+                    result.getSuccessCount(),
+                    result.getFailureCount(),
+                    result.getTotalOperations());
 
             return result;
         } catch (GeneralSecurityException e) {
@@ -371,8 +388,11 @@ public class GmailRepositoryImpl implements GmailRepository {
 
             BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, mods);
 
-            logger.info("Batch untrash completed: {} successful, {} failed out of {} total",
-                       result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations());
+            logger.info(
+                    "Batch untrash completed: {} successful, {} failed out of {} total",
+                    result.getSuccessCount(),
+                    result.getFailureCount(),
+                    result.getTotalOperations());
 
             return result;
         } catch (GeneralSecurityException e) {
@@ -389,8 +409,9 @@ public class GmailRepositoryImpl implements GmailRepository {
      * passed through as empty/null lists to Gmail.
      */
     @Override
-    public BulkOperationResult batchModifyLabelsByIds(String userId, List<String> messageIds,
-                                                       List<String> labelIdsToAdd, List<String> labelIdsToRemove) throws IOException {
+    public BulkOperationResult batchModifyLabelsByIds(
+            String userId, List<String> messageIds, List<String> labelIdsToAdd, List<String> labelIdsToRemove)
+            throws IOException {
         try {
             var gmail = getGmailService();
 
@@ -404,8 +425,11 @@ public class GmailRepositoryImpl implements GmailRepository {
 
             BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, mods);
 
-            logger.info("Batch modify labels by id completed: {} successful, {} failed out of {} total",
-                       result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations());
+            logger.info(
+                    "Batch modify labels by id completed: {} successful, {} failed out of {} total",
+                    result.getSuccessCount(),
+                    result.getFailureCount(),
+                    result.getTotalOperations());
 
             return result;
         } catch (GeneralSecurityException e) {
@@ -436,7 +460,8 @@ public class GmailRepositoryImpl implements GmailRepository {
             if (part.getBody() != null && part.getBody().getData() != null) {
                 String mimeType = part.getMimeType();
                 if (properties.gmailApi().messageProcessing().mimeTypes().html().equals(mimeType)) {
-                    String data = new String(Base64.getUrlDecoder().decode(part.getBody().getData()));
+                    String data = new String(
+                            Base64.getUrlDecoder().decode(part.getBody().getData()));
                     logger.info("Message is in text/html");
                     return data;
                 }
@@ -447,8 +472,14 @@ public class GmailRepositoryImpl implements GmailRepository {
         for (MessagePart part : parts) {
             if (part.getBody() != null && part.getBody().getData() != null) {
                 String mimeType = part.getMimeType();
-                if (properties.gmailApi().messageProcessing().mimeTypes().plain().equals(mimeType)) {
-                    String data = new String(Base64.getUrlDecoder().decode(part.getBody().getData()));
+                if (properties
+                        .gmailApi()
+                        .messageProcessing()
+                        .mimeTypes()
+                        .plain()
+                        .equals(mimeType)) {
+                    String data = new String(
+                            Base64.getUrlDecoder().decode(part.getBody().getData()));
                     logger.info("Message is in text/plain");
                     return data;
                 }
@@ -471,8 +502,10 @@ public class GmailRepositoryImpl implements GmailRepository {
         try {
             var gmail = getGmailService();
             // Remove the UNREAD label from the message
-            String unreadLabel = properties.gmailApi().messageProcessing().labels().unread();
-            var mods = new com.google.api.services.gmail.model.ModifyMessageRequest().setRemoveLabelIds(List.of(unreadLabel));
+            String unreadLabel =
+                    properties.gmailApi().messageProcessing().labels().unread();
+            var mods = new com.google.api.services.gmail.model.ModifyMessageRequest()
+                    .setRemoveLabelIds(List.of(unreadLabel));
 
             BulkOperationResult result = new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
             try {
@@ -508,17 +541,16 @@ public class GmailRepositoryImpl implements GmailRepository {
      * @throws IOException on Gmail API communication failure
      */
     @Override
-    public ThreadListResult listThreads(String userId, FilterCriteriaDTO filterCriteria,
-                                        String pageToken, int limit) throws IOException {
+    public ThreadListResult listThreads(String userId, FilterCriteriaDTO filterCriteria, String pageToken, int limit)
+            throws IOException {
         try {
             Gmail gmail = getGmailService();
 
             // Build Gmail query string from filter criteria
             String query = buildQueryFromFilter(filterCriteria);
 
-            Gmail.Users.Threads.List listRequest = gmail.users().threads()
-                    .list(userId)
-                    .setMaxResults((long) limit);
+            Gmail.Users.Threads.List listRequest =
+                    gmail.users().threads().list(userId).setMaxResults((long) limit);
 
             if (query != null && !query.isBlank()) {
                 listRequest.setQ(query);
@@ -532,15 +564,15 @@ public class GmailRepositoryImpl implements GmailRepository {
             java.util.List<com.google.api.services.gmail.model.Thread> stubs = response.getThreads();
             String nextPageToken = response.getNextPageToken();
             Integer totalCount = response.getResultSizeEstimate() != null
-                    ? response.getResultSizeEstimate().intValue() : null;
+                    ? response.getResultSizeEstimate().intValue()
+                    : null;
 
             java.util.List<com.aucontraire.gmailbuddy.dto.response.ThreadSummary> summaries;
             if (stubs == null || stubs.isEmpty()) {
                 summaries = List.of();
             } else {
-                summaries = stubs.stream()
-                        .map(gmailMessageMapper::toThreadSummary)
-                        .toList();
+                summaries =
+                        stubs.stream().map(gmailMessageMapper::toThreadSummary).toList();
             }
 
             logger.info("Listed threads: op=listThreads, count={}", summaries.size());
@@ -568,22 +600,27 @@ public class GmailRepositoryImpl implements GmailRepository {
         try {
             Gmail gmail = getGmailService();
 
-            com.google.api.services.gmail.model.Thread thread = gmail.users().threads()
+            com.google.api.services.gmail.model.Thread thread = gmail.users()
+                    .threads()
                     .get(userId, threadId)
                     .setFormat("FULL")
                     .execute();
 
-            logger.info("Got thread: op=getThread, threadId={}, messageCount={}",
-                    threadId, thread.getMessages() != null ? thread.getMessages().size() : 0);
+            logger.info(
+                    "Got thread: op=getThread, threadId={}, messageCount={}",
+                    threadId,
+                    thread.getMessages() != null ? thread.getMessages().size() : 0);
             return gmailMessageMapper.toThreadDetailResult(thread);
 
         } catch (GoogleJsonResponseException e) {
             if (e.getStatusCode() == 404) {
-                throw new ResourceNotFoundException(
-                        "Thread not found: " + threadId, e);
+                throw new ResourceNotFoundException("Thread not found: " + threadId, e);
             }
-            logger.error("Gmail API error getting thread threadId={}: status={}, message={}",
-                    threadId, e.getStatusCode(), e.getMessage());
+            logger.error(
+                    "Gmail API error getting thread threadId={}: status={}, message={}",
+                    threadId,
+                    e.getStatusCode(),
+                    e.getMessage());
             throw e;
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
@@ -614,12 +651,10 @@ public class GmailRepositoryImpl implements GmailRepository {
 
             boolean metadataOnly = "metadata".equalsIgnoreCase(format);
 
-            Gmail.Users.Messages.Get getRequest = gmail.users().messages()
-                    .get(userId, messageId);
+            Gmail.Users.Messages.Get getRequest = gmail.users().messages().get(userId, messageId);
 
             if (metadataOnly) {
-                getRequest.setFormat("METADATA")
-                        .setMetadataHeaders(GmailMessageMapper.WHITELISTED_HEADERS_LIST);
+                getRequest.setFormat("METADATA").setMetadataHeaders(GmailMessageMapper.WHITELISTED_HEADERS_LIST);
             } else {
                 getRequest.setFormat("FULL");
             }
@@ -627,17 +662,22 @@ public class GmailRepositoryImpl implements GmailRepository {
             Message message = getRequest.execute();
 
             MessageDetailResult result = gmailMessageMapper.toMessageDetailResult(message, format);
-            logger.info("Got message detail: op=getMessageDetail, messageId={}, format={}, attachmentCount={}",
-                    messageId, format, result.attachments().size());
+            logger.info(
+                    "Got message detail: op=getMessageDetail, messageId={}, format={}, attachmentCount={}",
+                    messageId,
+                    format,
+                    result.attachments().size());
             return result;
 
         } catch (GoogleJsonResponseException e) {
             if (e.getStatusCode() == 404) {
-                throw new ResourceNotFoundException(
-                        "Message not found: " + messageId, e);
+                throw new ResourceNotFoundException("Message not found: " + messageId, e);
             }
-            logger.error("Gmail API error getting message detail messageId={}: status={}, message={}",
-                    messageId, e.getStatusCode(), e.getMessage());
+            logger.error(
+                    "Gmail API error getting message detail messageId={}: status={}, message={}",
+                    messageId,
+                    e.getStatusCode(),
+                    e.getMessage());
             throw e;
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
@@ -668,9 +708,8 @@ public class GmailRepositoryImpl implements GmailRepository {
                 return new LabelListResult(List.of(), 0);
             }
 
-            List<com.aucontraire.gmailbuddy.dto.response.LabelSummary> summaries = rawLabels.stream()
-                    .map(gmailMessageMapper::toLabelSummary)
-                    .toList();
+            List<com.aucontraire.gmailbuddy.dto.response.LabelSummary> summaries =
+                    rawLabels.stream().map(gmailMessageMapper::toLabelSummary).toList();
 
             logger.info("Listed labels: op=listLabels, count={}", summaries.size());
             return new LabelListResult(summaries, summaries.size());
@@ -705,8 +744,11 @@ public class GmailRepositoryImpl implements GmailRepository {
             if (e.getStatusCode() == 404) {
                 throw new ResourceNotFoundException("Label not found: " + labelId, e);
             }
-            logger.error("Gmail API error getting label labelId={}: status={}, message={}",
-                    labelId, e.getStatusCode(), e.getMessage());
+            logger.error(
+                    "Gmail API error getting label labelId={}: status={}, message={}",
+                    labelId,
+                    e.getStatusCode(),
+                    e.getMessage());
             throw e;
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
@@ -738,8 +780,8 @@ public class GmailRepositoryImpl implements GmailRepository {
      * @throws IOException on Gmail API communication failure
      */
     @Override
-    public com.aucontraire.gmailbuddy.dto.response.LabelSummary createLabel(String userId, String name,
-            String messageListVisibility, String labelListVisibility) throws IOException {
+    public com.aucontraire.gmailbuddy.dto.response.LabelSummary createLabel(
+            String userId, String name, String messageListVisibility, String labelListVisibility) throws IOException {
         try {
             Gmail gmail = getGmailService();
 
@@ -780,11 +822,16 @@ public class GmailRepositoryImpl implements GmailRepository {
         }
         String from = gmailQueryBuilder.from(filterCriteria.getFrom());
         String to = filterCriteria.getTo() != null ? gmailQueryBuilder.to(filterCriteria.getTo()) : "";
-        String subject = filterCriteria.getSubject() != null ? gmailQueryBuilder.subject(filterCriteria.getSubject()) : "";
+        String subject =
+                filterCriteria.getSubject() != null ? gmailQueryBuilder.subject(filterCriteria.getSubject()) : "";
         String hasAttachment = filterCriteria.getHasAttachment() != null
-                ? gmailQueryBuilder.hasAttachment(filterCriteria.getHasAttachment()) : "";
-        String additionalQuery = filterCriteria.getQuery() != null ? gmailQueryBuilder.query(filterCriteria.getQuery()) : "";
-        String negatedQuery = filterCriteria.getNegatedQuery() != null ? gmailQueryBuilder.negatedQuery(filterCriteria.getNegatedQuery()) : "";
+                ? gmailQueryBuilder.hasAttachment(filterCriteria.getHasAttachment())
+                : "";
+        String additionalQuery =
+                filterCriteria.getQuery() != null ? gmailQueryBuilder.query(filterCriteria.getQuery()) : "";
+        String negatedQuery = filterCriteria.getNegatedQuery() != null
+                ? gmailQueryBuilder.negatedQuery(filterCriteria.getNegatedQuery())
+                : "";
         return gmailQueryBuilder.build(from, to, subject, hasAttachment, additionalQuery, negatedQuery);
     }
 
@@ -810,37 +857,34 @@ public class GmailRepositoryImpl implements GmailRepository {
             Gmail gmail = getGmailService();
 
             com.google.api.services.gmail.Gmail.Users.Drafts.List listRequest =
-                    gmail.users().drafts().list(userId)
-                            .setMaxResults((long) limit);
+                    gmail.users().drafts().list(userId).setMaxResults((long) limit);
             if (pageToken != null) {
                 listRequest.setPageToken(pageToken);
             }
 
             com.google.api.services.gmail.model.ListDraftsResponse listResponse = listRequest.execute();
 
-            java.util.List<com.google.api.services.gmail.model.Draft> draftStubs =
-                    listResponse.getDrafts();
+            java.util.List<com.google.api.services.gmail.model.Draft> draftStubs = listResponse.getDrafts();
             String nextPageToken = listResponse.getNextPageToken();
             Integer totalCount = listResponse.getResultSizeEstimate() != null
-                    ? listResponse.getResultSizeEstimate().intValue() : null;
+                    ? listResponse.getResultSizeEstimate().intValue()
+                    : null;
 
             java.util.List<DraftDetailResult> drafts = new java.util.ArrayList<>();
             if (draftStubs != null) {
                 for (com.google.api.services.gmail.model.Draft stub : draftStubs) {
-                    com.google.api.services.gmail.model.Draft fullDraft =
-                            gmail.users().drafts().get(userId, stub.getId())
-                                    .setFormat("full")
-                                    .execute();
+                    com.google.api.services.gmail.model.Draft fullDraft = gmail.users()
+                            .drafts()
+                            .get(userId, stub.getId())
+                            .setFormat("full")
+                            .execute();
                     drafts.add(gmailMessageMapper.toDraftDetailResult(fullDraft));
                 }
             }
 
             logger.info("Listed drafts: op=list, count={}", drafts.size());
             return new DraftListResult(
-                    drafts.isEmpty() ? java.util.List.of() : java.util.List.copyOf(drafts),
-                    nextPageToken,
-                    totalCount
-            );
+                    drafts.isEmpty() ? java.util.List.of() : java.util.List.copyOf(drafts), nextPageToken, totalCount);
 
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
@@ -863,21 +907,24 @@ public class GmailRepositoryImpl implements GmailRepository {
         try {
             Gmail gmail = getGmailService();
 
-            com.google.api.services.gmail.model.Draft draft =
-                    gmail.users().drafts().get(userId, draftId)
-                            .setFormat("full")
-                            .execute();
+            com.google.api.services.gmail.model.Draft draft = gmail.users()
+                    .drafts()
+                    .get(userId, draftId)
+                    .setFormat("full")
+                    .execute();
 
             logger.info("Got draft: op=get, draftId={}", draftId);
             return gmailMessageMapper.toDraftDetailResult(draft);
 
         } catch (GoogleJsonResponseException e) {
             if (e.getStatusCode() == 404) {
-                throw new ResourceNotFoundException(
-                        "Draft not found: " + draftId, e);
+                throw new ResourceNotFoundException("Draft not found: " + draftId, e);
             }
-            logger.error("Gmail API error getting draft draftId={}: status={}, message={}",
-                    draftId, e.getStatusCode(), e.getMessage());
+            logger.error(
+                    "Gmail API error getting draft draftId={}: status={}, message={}",
+                    draftId,
+                    e.getStatusCode(),
+                    e.getMessage());
             throw e;
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
@@ -902,11 +949,13 @@ public class GmailRepositoryImpl implements GmailRepository {
 
         } catch (GoogleJsonResponseException e) {
             if (e.getStatusCode() == 404) {
-                throw new ResourceNotFoundException(
-                        "Draft not found: " + draftId, e);
+                throw new ResourceNotFoundException("Draft not found: " + draftId, e);
             }
-            logger.error("Gmail API error deleting draft draftId={}: status={}, message={}",
-                    draftId, e.getStatusCode(), e.getMessage());
+            logger.error(
+                    "Gmail API error deleting draft draftId={}: status={}, message={}",
+                    draftId,
+                    e.getStatusCode(),
+                    e.getMessage());
             throw e;
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
@@ -935,10 +984,9 @@ public class GmailRepositoryImpl implements GmailRepository {
 
             com.google.api.services.gmail.model.Message rawMessage =
                     new com.google.api.services.gmail.model.Message().setRaw(encodedRaw);
-            com.google.api.services.gmail.model.Draft draftWrapper =
-                    new com.google.api.services.gmail.model.Draft()
-                            .setId(draftId)
-                            .setMessage(rawMessage);
+            com.google.api.services.gmail.model.Draft draftWrapper = new com.google.api.services.gmail.model.Draft()
+                    .setId(draftId)
+                    .setMessage(rawMessage);
 
             com.google.api.services.gmail.model.Draft updatedDraft =
                     gmail.users().drafts().update(userId, draftId, draftWrapper).execute();
@@ -948,11 +996,13 @@ public class GmailRepositoryImpl implements GmailRepository {
 
         } catch (GoogleJsonResponseException e) {
             if (e.getStatusCode() == 404) {
-                throw new ResourceNotFoundException(
-                        "Draft not found: " + draftId, e);
+                throw new ResourceNotFoundException("Draft not found: " + draftId, e);
             }
-            logger.error("Gmail API error updating draft draftId={}: status={}, message={}",
-                    draftId, e.getStatusCode(), e.getMessage());
+            logger.error(
+                    "Gmail API error updating draft draftId={}: status={}, message={}",
+                    draftId,
+                    e.getStatusCode(),
+                    e.getMessage());
             throw mapGmailSendError(e);
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
@@ -1026,14 +1076,20 @@ public class GmailRepositoryImpl implements GmailRepository {
             }
 
             Message sentMessage = gmail.users().messages().send(userId, message).execute();
-            logger.info("Message sent successfully for userId={}, messageId={}, threadId={}",
-                    userId, sentMessage.getId(), sentMessage.getThreadId());
+            logger.info(
+                    "Message sent successfully for userId={}, messageId={}, threadId={}",
+                    userId,
+                    sentMessage.getId(),
+                    sentMessage.getThreadId());
 
             return gmailMessageMapper.toSentMessageResult(sentMessage);
 
         } catch (GoogleJsonResponseException e) {
-            logger.error("Gmail API error sending message for userId={}: status={}, message={}",
-                    userId, e.getStatusCode(), e.getMessage());
+            logger.error(
+                    "Gmail API error sending message for userId={}: status={}, message={}",
+                    userId,
+                    e.getStatusCode(),
+                    e.getMessage());
             throw mapGmailSendError(e);
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
@@ -1105,8 +1161,11 @@ public class GmailRepositoryImpl implements GmailRepository {
             return gmailMessageMapper.toDraftCreationResult(createdDraft);
 
         } catch (GoogleJsonResponseException e) {
-            logger.error("Gmail API error creating draft for userId={}: status={}, message={}",
-                    userId, e.getStatusCode(), e.getMessage());
+            logger.error(
+                    "Gmail API error creating draft for userId={}: status={}, message={}",
+                    userId,
+                    e.getStatusCode(),
+                    e.getMessage());
             throw mapGmailSendError(e);
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
@@ -1144,14 +1203,21 @@ public class GmailRepositoryImpl implements GmailRepository {
             Draft draft = new Draft().setId(draftId);
 
             Message sentMessage = gmail.users().drafts().send(userId, draft).execute();
-            logger.info("Draft sent successfully for userId={}, draftId={}, messageId={}",
-                    userId, draftId, sentMessage.getId());
+            logger.info(
+                    "Draft sent successfully for userId={}, draftId={}, messageId={}",
+                    userId,
+                    draftId,
+                    sentMessage.getId());
 
             return gmailMessageMapper.toSentMessageResult(sentMessage);
 
         } catch (GoogleJsonResponseException e) {
-            logger.error("Gmail API error sending draft for userId={}, draftId={}: status={}, message={}",
-                    userId, draftId, e.getStatusCode(), e.getMessage());
+            logger.error(
+                    "Gmail API error sending draft for userId={}, draftId={}: status={}, message={}",
+                    userId,
+                    draftId,
+                    e.getStatusCode(),
+                    e.getMessage());
             throw mapGmailSendError(e);
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
@@ -1194,8 +1260,7 @@ public class GmailRepositoryImpl implements GmailRepository {
 
         // 404 always maps to ResourceNotFoundException (draft not found / already sent)
         if (statusCode == 404) {
-            return new ResourceNotFoundException(
-                    "Draft not found or already sent/discarded", e);
+            return new ResourceNotFoundException("Draft not found or already sent/discarded", e);
         }
 
         // Extract the error reason from the first error detail when present
@@ -1211,35 +1276,25 @@ public class GmailRepositoryImpl implements GmailRepository {
         }
 
         return switch (reason) {
-            case "invalidArgument" ->
-                    new InvalidRecipientException(
-                            "Gmail rejected one or more recipient addresses or message fields", e);
+            case "invalidArgument" -> new InvalidRecipientException(
+                    "Gmail rejected one or more recipient addresses or message fields", e);
 
-            case "insufficientPermissions" ->
-                    new AuthorizationException(
-                            "Insufficient Gmail permissions to send mail", e);
+            case "insufficientPermissions" -> new AuthorizationException(
+                    "Insufficient Gmail permissions to send mail", e);
 
-            // CRITICAL: dailySendLimitExceeded MUST NOT go through any retry-with-backoff
-            // path. The daily send limit resets at the next calendar day; retrying within
-            // the same day wastes quota and does not resolve the limit. retryAfterSeconds
-            // is set to 86400 (24 hours) to inform the caller of the reset window.
-            case "dailySendLimitExceeded" ->
-                    new RateLimitException(
-                            "Daily Gmail send limit reached; retry after the next-day reset",
-                            e,
-                            86400L);
+                // CRITICAL: dailySendLimitExceeded MUST NOT go through any retry-with-backoff
+                // path. The daily send limit resets at the next calendar day; retrying within
+                // the same day wastes quota and does not resolve the limit. retryAfterSeconds
+                // is set to 86400 (24 hours) to inform the caller of the reset window.
+            case "dailySendLimitExceeded" -> new RateLimitException(
+                    "Daily Gmail send limit reached; retry after the next-day reset", e, 86400L);
 
-            case "forbidden" ->
-                    new AuthorizationException(
-                            "Gmail rejected send: forbidden (unverified send-as identity or account restricted)", e);
+            case "forbidden" -> new AuthorizationException(
+                    "Gmail rejected send: forbidden (unverified send-as identity or account restricted)", e);
 
-            case "messageTooLarge" ->
-                    new MessageTooLargeException(
-                            "Message exceeds Gmail's maximum allowed size", e);
+            case "messageTooLarge" -> new MessageTooLargeException("Message exceeds Gmail's maximum allowed size", e);
 
-            default ->
-                    new MessageSendException(
-                            "Gmail send failed with reason: " + reason, e);
+            default -> new MessageSendException("Gmail send failed with reason: " + reason, e);
         };
     }
 
@@ -1275,7 +1330,8 @@ public class GmailRepositoryImpl implements GmailRepository {
         try {
             Gmail gmail = getGmailService();
 
-            Message response = gmail.users().messages()
+            Message response = gmail.users()
+                    .messages()
                     .get(userId, messageId)
                     .setFormat("metadata")
                     .setMetadataHeaders(List.of("Message-ID"))
@@ -1286,9 +1342,8 @@ public class GmailRepositoryImpl implements GmailRepository {
             // messages may return a null payload in metadata format — treat as not found.
             MessagePart payload = response.getPayload();
             if (payload == null) {
-                throw new OriginalMessageNotFoundException(
-                        "Original message has no payload (messageId=" + messageId
-                                + "); cannot extract Message-ID for threading");
+                throw new OriginalMessageNotFoundException("Original message has no payload (messageId=" + messageId
+                        + "); cannot extract Message-ID for threading");
             }
 
             // Case-insensitive header name match per research.md Decision 11 — Gmail
@@ -1309,17 +1364,20 @@ public class GmailRepositoryImpl implements GmailRepository {
                 // The message exists but has no RFC 5322 Message-ID (uncommon; possible
                 // for internally-generated Gmail messages). Fail-closed per spec Q1 —
                 // sending a reply without In-Reply-To would break the threading contract.
-                throw new OriginalMessageNotFoundException(
-                        "Original message has no Message-ID header (messageId=" + messageId
-                                + "); cannot construct In-Reply-To / References for threading");
+                throw new OriginalMessageNotFoundException("Original message has no Message-ID header (messageId="
+                        + messageId + "); cannot construct In-Reply-To / References for threading");
             }
 
             logger.debug("Fetched message headers for threading: messageId={}", messageId);
             return new OriginalMessageLookup(messageId, response.getThreadId(), rfcMessageId);
 
         } catch (GoogleJsonResponseException e) {
-            logger.error("Gmail API error fetching message headers for userId={}, messageId={}: status={}, message={}",
-                    userId, messageId, e.getStatusCode(), e.getMessage());
+            logger.error(
+                    "Gmail API error fetching message headers for userId={}, messageId={}: status={}, message={}",
+                    userId,
+                    messageId,
+                    e.getStatusCode(),
+                    e.getMessage());
             throw mapGmailLookupError(e, messageId);
         } catch (SocketTimeoutException e) {
             // SocketTimeoutException is a subtype of IOException — intercept it explicitly
@@ -1365,16 +1423,14 @@ public class GmailRepositoryImpl implements GmailRepository {
 
         if (statusCode == 404) {
             return new OriginalMessageNotFoundException(
-                    "Original message not found in authenticated user's Gmail account "
-                            + "(messageId=" + messageId + "); cannot thread reply",
+                    "Original message not found in authenticated user's Gmail account " + "(messageId=" + messageId
+                            + "); cannot thread reply",
                     e);
         }
 
         if (statusCode == 403) {
             return new AuthorizationException(
-                    "Insufficient Gmail permissions to read original message "
-                            + "(messageId=" + messageId + ")",
-                    e);
+                    "Insufficient Gmail permissions to read original message " + "(messageId=" + messageId + ")", e);
         }
 
         if (statusCode == 429) {
@@ -1393,23 +1449,21 @@ public class GmailRepositoryImpl implements GmailRepository {
                 }
             }
             return new RateLimitException(
-                    "Gmail API rate limit exceeded during original-message lookup "
-                            + "(messageId=" + messageId + ")",
+                    "Gmail API rate limit exceeded during original-message lookup " + "(messageId=" + messageId + ")",
                     e,
                     retryAfterSeconds);
         }
 
         if (statusCode >= 500) {
             return new GmailApiException(
-                    "Gmail API server error during original-message lookup "
-                            + "(messageId=" + messageId + "): HTTP " + statusCode,
+                    "Gmail API server error during original-message lookup " + "(messageId=" + messageId + "): HTTP "
+                            + statusCode,
                     e);
         }
 
         // Any remaining 4xx (e.g., 400 invalid request) or unexpected status
         return new GmailApiException(
-                "Gmail API error during original-message lookup "
-                        + "(messageId=" + messageId + "): HTTP " + statusCode,
+                "Gmail API error during original-message lookup " + "(messageId=" + messageId + "): HTTP " + statusCode,
                 e);
     }
 
@@ -1437,23 +1491,28 @@ public class GmailRepositoryImpl implements GmailRepository {
         try {
             Gmail gmail = getGmailService();
 
-            Message message = gmail.users().messages()
+            Message message = gmail.users()
+                    .messages()
                     .get(userId, messageId)
                     .setFormat("full")
                     .execute();
 
             AttachmentListResult result = gmailMessageMapper.toAttachmentListResult(message);
-            logger.info("Attachment operation: op=listAttachments, messageId={}, attachmentCount={}",
-                    messageId, result.attachments().size());
+            logger.info(
+                    "Attachment operation: op=listAttachments, messageId={}, attachmentCount={}",
+                    messageId,
+                    result.attachments().size());
             return result;
 
         } catch (GoogleJsonResponseException e) {
             if (e.getStatusCode() == 404) {
-                throw new ResourceNotFoundException(
-                        "Message not found: " + messageId, e);
+                throw new ResourceNotFoundException("Message not found: " + messageId, e);
             }
-            logger.error("Gmail API error listing attachments for messageId={}: status={}, message={}",
-                    messageId, e.getStatusCode(), e.getMessage());
+            logger.error(
+                    "Gmail API error listing attachments for messageId={}: status={}, message={}",
+                    messageId,
+                    e.getStatusCode(),
+                    e.getMessage());
             throw e;
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);
@@ -1484,12 +1543,14 @@ public class GmailRepositoryImpl implements GmailRepository {
      * @throws IOException on Gmail API communication failure
      */
     @Override
-    public StreamingResponseBody getAttachment(String userId, String messageId,
-                                               String attachmentId) throws IOException {
+    public StreamingResponseBody getAttachment(String userId, String messageId, String attachmentId)
+            throws IOException {
         try {
             Gmail gmail = getGmailService();
 
-            MessagePartBody body = gmail.users().messages().attachments()
+            MessagePartBody body = gmail.users()
+                    .messages()
+                    .attachments()
                     .get(userId, messageId, attachmentId)
                     .execute();
 
@@ -1497,15 +1558,14 @@ public class GmailRepositoryImpl implements GmailRepository {
             if (data == null) {
                 // Gmail returned a body with no data (should not occur for valid attachments).
                 throw new ResourceNotFoundException(
-                        "Attachment data is empty for messageId=" + messageId
-                                + ", attachmentId=" + attachmentId);
+                        "Attachment data is empty for messageId=" + messageId + ", attachmentId=" + attachmentId);
             }
 
             // Decode from base64url to raw bytes (Option A — synchronous, before lambda fires)
             byte[] decoded = java.util.Base64.getUrlDecoder().decode(data);
 
-            logger.info("Attachment operation: op=getAttachment, messageId={}, attachmentId={}",
-                    messageId, attachmentId);
+            logger.info(
+                    "Attachment operation: op=getAttachment, messageId={}, attachmentId={}", messageId, attachmentId);
 
             // Return a lambda that simply writes the pre-decoded bytes to the output stream.
             // The lambda closes over the decoded byte array; no additional I/O occurs at write time.
@@ -1514,11 +1574,14 @@ public class GmailRepositoryImpl implements GmailRepository {
         } catch (GoogleJsonResponseException e) {
             if (e.getStatusCode() == 404) {
                 throw new ResourceNotFoundException(
-                        "Attachment not found: messageId=" + messageId
-                                + ", attachmentId=" + attachmentId, e);
+                        "Attachment not found: messageId=" + messageId + ", attachmentId=" + attachmentId, e);
             }
-            logger.error("Gmail API error getting attachment for messageId={}, attachmentId={}: status={}, message={}",
-                    messageId, attachmentId, e.getStatusCode(), e.getMessage());
+            logger.error(
+                    "Gmail API error getting attachment for messageId={}, attachmentId={}: status={}, message={}",
+                    messageId,
+                    attachmentId,
+                    e.getStatusCode(),
+                    e.getMessage());
             throw e;
         } catch (GeneralSecurityException e) {
             throw new IOException("Security exception creating Gmail service", e);

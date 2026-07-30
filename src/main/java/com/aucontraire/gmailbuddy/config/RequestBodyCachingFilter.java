@@ -4,11 +4,10 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
 
 /**
  * Servlet filter that wraps incoming HTTP requests with a {@link CachedBodyHttpServletRequest}
@@ -65,9 +64,8 @@ public class RequestBodyCachingFilter extends OncePerRequestFilter {
     private static final String GMAIL_API_PATH_PREFIX = "/api/v1/gmail";
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
 
         String uri = request.getRequestURI();
         String method = request.getMethod();
@@ -75,7 +73,9 @@ public class RequestBodyCachingFilter extends OncePerRequestFilter {
         // Only buffer POST request bodies to the two threading-capable endpoints.
         // Other endpoints do not need body caching for quota routing; wrapping
         // unconditionally would waste heap on large GET/DELETE request paths.
-        if ("POST".equals(method) && uri != null && uri.startsWith(GMAIL_API_PATH_PREFIX)
+        if ("POST".equals(method)
+                && uri != null
+                && uri.startsWith(GMAIL_API_PATH_PREFIX)
                 && (uri.endsWith("/messages") || uri.endsWith("/drafts"))) {
             CachedBodyHttpServletRequest wrappedRequest = new CachedBodyHttpServletRequest(request);
             filterChain.doFilter(wrappedRequest, response);

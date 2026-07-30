@@ -5,7 +5,7 @@ import org.springframework.http.HttpStatus;
 /**
  * Exception thrown when API rate limits are exceeded.
  * This includes Gmail API quota limits and request throttling.
- * 
+ *
  * @author Gmail Buddy Team
  * @since 1.0
  */
@@ -17,7 +17,7 @@ public class RateLimitException extends GmailBuddyClientException {
 
     /**
      * Constructs a new rate limit exception with the specified message.
-     * 
+     *
      * @param message the detail message explaining the rate limit
      */
     public RateLimitException(String message) {
@@ -27,7 +27,7 @@ public class RateLimitException extends GmailBuddyClientException {
 
     /**
      * Constructs a new rate limit exception with the specified message and retry delay.
-     * 
+     *
      * @param message the detail message explaining the rate limit
      * @param retryAfterSeconds the number of seconds to wait before retrying
      */
@@ -38,7 +38,7 @@ public class RateLimitException extends GmailBuddyClientException {
 
     /**
      * Constructs a new rate limit exception with the specified message, cause and retry delay.
-     * 
+     *
      * @param message the detail message explaining the rate limit
      * @param cause the underlying cause
      * @param retryAfterSeconds the number of seconds to wait before retrying
@@ -50,7 +50,7 @@ public class RateLimitException extends GmailBuddyClientException {
 
     /**
      * Gets the number of seconds to wait before retrying the request.
-     * 
+     *
      * @return the retry delay in seconds
      */
     public long getRetryAfterSeconds() {

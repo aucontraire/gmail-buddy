@@ -64,12 +64,12 @@ public class NoHeaderInjectionValidator implements ConstraintValidator<NoHeaderI
         if (value == null) {
             return true;
         }
-        return value.indexOf('\n')      < 0  // U+000A LINE FEED
-            && value.indexOf('')  < 0  // U+000B VERTICAL TAB
-            && value.indexOf('')  < 0  // U+000C FORM FEED
-            && value.indexOf('\r')      < 0  // U+000D CARRIAGE RETURN
-            && value.indexOf('')  < 0  // U+0085 NEXT LINE
-            && value.indexOf(' ')  < 0  // U+2028 LINE SEPARATOR
-            && value.indexOf(' ')  < 0; // U+2029 PARAGRAPH SEPARATOR
+        return value.indexOf('\n') < 0 // U+000A LINE FEED
+                && value.indexOf('') < 0 // U+000B VERTICAL TAB
+                && value.indexOf('') < 0 // U+000C FORM FEED
+                && value.indexOf('\r') < 0 // U+000D CARRIAGE RETURN
+                && value.indexOf('') < 0 // U+0085 NEXT LINE
+                && value.indexOf(' ') < 0 // U+2028 LINE SEPARATOR
+                && value.indexOf(' ') < 0; // U+2029 PARAGRAPH SEPARATOR
     }
 }

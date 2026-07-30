@@ -1,5 +1,7 @@
 package com.aucontraire.gmailbuddy.util;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -10,8 +12,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("LinkHeaderBuilder Unit Tests")
 class LinkHeaderBuilderTest {
@@ -48,9 +48,7 @@ class LinkHeaderBuilderTest {
         String result = builder.addNext(nextToken).build();
 
         // Assert
-        assertThat(result)
-            .isNotNull()
-            .isEqualTo("<" + BASE_URL + "?pageToken=" + nextToken + ">; rel=\"next\"");
+        assertThat(result).isNotNull().isEqualTo("<" + BASE_URL + "?pageToken=" + nextToken + ">; rel=\"next\"");
     }
 
     @ParameterizedTest
@@ -78,9 +76,7 @@ class LinkHeaderBuilderTest {
         String result = builder.addPrev(prevToken).build();
 
         // Assert
-        assertThat(result)
-            .isNotNull()
-            .isEqualTo("<" + BASE_URL + "?pageToken=" + prevToken + ">; rel=\"prev\"");
+        assertThat(result).isNotNull().isEqualTo("<" + BASE_URL + "?pageToken=" + prevToken + ">; rel=\"prev\"");
     }
 
     @ParameterizedTest
@@ -108,9 +104,9 @@ class LinkHeaderBuilderTest {
 
         // Assert
         assertThat(result)
-            .isNotNull()
-            .isEqualTo("<" + BASE_URL + ">; rel=\"first\"")
-            .doesNotContain("pageToken");
+                .isNotNull()
+                .isEqualTo("<" + BASE_URL + ">; rel=\"first\"")
+                .doesNotContain("pageToken");
     }
 
     @Test
@@ -124,9 +120,7 @@ class LinkHeaderBuilderTest {
         String result = builder.addLast(lastToken).build();
 
         // Assert
-        assertThat(result)
-            .isNotNull()
-            .isEqualTo("<" + BASE_URL + "?pageToken=" + lastToken + ">; rel=\"last\"");
+        assertThat(result).isNotNull().isEqualTo("<" + BASE_URL + "?pageToken=" + lastToken + ">; rel=\"last\"");
     }
 
     @ParameterizedTest
@@ -168,10 +162,10 @@ class LinkHeaderBuilderTest {
 
         // Assert
         assertThat(result)
-            .isNotNull()
-            .startsWith("<http://")
-            .contains(">; rel=\"next\"")
-            .contains("pageToken=" + token);
+                .isNotNull()
+                .startsWith("<http://")
+                .contains(">; rel=\"next\"")
+                .contains("pageToken=" + token);
     }
 
     @Test
@@ -183,17 +177,14 @@ class LinkHeaderBuilderTest {
         String prevToken = "prev-token";
 
         // Act
-        String result = builder
-            .addPrev(prevToken)
-            .addNext(nextToken)
-            .build();
+        String result = builder.addPrev(prevToken).addNext(nextToken).build();
 
         // Assert
         assertThat(result)
-            .isNotNull()
-            .contains(", ")
-            .contains("<" + BASE_URL + "?pageToken=" + prevToken + ">; rel=\"prev\"")
-            .contains("<" + BASE_URL + "?pageToken=" + nextToken + ">; rel=\"next\"");
+                .isNotNull()
+                .contains(", ")
+                .contains("<" + BASE_URL + "?pageToken=" + prevToken + ">; rel=\"prev\"")
+                .contains("<" + BASE_URL + "?pageToken=" + nextToken + ">; rel=\"next\"");
     }
 
     @Test
@@ -208,11 +199,11 @@ class LinkHeaderBuilderTest {
 
         // Assert
         assertThat(result)
-            .isNotNull()
-            .matches("^<[^>]+>; rel=\"[^\"]+\"$")  // Matches RFC 5988 format
-            .startsWith("<")
-            .contains(">; rel=\"")
-            .endsWith("\"");
+                .isNotNull()
+                .matches("^<[^>]+>; rel=\"[^\"]+\"$") // Matches RFC 5988 format
+                .startsWith("<")
+                .contains(">; rel=\"")
+                .endsWith("\"");
     }
 
     @Test
@@ -225,20 +216,19 @@ class LinkHeaderBuilderTest {
         String lastToken = "last-789";
 
         // Act
-        String result = builder
-            .addFirst()
-            .addPrev(prevToken)
-            .addNext(nextToken)
-            .addLast(lastToken)
-            .build();
+        String result = builder.addFirst()
+                .addPrev(prevToken)
+                .addNext(nextToken)
+                .addLast(lastToken)
+                .build();
 
         // Assert
         assertThat(result)
-            .isNotNull()
-            .contains("<" + BASE_URL + ">; rel=\"first\"")
-            .contains("<" + BASE_URL + "?pageToken=" + prevToken + ">; rel=\"prev\"")
-            .contains("<" + BASE_URL + "?pageToken=" + nextToken + ">; rel=\"next\"")
-            .contains("<" + BASE_URL + "?pageToken=" + lastToken + ">; rel=\"last\"");
+                .isNotNull()
+                .contains("<" + BASE_URL + ">; rel=\"first\"")
+                .contains("<" + BASE_URL + "?pageToken=" + prevToken + ">; rel=\"prev\"")
+                .contains("<" + BASE_URL + "?pageToken=" + nextToken + ">; rel=\"next\"")
+                .contains("<" + BASE_URL + "?pageToken=" + lastToken + ">; rel=\"last\"");
 
         // Verify comma separation between all links
         String[] links = result.split(", ");
@@ -265,12 +255,11 @@ class LinkHeaderBuilderTest {
         LinkHeaderBuilder builder = new LinkHeaderBuilder();
 
         // Act
-        String result = builder
-            .addFirst()
-            .addPrev("prev-token")
-            .addNext("next-token")
-            .addLast("last-token")
-            .build();
+        String result = builder.addFirst()
+                .addPrev("prev-token")
+                .addNext("next-token")
+                .addLast("last-token")
+                .build();
 
         // Assert
         String[] links = result.split(", ");
@@ -292,9 +281,9 @@ class LinkHeaderBuilderTest {
 
         // Assert
         assertThat(result)
-            .isNotNull()
-            .contains("pageToken=" + tokenWithSpecialChars)
-            .matches("^<[^>]+>; rel=\"next\"$");
+                .isNotNull()
+                .contains("pageToken=" + tokenWithSpecialChars)
+                .matches("^<[^>]+>; rel=\"next\"$");
     }
 
     @Test
@@ -316,10 +305,7 @@ class LinkHeaderBuilderTest {
         String result = builder.addNext(nextToken).build();
 
         // Assert
-        assertThat(result)
-            .isNotNull()
-            .contains("maxResults=50")
-            .contains("pageToken=" + nextToken);
+        assertThat(result).isNotNull().contains("maxResults=50").contains("pageToken=" + nextToken);
     }
 
     @Test
@@ -340,10 +326,7 @@ class LinkHeaderBuilderTest {
         String result = builder.addFirst().build();
 
         // Assert
-        assertThat(result)
-            .isNotNull()
-            .doesNotContain("pageToken")
-            .contains("maxResults=50");
+        assertThat(result).isNotNull().doesNotContain("pageToken").contains("maxResults=50");
     }
 
     @Test
@@ -357,9 +340,7 @@ class LinkHeaderBuilderTest {
 
         // Assert - whitespace is not empty per String.isEmpty(), so it will be added
         // ServletUriComponentsBuilder does not URL-encode spaces in the output
-        assertThat(result)
-            .isNotNull()
-            .contains("pageToken=   ");
+        assertThat(result).isNotNull().contains("pageToken=   ");
     }
 
     @Test
@@ -369,11 +350,7 @@ class LinkHeaderBuilderTest {
         LinkHeaderBuilder builder = new LinkHeaderBuilder();
 
         // Act
-        String result = builder
-            .addNext("next-token")
-            .addPrev(null)
-            .addLast("")
-            .build();
+        String result = builder.addNext("next-token").addPrev(null).addLast("").build();
 
         // Assert
         String[] links = result.split(", ");
@@ -392,10 +369,7 @@ class LinkHeaderBuilderTest {
         String result = builder.addNext(token).build();
 
         // Assert
-        assertThat(result)
-            .isNotNull()
-            .contains("pageToken=" + token)
-            .matches("^<[^>]+>; rel=\"next\"$");
+        assertThat(result).isNotNull().contains("pageToken=" + token).matches("^<[^>]+>; rel=\"next\"$");
     }
 
     @Test
@@ -405,17 +379,14 @@ class LinkHeaderBuilderTest {
         LinkHeaderBuilder builder = new LinkHeaderBuilder();
 
         // Act
-        String result = builder
-            .addPrev("prev-token")
-            .addNext("next-token")
-            .build();
+        String result = builder.addPrev("prev-token").addNext("next-token").build();
 
         // Assert
         assertThat(result)
-            .isNotNull()
-            .matches("^<[^>]+>; rel=\"[^\"]+\", <[^>]+>; rel=\"[^\"]+\"$")
-            .doesNotContain("  ")  // No double spaces
-            .doesNotContain("< ")
-            .doesNotContain(" >");
+                .isNotNull()
+                .matches("^<[^>]+>; rel=\"[^\"]+\", <[^>]+>; rel=\"[^\"]+\"$")
+                .doesNotContain("  ") // No double spaces
+                .doesNotContain("< ")
+                .doesNotContain(" >");
     }
 }

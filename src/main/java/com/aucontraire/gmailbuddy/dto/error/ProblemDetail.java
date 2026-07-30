@@ -302,17 +302,16 @@ public class ProblemDetail {
 
     @Override
     public String toString() {
-        return "ProblemDetail{" +
-                "type=" + type +
-                ", title='" + title + '\'' +
-                ", status=" + status +
-                ", detail='" + detail + '\'' +
-                ", instance=" + instance +
-                ", requestId='" + requestId + '\'' +
-                ", timestamp=" + timestamp +
-                ", retryable=" + retryable +
-                ", category='" + category + '\'' +
-                ", extensions=" + extensions +
-                '}';
+        return "ProblemDetail{" + "type="
+                + type + ", title='"
+                + title + '\'' + ", status="
+                + status + ", detail='"
+                + detail + '\'' + ", instance="
+                + instance + ", requestId='"
+                + requestId + '\'' + ", timestamp="
+                + timestamp + ", retryable="
+                + retryable + ", category='"
+                + category + '\'' + ", extensions="
+                + extensions + '}';
     }
 }

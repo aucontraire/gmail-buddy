@@ -1,5 +1,15 @@
 package com.aucontraire.gmailbuddy.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -16,6 +26,8 @@ import com.aucontraire.gmailbuddy.service.LabelListResult;
 import com.aucontraire.gmailbuddy.service.MessageDetailResult;
 import com.aucontraire.gmailbuddy.service.ThreadDetailResult;
 import com.aucontraire.gmailbuddy.service.ThreadListResult;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,19 +42,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Constitution VII compliance spot-check for feature 004 (Read API completeness) — T073.
@@ -80,13 +79,13 @@ class ReadApiConstitutionVIIComplianceTest {
     // Constants — fingerprintable PII values
     // -------------------------------------------------------------------------
 
-    private static final String THREADS_BASE    = "/api/v1/gmail/threads";
-    private static final String MESSAGES_BASE   = "/api/v1/gmail/messages";
-    private static final String LABELS_BASE     = "/api/v1/gmail/labels";
+    private static final String THREADS_BASE = "/api/v1/gmail/threads";
+    private static final String MESSAGES_BASE = "/api/v1/gmail/messages";
+    private static final String LABELS_BASE = "/api/v1/gmail/labels";
 
-    private static final String VALID_MESSAGE_ID    = "1a2b3c4d5e6f7890";
-    private static final String VALID_THREAD_ID     = "1a2b3c4d5e6f7890";
-    private static final String VALID_LABEL_ID      = "INBOX";
+    private static final String VALID_MESSAGE_ID = "1a2b3c4d5e6f7890";
+    private static final String VALID_THREAD_ID = "1a2b3c4d5e6f7890";
+    private static final String VALID_LABEL_ID = "INBOX";
     private static final String VALID_ATTACHMENT_ID = "ANGjdJ8abc123def";
 
     /**
@@ -99,8 +98,7 @@ class ReadApiConstitutionVIIComplianceTest {
     /**
      * Fingerprintable message body. Must NEVER appear in any log event.
      */
-    private static final String UNIQUE_BODY =
-            "PII-Body-Text-ABCDEF-Dear-hiring-manager-I-am-writing-to-apply";
+    private static final String UNIQUE_BODY = "PII-Body-Text-ABCDEF-Dear-hiring-manager-I-am-writing-to-apply";
 
     /**
      * Fingerprintable recipient email. Must NEVER appear in any log event.
@@ -110,8 +108,7 @@ class ReadApiConstitutionVIIComplianceTest {
     /**
      * Fingerprintable subject. Must NEVER appear in any log event.
      */
-    private static final String UNIQUE_SUBJECT =
-            "CONFIDENTIAL-SUBJECT-XYZ-BackendEngineerPosition2026";
+    private static final String UNIQUE_SUBJECT = "CONFIDENTIAL-SUBJECT-XYZ-BackendEngineerPosition2026";
 
     /**
      * Fingerprintable attachment filename. Must NEVER appear in any log event.
@@ -127,7 +124,8 @@ class ReadApiConstitutionVIIComplianceTest {
      * Fingerprintable label color value. Must NEVER appear in any log event.
      */
     private static final String UNIQUE_COLOR_TEXT_HEX = "#ab12cd";
-    private static final String UNIQUE_COLOR_BG_HEX   = "#ef3456";
+
+    private static final String UNIQUE_COLOR_BG_HEX = "#ef3456";
 
     // -------------------------------------------------------------------------
     // Spring-managed beans
@@ -193,16 +191,19 @@ class ReadApiConstitutionVIIComplianceTest {
     private void assertNoPiiInLogs(String piiValue, String description) {
         List<ILoggingEvent> appEvents = rootAppender.list.stream()
                 .filter(e -> !e.getLoggerName().startsWith("org.springframework.")
-                          && !e.getLoggerName().startsWith("org.apache."))
+                        && !e.getLoggerName().startsWith("org.apache."))
                 .toList();
         long leakCount = appEvents.stream()
                 .filter(e -> e.getFormattedMessage().contains(piiValue))
                 .count();
         assertThat(leakCount)
-                .as("FR-032/FR-033/Constitution VII: %s ('%s') MUST NOT appear in any application " +
-                        "log event (found %d violating events at levels: %s). " +
-                        "Note: Spring framework DEBUG serialization logs are excluded from this check.",
-                        description, piiValue, leakCount,
+                .as(
+                        "FR-032/FR-033/Constitution VII: %s ('%s') MUST NOT appear in any application "
+                                + "log event (found %d violating events at levels: %s). "
+                                + "Note: Spring framework DEBUG serialization logs are excluded from this check.",
+                        description,
+                        piiValue,
+                        leakCount,
                         appEvents.stream()
                                 .filter(e -> e.getFormattedMessage().contains(piiValue))
                                 .map(e -> e.getLevel().toString() + "[" + e.getLoggerName() + "]")
@@ -225,12 +226,10 @@ class ReadApiConstitutionVIIComplianceTest {
             // Arrange: stub returns a thread with a fingerprintable snippet
             ThreadSummary summary = new ThreadSummary(VALID_THREAD_ID, UNIQUE_SNIPPET, "987654");
             ThreadListResult result = new ThreadListResult(List.of(summary), null, 1);
-            when(gmailService.listThreads(anyString(), any(), any(), anyInt()))
-                    .thenReturn(result);
+            when(gmailService.listThreads(anyString(), any(), any(), anyInt())).thenReturn(result);
 
             // Act
-            mockMvc.perform(get(THREADS_BASE))
-                    .andExpect(status().isOk());
+            mockMvc.perform(get(THREADS_BASE)).andExpect(status().isOk());
 
             // Assert: snippet content must not appear in any log event
             assertNoPiiInLogs(UNIQUE_SNIPPET, "thread snippet");
@@ -251,22 +250,19 @@ class ReadApiConstitutionVIIComplianceTest {
         void getThread_withPiiInMessages_bodyNeverAppearsInLogs() throws Exception {
             // Arrange: thread contains a message with fingerprintable body and recipient
             MessageDetailResult msg = new MessageDetailResult(
-                    VALID_MESSAGE_ID, VALID_THREAD_ID,
+                    VALID_MESSAGE_ID,
+                    VALID_THREAD_ID,
                     Map.of("From", UNIQUE_RECIPIENT, "Subject", UNIQUE_SUBJECT),
                     UNIQUE_SNIPPET,
                     UNIQUE_BODY,
                     "text",
                     List.of("INBOX"),
-                    List.of()
-            );
-            ThreadDetailResult threadResult = new ThreadDetailResult(
-                    VALID_THREAD_ID, List.of("INBOX"), List.of(msg));
-            when(gmailService.getThread(anyString(), anyString()))
-                    .thenReturn(threadResult);
+                    List.of());
+            ThreadDetailResult threadResult = new ThreadDetailResult(VALID_THREAD_ID, List.of("INBOX"), List.of(msg));
+            when(gmailService.getThread(anyString(), anyString())).thenReturn(threadResult);
 
             // Act
-            mockMvc.perform(get(THREADS_BASE + "/{threadId}", VALID_THREAD_ID))
-                    .andExpect(status().isOk());
+            mockMvc.perform(get(THREADS_BASE + "/{threadId}", VALID_THREAD_ID)).andExpect(status().isOk());
 
             // Assert
             assertNoPiiInLogs(UNIQUE_BODY, "message body in thread response");
@@ -290,15 +286,14 @@ class ReadApiConstitutionVIIComplianceTest {
         void getMessageDetail_full_bodyNeverAppearsInLogs() throws Exception {
             // Arrange
             MessageDetailResult result = new MessageDetailResult(
-                    VALID_MESSAGE_ID, VALID_THREAD_ID,
-                    Map.of("From", UNIQUE_RECIPIENT, "To", "other@example.com",
-                           "Subject", UNIQUE_SUBJECT),
+                    VALID_MESSAGE_ID,
+                    VALID_THREAD_ID,
+                    Map.of("From", UNIQUE_RECIPIENT, "To", "other@example.com", "Subject", UNIQUE_SUBJECT),
                     UNIQUE_SNIPPET,
                     UNIQUE_BODY,
                     "text",
                     List.of("INBOX"),
-                    List.of()
-            );
+                    List.of());
             when(gmailService.getMessageDetail(anyString(), anyString(), eq("full")))
                     .thenReturn(result);
 
@@ -319,14 +314,14 @@ class ReadApiConstitutionVIIComplianceTest {
         void getMessageDetail_metadata_headersNotLogged() throws Exception {
             // Arrange: metadata format — body is null
             MessageDetailResult result = new MessageDetailResult(
-                    VALID_MESSAGE_ID, VALID_THREAD_ID,
+                    VALID_MESSAGE_ID,
+                    VALID_THREAD_ID,
                     Map.of("From", UNIQUE_RECIPIENT, "Subject", UNIQUE_SUBJECT),
                     UNIQUE_SNIPPET,
                     null,
                     null,
                     List.of("INBOX"),
-                    List.of()
-            );
+                    List.of());
             when(gmailService.getMessageDetail(anyString(), anyString(), eq("metadata")))
                     .thenReturn(result);
 
@@ -355,15 +350,12 @@ class ReadApiConstitutionVIIComplianceTest {
         @DisplayName("listLabels_labelNameInResult_labelNameNeverAppearsInLogs")
         void listLabels_labelNameInResult_labelNameNeverAppearsInLogs() throws Exception {
             // Arrange: stub returns a label with a fingerprintable name
-            LabelSummary labelSummary = new LabelSummary(
-                    "Label_42", UNIQUE_LABEL_NAME, "user", "show", "labelShow");
+            LabelSummary labelSummary = new LabelSummary("Label_42", UNIQUE_LABEL_NAME, "user", "show", "labelShow");
             LabelListResult result = new LabelListResult(List.of(labelSummary), 1);
-            when(gmailService.listLabels(anyString()))
-                    .thenReturn(result);
+            when(gmailService.listLabels(anyString())).thenReturn(result);
 
             // Act
-            mockMvc.perform(get(LABELS_BASE))
-                    .andExpect(status().isOk());
+            mockMvc.perform(get(LABELS_BASE)).andExpect(status().isOk());
 
             // Assert: label name must not appear in any log event
             assertNoPiiInLogs(UNIQUE_LABEL_NAME, "label name in list response");
@@ -391,14 +383,14 @@ class ReadApiConstitutionVIIComplianceTest {
                     "labelShow",
                     UNIQUE_COLOR_TEXT_HEX,
                     UNIQUE_COLOR_BG_HEX,
-                    42, 5, 38, 4
-            );
-            when(gmailService.getLabel(anyString(), anyString()))
-                    .thenReturn(result);
+                    42,
+                    5,
+                    38,
+                    4);
+            when(gmailService.getLabel(anyString(), anyString())).thenReturn(result);
 
             // Act
-            mockMvc.perform(get(LABELS_BASE + "/{labelId}", VALID_LABEL_ID))
-                    .andExpect(status().isOk());
+            mockMvc.perform(get(LABELS_BASE + "/{labelId}", VALID_LABEL_ID)).andExpect(status().isOk());
 
             // Assert
             assertNoPiiInLogs(UNIQUE_LABEL_NAME, "label name in detail response");
@@ -420,11 +412,10 @@ class ReadApiConstitutionVIIComplianceTest {
         @DisplayName("listAttachments_filenameInResult_filenameNeverAppearsInLogs")
         void listAttachments_filenameInResult_filenameNeverAppearsInLogs() throws Exception {
             // Arrange: stub returns an attachment with a fingerprintable filename
-            MessageAttachmentMetadata meta = new MessageAttachmentMetadata(
-                    VALID_ATTACHMENT_ID, UNIQUE_FILENAME, "application/pdf", 245760L);
+            MessageAttachmentMetadata meta =
+                    new MessageAttachmentMetadata(VALID_ATTACHMENT_ID, UNIQUE_FILENAME, "application/pdf", 245760L);
             AttachmentListResult result = new AttachmentListResult(List.of(meta));
-            when(gmailService.listAttachments(anyString(), anyString()))
-                    .thenReturn(result);
+            when(gmailService.listAttachments(anyString(), anyString())).thenReturn(result);
 
             // Act
             mockMvc.perform(get(MESSAGES_BASE + "/{messageId}/attachments", VALID_MESSAGE_ID))
@@ -470,14 +461,16 @@ class ReadApiConstitutionVIIComplianceTest {
         @DisplayName("getAttachment_binaryData_binaryContentNeverAppearsInLogs")
         void getAttachment_binaryData_binaryContentNeverAppearsInLogs() throws Exception {
             // Arrange: mock returns a streaming body wrapping a small PDF header
-            byte[] fakePdfBytes = new byte[]{0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34};
+            byte[] fakePdfBytes = new byte[] {0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34};
             StreamingResponseBody streaming = outputStream -> outputStream.write(fakePdfBytes);
             when(gmailService.getAttachment(anyString(), anyString(), anyString()))
                     .thenReturn(streaming);
 
             // Act
-            mockMvc.perform(get(MESSAGES_BASE + "/{messageId}/attachments/{attachmentId}",
-                            VALID_MESSAGE_ID, VALID_ATTACHMENT_ID))
+            mockMvc.perform(get(
+                            MESSAGES_BASE + "/{messageId}/attachments/{attachmentId}",
+                            VALID_MESSAGE_ID,
+                            VALID_ATTACHMENT_ID))
                     .andExpect(status().isOk());
 
             // Assert: binary content prefix must not appear in any log event
@@ -515,8 +508,8 @@ class ReadApiConstitutionVIIComplianceTest {
         @DisplayName("listAttachments_withUniqueFilename_filenameAbsentFromAppLogs")
         void listAttachments_withUniqueFilename_filenameAbsentFromAppLogs() throws Exception {
             // Arrange
-            MessageAttachmentMetadata meta = new MessageAttachmentMetadata(
-                    VALID_ATTACHMENT_ID, UNIQUE_FILENAME, "application/pdf", 245760L);
+            MessageAttachmentMetadata meta =
+                    new MessageAttachmentMetadata(VALID_ATTACHMENT_ID, UNIQUE_FILENAME, "application/pdf", 245760L);
             when(gmailService.listAttachments(anyString(), anyString()))
                     .thenReturn(new AttachmentListResult(List.of(meta)));
 
@@ -538,8 +531,7 @@ class ReadApiConstitutionVIIComplianceTest {
                     .thenReturn(new ThreadListResult(List.of(summary), null, 1));
 
             // Act
-            mockMvc.perform(get(THREADS_BASE))
-                    .andExpect(status().isOk());
+            mockMvc.perform(get(THREADS_BASE)).andExpect(status().isOk());
 
             // Assert: snippet must not appear in any application log event
             assertNoPiiInLogs(UNIQUE_SNIPPET, "thread snippet");
@@ -551,16 +543,21 @@ class ReadApiConstitutionVIIComplianceTest {
         void getLabel_withUniqueName_nameAndColorsAbsentFromAppLogs() throws Exception {
             // Arrange
             LabelDetailResult result = new LabelDetailResult(
-                    VALID_LABEL_ID, UNIQUE_LABEL_NAME, "system", null, null,
-                    UNIQUE_COLOR_TEXT_HEX, UNIQUE_COLOR_BG_HEX,
-                    null, null, null, null
-            );
-            when(gmailService.getLabel(anyString(), anyString()))
-                    .thenReturn(result);
+                    VALID_LABEL_ID,
+                    UNIQUE_LABEL_NAME,
+                    "system",
+                    null,
+                    null,
+                    UNIQUE_COLOR_TEXT_HEX,
+                    UNIQUE_COLOR_BG_HEX,
+                    null,
+                    null,
+                    null,
+                    null);
+            when(gmailService.getLabel(anyString(), anyString())).thenReturn(result);
 
             // Act
-            mockMvc.perform(get(LABELS_BASE + "/{labelId}", VALID_LABEL_ID))
-                    .andExpect(status().isOk());
+            mockMvc.perform(get(LABELS_BASE + "/{labelId}", VALID_LABEL_ID)).andExpect(status().isOk());
 
             // Assert: label name and color hex values must not appear in application logs
             assertNoPiiInLogs(UNIQUE_LABEL_NAME, "label name");

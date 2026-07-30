@@ -44,7 +44,8 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface GmailAttachmentId {
 
-    String message() default "must be a valid Gmail attachment ID (alphanumeric, hyphen, underscore; max 1024 characters)";
+    String message() default
+            "must be a valid Gmail attachment ID (alphanumeric, hyphen, underscore; max 1024 characters)";
 
     Class<?>[] groups() default {};
 

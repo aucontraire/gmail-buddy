@@ -133,8 +133,8 @@ public final class SecurityLogUtil {
         String status = success ? "SUCCESS" : "FAILURE";
         String maskedToken = maskToken(token);
 
-        return String.format("Authentication [%s] for user [%s] with token [%s] - %s",
-                authType, userId, maskedToken, status);
+        return String.format(
+                "Authentication [%s] for user [%s] with token [%s] - %s", authType, userId, maskedToken, status);
     }
 
     /**
@@ -166,11 +166,20 @@ public final class SecurityLogUtil {
 
         // List of sensitive parameter names
         String[] sensitiveNames = {
-            "token", "access_token", "refresh_token", "id_token",
-            "password", "passwd", "pwd",
-            "secret", "client_secret",
-            "key", "api_key", "apikey",
-            "authorization", "auth"
+            "token",
+            "access_token",
+            "refresh_token",
+            "id_token",
+            "password",
+            "passwd",
+            "pwd",
+            "secret",
+            "client_secret",
+            "key",
+            "api_key",
+            "apikey",
+            "authorization",
+            "auth"
         };
 
         for (String sensitiveName : sensitiveNames) {

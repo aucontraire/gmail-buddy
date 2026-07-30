@@ -1,5 +1,12 @@
 package com.aucontraire.gmailbuddy.repository;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
@@ -12,13 +19,16 @@ import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.service.GmailQueryBuilder;
 import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
-import com.google.api.client.googleapis.json.GoogleJsonError;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.Message;
 import com.google.api.services.gmail.model.MessagePart;
 import com.google.api.services.gmail.model.MessagePartHeader;
+import java.io.IOException;
+import java.net.SocketTimeoutException;
+import java.security.GeneralSecurityException;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,18 +37,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.io.IOException;
-import java.net.SocketTimeoutException;
-import java.security.GeneralSecurityException;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link GmailRepositoryImpl#getMessageHeaders(String, String)}.
@@ -61,28 +59,46 @@ class GmailRepositoryImplThreadingTest {
     // Test constants
     // -------------------------------------------------------------------------
 
-    private static final String TEST_USER_ID      = "me";
+    private static final String TEST_USER_ID = "me";
     private static final String TEST_ACCESS_TOKEN = "test-access-token-threading-abc";
-    private static final String TEST_MESSAGE_ID   = "1a2b3c4d5e6f7a8b";
-    private static final String TEST_THREAD_ID    = "thread-1a2b3c4d5e6f7a8b";
-    private static final String TEST_RFC_MSG_ID   = "<CABc123xyz@mail.gmail.com>";
+    private static final String TEST_MESSAGE_ID = "1a2b3c4d5e6f7a8b";
+    private static final String TEST_THREAD_ID = "thread-1a2b3c4d5e6f7a8b";
+    private static final String TEST_RFC_MSG_ID = "<CABc123xyz@mail.gmail.com>";
 
     // -------------------------------------------------------------------------
     // Mocks for Gmail API dependency chain
     // -------------------------------------------------------------------------
 
-    @Mock private GmailClient gmailClient;
-    @Mock private GmailBatchClient gmailBatchClient;
-    @Mock private TokenProvider tokenProvider;
-    @Mock private GmailBuddyProperties properties;
-    @Mock private GmailMessageMapper gmailMessageMapper;
-    @Mock private GmailQueryBuilder gmailQueryBuilder;
+    @Mock
+    private GmailClient gmailClient;
+
+    @Mock
+    private GmailBatchClient gmailBatchClient;
+
+    @Mock
+    private TokenProvider tokenProvider;
+
+    @Mock
+    private GmailBuddyProperties properties;
+
+    @Mock
+    private GmailMessageMapper gmailMessageMapper;
+
+    @Mock
+    private GmailQueryBuilder gmailQueryBuilder;
 
     // Gmail API call chain: Gmail → Users → Messages → Get
-    @Mock private Gmail gmail;
-    @Mock private Gmail.Users users;
-    @Mock private Gmail.Users.Messages messages;
-    @Mock private Gmail.Users.Messages.Get messagesGet;
+    @Mock
+    private Gmail gmail;
+
+    @Mock
+    private Gmail.Users users;
+
+    @Mock
+    private Gmail.Users.Messages messages;
+
+    @Mock
+    private Gmail.Users.Messages.Get messagesGet;
 
     private GmailRepositoryImpl repository;
 
@@ -157,8 +173,7 @@ class GmailRepositoryImplThreadingTest {
 
     @Test
     @DisplayName("getMessageHeaders_validMessageWithMessageIdHeader_returnsLookupWithCorrectFields")
-    void getMessageHeaders_validMessageWithMessageIdHeader_returnsLookupWithCorrectFields()
-            throws Exception {
+    void getMessageHeaders_validMessageWithMessageIdHeader_returnsLookupWithCorrectFields() throws Exception {
         // Arrange
         Message gmailResponse = buildValidMessage("Message-ID", TEST_RFC_MSG_ID);
         givenGmailMessageGetChainReturns(gmailResponse);
@@ -194,8 +209,7 @@ class GmailRepositoryImplThreadingTest {
 
     @Test
     @DisplayName("getMessageHeaders_gmail404Response_throwsOriginalMessageNotFoundException")
-    void getMessageHeaders_gmail404Response_throwsOriginalMessageNotFoundException()
-            throws Exception {
+    void getMessageHeaders_gmail404Response_throwsOriginalMessageNotFoundException() throws Exception {
         // Arrange: build the exception FIRST (before any when() call in this test)
         // to avoid Mockito UnfinishedStubbing from mock() calls inside when()
         GoogleJsonResponseException e404 = buildGoogleJsonException(404);
@@ -256,8 +270,7 @@ class GmailRepositoryImplThreadingTest {
 
     @Test
     @DisplayName("getMessageHeaders_gmail429Response_throwsRateLimitExceptionWithNonZeroRetryAfterSeconds")
-    void getMessageHeaders_gmail429Response_throwsRateLimitExceptionWithNonZeroRetryAfterSeconds()
-            throws Exception {
+    void getMessageHeaders_gmail429Response_throwsRateLimitExceptionWithNonZeroRetryAfterSeconds() throws Exception {
         // Arrange: Gmail returns 429 with Retry-After: 30 header.
         // Build exception first, then set up the mock chain.
         GoogleJsonResponseException e429 = buildGoogleJsonException(429, "30");
@@ -296,8 +309,7 @@ class GmailRepositoryImplThreadingTest {
 
     @Test
     @DisplayName("getMessageHeaders_socketTimeoutExceptionFromTransport_throwsServiceUnavailableException")
-    void getMessageHeaders_socketTimeoutExceptionFromTransport_throwsServiceUnavailableException()
-            throws Exception {
+    void getMessageHeaders_socketTimeoutExceptionFromTransport_throwsServiceUnavailableException() throws Exception {
         // Arrange: transport-level socket timeout — network did not respond in time
         givenGmailMessageGetChainThrows(new SocketTimeoutException("Connection timed out"));
 
@@ -313,8 +325,8 @@ class GmailRepositoryImplThreadingTest {
     @ParameterizedTest
     @ValueSource(strings = {"Message-ID", "message-id", "MESSAGE-ID", "Message-Id", "mEsSaGe-Id"})
     @DisplayName("getMessageHeaders_caseInsensitiveMessageIdHeaderName_returnsCorrectRfcMessageId")
-    void getMessageHeaders_caseInsensitiveMessageIdHeaderName_returnsCorrectRfcMessageId(
-            String headerName) throws Exception {
+    void getMessageHeaders_caseInsensitiveMessageIdHeaderName_returnsCorrectRfcMessageId(String headerName)
+            throws Exception {
         // Arrange: Gmail may return the Message-ID header with any capitalisation
         Message gmailResponse = buildValidMessage(headerName, TEST_RFC_MSG_ID);
         givenGmailMessageGetChainReturns(gmailResponse);
@@ -346,7 +358,7 @@ class GmailRepositoryImplThreadingTest {
         Message gmailResponse = new Message();
         gmailResponse.setId(TEST_MESSAGE_ID);
         gmailResponse.setThreadId(TEST_THREAD_ID);
-        gmailResponse.setPayload(null);  // null payload — the guard under test
+        gmailResponse.setPayload(null); // null payload — the guard under test
         givenGmailMessageGetChainReturns(gmailResponse);
 
         // Act & Assert: must throw OriginalMessageNotFoundException, not NPE
@@ -373,7 +385,7 @@ class GmailRepositoryImplThreadingTest {
         unrelatedHeader.setValue("some-value");
 
         MessagePart payload = new MessagePart();
-        payload.setHeaders(List.of(unrelatedHeader));  // no Message-ID header
+        payload.setHeaders(List.of(unrelatedHeader)); // no Message-ID header
 
         Message gmailResponse = new Message();
         gmailResponse.setId(TEST_MESSAGE_ID);
@@ -393,11 +405,10 @@ class GmailRepositoryImplThreadingTest {
 
     @Test
     @DisplayName("getMessageHeaders_payloadWithEmptyHeadersList_throwsOriginalMessageNotFoundException")
-    void getMessageHeaders_payloadWithEmptyHeadersList_throwsOriginalMessageNotFoundException()
-            throws Exception {
+    void getMessageHeaders_payloadWithEmptyHeadersList_throwsOriginalMessageNotFoundException() throws Exception {
         // Arrange: payload exists but headers list is empty
         MessagePart payload = new MessagePart();
-        payload.setHeaders(List.of());  // empty headers list
+        payload.setHeaders(List.of()); // empty headers list
 
         Message gmailResponse = new Message();
         gmailResponse.setId(TEST_MESSAGE_ID);
@@ -417,8 +428,7 @@ class GmailRepositoryImplThreadingTest {
 
     @Test
     @DisplayName("getMessageHeaders_generalSecurityExceptionFromServiceCreation_wrapsToIOException")
-    void getMessageHeaders_generalSecurityExceptionFromServiceCreation_wrapsToIOException()
-            throws Exception {
+    void getMessageHeaders_generalSecurityExceptionFromServiceCreation_wrapsToIOException() throws Exception {
         // Arrange: key store failure when creating the Gmail service
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN))

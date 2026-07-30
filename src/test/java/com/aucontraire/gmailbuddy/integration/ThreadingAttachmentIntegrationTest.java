@@ -1,9 +1,18 @@
 package com.aucontraire.gmailbuddy.integration;
 
-import com.aucontraire.gmailbuddy.dto.Attachment;
-import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
-import com.aucontraire.gmailbuddy.fixture.AttachmentFixtures;
-import com.aucontraire.gmailbuddy.fixture.SendMessageRequestFixtures;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
@@ -11,6 +20,8 @@ import com.aucontraire.gmailbuddy.service.SentMessageResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -24,22 +35,6 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Integration tests for User Story 3 — Threaded reply with attachments (Phase 5).
@@ -81,10 +76,10 @@ class ThreadingAttachmentIntegrationTest {
 
     private static final String MESSAGES_ENDPOINT = "/api/v1/gmail/messages";
 
-    private static final String MESSAGE_ID          = "19a2b3c4d5e6f7g8";
-    private static final String THREAD_ID           = "2a3b4c5d6e7f8a9b";
-    private static final String ORIGINAL_MSG_ID     = "1a2b3c4d5e6f7a8b";
-    private static final String RFC_MESSAGE_ID      = "<CABc123xyz@mail.gmail.com>";
+    private static final String MESSAGE_ID = "19a2b3c4d5e6f7g8";
+    private static final String THREAD_ID = "2a3b4c5d6e7f8a9b";
+    private static final String ORIGINAL_MSG_ID = "1a2b3c4d5e6f7a8b";
+    private static final String RFC_MESSAGE_ID = "<CABc123xyz@mail.gmail.com>";
 
     /**
      * Small but valid PDF base64 payload: {@code %PDF-1.4\n}.
@@ -126,19 +121,21 @@ class ThreadingAttachmentIntegrationTest {
 
     private String threadedWithAttachmentBody() throws Exception {
         Map<String, Object> body = Map.of(
-                "to",                   List.of("recruiter@example.com"),
-                "subject",              "Re: Your inquiry",
-                "body",                 "Please find my resume attached.",
-                "bodyType",             "text",
-                "inReplyToMessageId",   ORIGINAL_MSG_ID,
-                "attachments",          List.of(
-                        Map.of(
-                                "filename",   "resume.pdf",
-                                "mimeType",   "application/pdf",
-                                "base64Data", VALID_PDF_BASE64
-                        )
-                )
-        );
+                "to",
+                List.of("recruiter@example.com"),
+                "subject",
+                "Re: Your inquiry",
+                "body",
+                "Please find my resume attached.",
+                "bodyType",
+                "text",
+                "inReplyToMessageId",
+                ORIGINAL_MSG_ID,
+                "attachments",
+                List.of(Map.of(
+                        "filename", "resume.pdf",
+                        "mimeType", "application/pdf",
+                        "base64Data", VALID_PDF_BASE64)));
         return objectMapper.writeValueAsString(body);
     }
 
@@ -148,11 +145,10 @@ class ThreadingAttachmentIntegrationTest {
      */
     private String baselineV020Body() throws Exception {
         Map<String, Object> body = Map.of(
-                "to",      List.of("recruiter@example.com"),
+                "to", List.of("recruiter@example.com"),
                 "subject", "Hello",
-                "body",    "Reaching out.",
-                "bodyType", "text"
-        );
+                "body", "Reaching out.",
+                "bodyType", "text");
         return objectMapper.writeValueAsString(body);
     }
 
@@ -183,8 +179,7 @@ class ThreadingAttachmentIntegrationTest {
         @DisplayName("postMessages_threadedWithAttachment_returns201")
         void postMessages_threadedWithAttachment_returns201() throws Exception {
             // Arrange: mock getMessageHeaders to return a valid lookup
-            OriginalMessageLookup lookup = new OriginalMessageLookup(
-                    ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
+            OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
             when(gmailRepository.getMessageHeaders(anyString(), eq(ORIGINAL_MSG_ID)))
                     .thenReturn(lookup);
 
@@ -204,8 +199,7 @@ class ThreadingAttachmentIntegrationTest {
         @DisplayName("postMessages_threadedWithAttachment_getMessageHeadersCalledOnce")
         void postMessages_threadedWithAttachment_getMessageHeadersCalledOnce() throws Exception {
             // Arrange
-            OriginalMessageLookup lookup = new OriginalMessageLookup(
-                    ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
+            OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
             when(gmailRepository.getMessageHeaders(anyString(), eq(ORIGINAL_MSG_ID)))
                     .thenReturn(lookup);
             when(gmailRepository.sendMessage(anyString(), any(MimeMessage.class), anyString()))
@@ -224,11 +218,9 @@ class ThreadingAttachmentIntegrationTest {
         @Test
         @WithMockUser
         @DisplayName("postMessages_threadedWithAttachment_sendMessageCalledWith3ArgAndNonNullThreadId")
-        void postMessages_threadedWithAttachment_sendMessageCalledWith3ArgAndNonNullThreadId()
-                throws Exception {
+        void postMessages_threadedWithAttachment_sendMessageCalledWith3ArgAndNonNullThreadId() throws Exception {
             // Arrange
-            OriginalMessageLookup lookup = new OriginalMessageLookup(
-                    ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
+            OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
             when(gmailRepository.getMessageHeaders(anyString(), eq(ORIGINAL_MSG_ID)))
                     .thenReturn(lookup);
 
@@ -252,8 +244,7 @@ class ThreadingAttachmentIntegrationTest {
         @DisplayName("postMessages_threadedWithAttachment_quotaHeaderIs105")
         void postMessages_threadedWithAttachment_quotaHeaderIs105() throws Exception {
             // Arrange
-            OriginalMessageLookup lookup = new OriginalMessageLookup(
-                    ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
+            OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
             when(gmailRepository.getMessageHeaders(anyString(), eq(ORIGINAL_MSG_ID)))
                     .thenReturn(lookup);
             when(gmailRepository.sendMessage(anyString(), any(MimeMessage.class), anyString()))
@@ -272,8 +263,7 @@ class ThreadingAttachmentIntegrationTest {
         @DisplayName("postMessages_threadedWithAttachment_capturedMimeHasInReplyToHeader")
         void postMessages_threadedWithAttachment_capturedMimeHasInReplyToHeader() throws Exception {
             // Arrange
-            OriginalMessageLookup lookup = new OriginalMessageLookup(
-                    ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
+            OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
             when(gmailRepository.getMessageHeaders(anyString(), eq(ORIGINAL_MSG_ID)))
                     .thenReturn(lookup);
 
@@ -299,8 +289,7 @@ class ThreadingAttachmentIntegrationTest {
         @DisplayName("postMessages_threadedWithAttachment_capturedMimeHasReferencesHeader")
         void postMessages_threadedWithAttachment_capturedMimeHasReferencesHeader() throws Exception {
             // Arrange
-            OriginalMessageLookup lookup = new OriginalMessageLookup(
-                    ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
+            OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
             when(gmailRepository.getMessageHeaders(anyString(), eq(ORIGINAL_MSG_ID)))
                     .thenReturn(lookup);
 
@@ -324,11 +313,9 @@ class ThreadingAttachmentIntegrationTest {
         @Test
         @WithMockUser
         @DisplayName("postMessages_threadedWithAttachment_capturedMimeContentIsMultipartMixed")
-        void postMessages_threadedWithAttachment_capturedMimeContentIsMultipartMixed()
-                throws Exception {
+        void postMessages_threadedWithAttachment_capturedMimeContentIsMultipartMixed() throws Exception {
             // Arrange
-            OriginalMessageLookup lookup = new OriginalMessageLookup(
-                    ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
+            OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
             when(gmailRepository.getMessageHeaders(anyString(), eq(ORIGINAL_MSG_ID)))
                     .thenReturn(lookup);
 
@@ -354,8 +341,7 @@ class ThreadingAttachmentIntegrationTest {
         @DisplayName("postMessages_threadedWithAttachment_capturedMultipartHas2Parts")
         void postMessages_threadedWithAttachment_capturedMultipartHas2Parts() throws Exception {
             // Arrange
-            OriginalMessageLookup lookup = new OriginalMessageLookup(
-                    ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
+            OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
             when(gmailRepository.getMessageHeaders(anyString(), eq(ORIGINAL_MSG_ID)))
                     .thenReturn(lookup);
 
@@ -378,11 +364,9 @@ class ThreadingAttachmentIntegrationTest {
         @Test
         @WithMockUser
         @DisplayName("postMessages_threadedWithAttachment_attachmentPartHasCorrectFilenameAndMimeType")
-        void postMessages_threadedWithAttachment_attachmentPartHasCorrectFilenameAndMimeType()
-                throws Exception {
+        void postMessages_threadedWithAttachment_attachmentPartHasCorrectFilenameAndMimeType() throws Exception {
             // Arrange
-            OriginalMessageLookup lookup = new OriginalMessageLookup(
-                    ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
+            OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MESSAGE_ID);
             when(gmailRepository.getMessageHeaders(anyString(), eq(ORIGINAL_MSG_ID)))
                     .thenReturn(lookup);
 

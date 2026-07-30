@@ -42,8 +42,6 @@ public class CrlfSanitizingMessageConverter extends MessageConverter {
         if (message == null) {
             return null;
         }
-        return message
-                .replace("\r", "\\r")
-                .replace("\n", "\\n");
+        return message.replace("\r", "\\r").replace("\n", "\\n");
     }
 }

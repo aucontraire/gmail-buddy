@@ -1,10 +1,10 @@
 package com.aucontraire.gmailbuddy.exception;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link MessageTooLargeException}.
@@ -88,20 +88,16 @@ class MessageTooLargeExceptionTest {
     @DisplayName("getHttpStatus returns 413 Payload Too Large for all constructor variants")
     void getHttpStatus_Always_Returns413PayloadTooLarge() {
         // Arrange
-        MessageTooLargeException fromMessage =
-                new MessageTooLargeException("message too large");
+        MessageTooLargeException fromMessage = new MessageTooLargeException("message too large");
         MessageTooLargeException fromMessageAndCause =
                 new MessageTooLargeException("message too large", new Exception("api error"));
         MessageTooLargeException fromMessageAndCorrelation =
                 new MessageTooLargeException("message too large", "corr-id-413");
 
         // Act & Assert: all three constructors must resolve to 413, not 400.
-        assertThat(fromMessage.getHttpStatus())
-                .isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
-        assertThat(fromMessageAndCause.getHttpStatus())
-                .isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
-        assertThat(fromMessageAndCorrelation.getHttpStatus())
-                .isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
+        assertThat(fromMessage.getHttpStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
+        assertThat(fromMessageAndCause.getHttpStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
+        assertThat(fromMessageAndCorrelation.getHttpStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE.value());
     }
 
     // ---------------------------------------------------------------
@@ -130,8 +126,7 @@ class MessageTooLargeExceptionTest {
     @DisplayName("MessageTooLargeException extends GmailBuddyClientException, not ValidationException")
     void classHierarchy_ExtendsClientExceptionNotValidationException() {
         // Arrange
-        MessageTooLargeException exception =
-                new MessageTooLargeException("message too large");
+        MessageTooLargeException exception = new MessageTooLargeException("message too large");
 
         // Assert: extends the client base, not ValidationException, so that
         // GlobalExceptionHandler.handleValidationException does NOT catch it,

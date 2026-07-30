@@ -1,5 +1,13 @@
 package com.aucontraire.gmailbuddy.repository;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
@@ -21,6 +29,9 @@ import jakarta.mail.Session;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeUtility;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.util.Properties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,18 +39,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.util.Properties;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link GmailRepositoryImpl#createDraft(String, MimeMessage)}.
@@ -58,28 +57,46 @@ class GmailRepositoryImplCreateDraftTest {
     // Standard test constants
     // -------------------------------------------------------------------------
 
-    private static final String TEST_USER_ID     = "me";
+    private static final String TEST_USER_ID = "me";
     private static final String TEST_ACCESS_TOKEN = "test-access-token-abc";
-    private static final String TEST_DRAFT_ID    = "r-9876543210";
-    private static final String TEST_MESSAGE_ID  = "19a2b3c4d5e6f7g8";
-    private static final String TEST_THREAD_ID   = "19a2b3c4d5e6f7g8";
+    private static final String TEST_DRAFT_ID = "r-9876543210";
+    private static final String TEST_MESSAGE_ID = "19a2b3c4d5e6f7g8";
+    private static final String TEST_THREAD_ID = "19a2b3c4d5e6f7g8";
 
     // -------------------------------------------------------------------------
     // Mocks for the full Gmail service dependency chain
     // -------------------------------------------------------------------------
 
-    @Mock private GmailClient gmailClient;
-    @Mock private GmailBatchClient gmailBatchClient;
-    @Mock private TokenProvider tokenProvider;
-    @Mock private GmailBuddyProperties properties;
-    @Mock private GmailMessageMapper gmailMessageMapper;
-    @Mock private GmailQueryBuilder gmailQueryBuilder;
+    @Mock
+    private GmailClient gmailClient;
+
+    @Mock
+    private GmailBatchClient gmailBatchClient;
+
+    @Mock
+    private TokenProvider tokenProvider;
+
+    @Mock
+    private GmailBuddyProperties properties;
+
+    @Mock
+    private GmailMessageMapper gmailMessageMapper;
+
+    @Mock
+    private GmailQueryBuilder gmailQueryBuilder;
 
     // Gmail API call chain
-    @Mock private Gmail gmail;
-    @Mock private Gmail.Users users;
-    @Mock private Gmail.Users.Drafts drafts;
-    @Mock private Gmail.Users.Drafts.Create draftsCreate;
+    @Mock
+    private Gmail gmail;
+
+    @Mock
+    private Gmail.Users users;
+
+    @Mock
+    private Gmail.Users.Drafts drafts;
+
+    @Mock
+    private Gmail.Users.Drafts.Create draftsCreate;
 
     private GmailRepositoryImpl repository;
 
@@ -97,9 +114,7 @@ class GmailRepositoryImplCreateDraftTest {
         Session session = Session.getInstance(new Properties());
         MimeMessage mimeMessage = new MimeMessage(session);
         mimeMessage.setFrom(new InternetAddress("sender@example.com"));
-        mimeMessage.addRecipient(
-                MimeMessage.RecipientType.TO,
-                new InternetAddress("recruiter@example.com"));
+        mimeMessage.addRecipient(MimeMessage.RecipientType.TO, new InternetAddress("recruiter@example.com"));
         mimeMessage.setSubject("Software Engineer – Application Follow-up");
         mimeMessage.setText("Hi there, I wanted to follow up.");
         mimeMessage.saveChanges();
@@ -154,8 +169,7 @@ class GmailRepositoryImplCreateDraftTest {
 
         givenGmailDraftChainReturns(createdDraft);
 
-        DraftCreationResult expectedResult =
-                new DraftCreationResult(TEST_DRAFT_ID, TEST_MESSAGE_ID, TEST_THREAD_ID);
+        DraftCreationResult expectedResult = new DraftCreationResult(TEST_DRAFT_ID, TEST_MESSAGE_ID, TEST_THREAD_ID);
         when(gmailMessageMapper.toDraftCreationResult(createdDraft)).thenReturn(expectedResult);
 
         // Act
@@ -171,8 +185,7 @@ class GmailRepositoryImplCreateDraftTest {
 
     @Test
     @DisplayName("createDraft_validMimeMessage_base64UrlEncodedPayloadReconstitutesToCorrectMimeHeaders")
-    void createDraft_validMimeMessage_base64UrlEncodedPayloadReconstitutesToCorrectMimeHeaders()
-            throws Exception {
+    void createDraft_validMimeMessage_base64UrlEncodedPayloadReconstitutesToCorrectMimeHeaders() throws Exception {
         // Arrange: capture the Draft argument passed to drafts.create(…) so we can
         // inspect the base64url-encoded raw payload and decode it back to a MimeMessage.
         MimeMessage originalMimeMessage = buildTestMimeMessage();
@@ -219,12 +232,10 @@ class GmailRepositoryImplCreateDraftTest {
 
     @Test
     @DisplayName("createDraft_dailySendLimitExceededError_throwsRateLimitExceptionWithRetryAfter86400")
-    void createDraft_dailySendLimitExceededError_throwsRateLimitExceptionWithRetryAfter86400()
-            throws Exception {
+    void createDraft_dailySendLimitExceededError_throwsRateLimitExceptionWithRetryAfter86400() throws Exception {
         // Arrange
         MimeMessage mimeMessage = buildTestMimeMessage();
-        GoogleJsonResponseException gmailError =
-                buildGoogleJsonException(403, "dailySendLimitExceeded");
+        GoogleJsonResponseException gmailError = buildGoogleJsonException(403, "dailySendLimitExceeded");
 
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
@@ -251,8 +262,7 @@ class GmailRepositoryImplCreateDraftTest {
     void createDraft_invalidArgumentError_throwsInvalidRecipientException() throws Exception {
         // Arrange
         MimeMessage mimeMessage = buildTestMimeMessage();
-        GoogleJsonResponseException gmailError =
-                buildGoogleJsonException(400, "invalidArgument");
+        GoogleJsonResponseException gmailError = buildGoogleJsonException(400, "invalidArgument");
 
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
@@ -276,8 +286,7 @@ class GmailRepositoryImplCreateDraftTest {
     void createDraft_messageTooLargeError_throwsMessageTooLargeException() throws Exception {
         // Arrange: Gmail rejects the MIME payload as too large.
         MimeMessage mimeMessage = buildTestMimeMessage();
-        GoogleJsonResponseException gmailError =
-                buildGoogleJsonException(413, "messageTooLarge");
+        GoogleJsonResponseException gmailError = buildGoogleJsonException(413, "messageTooLarge");
 
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
@@ -299,8 +308,7 @@ class GmailRepositoryImplCreateDraftTest {
 
     @Test
     @DisplayName("createDraft_generalSecurityExceptionFromServiceCreation_wrapsToIOException")
-    void createDraft_generalSecurityExceptionFromServiceCreation_wrapsToIOException()
-            throws Exception {
+    void createDraft_generalSecurityExceptionFromServiceCreation_wrapsToIOException() throws Exception {
         // Arrange: gmailClient.createGmailService throws GeneralSecurityException —
         // the repository must wrap it in an IOException per the interface contract.
         MimeMessage mimeMessage = buildTestMimeMessage();
@@ -317,8 +325,7 @@ class GmailRepositoryImplCreateDraftTest {
 
     @Test
     @DisplayName("createDraft_withThreadId_generalSecurityException_wrapsToIOException (line 544-545 coverage)")
-    void createDraft_withThreadId_generalSecurityExceptionFromServiceCreation_wrapsToIOException()
-            throws Exception {
+    void createDraft_withThreadId_generalSecurityExceptionFromServiceCreation_wrapsToIOException() throws Exception {
         // Arrange: GeneralSecurityException thrown when creating Gmail service with threaded overload
         // This covers lines 544-545 in GmailRepositoryImpl.createDraft(String, MimeMessage, String)
         MimeMessage mimeMessage = buildTestMimeMessage();

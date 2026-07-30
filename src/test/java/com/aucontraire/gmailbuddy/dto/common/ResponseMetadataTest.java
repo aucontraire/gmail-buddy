@@ -1,16 +1,14 @@
 package com.aucontraire.gmailbuddy.dto.common;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.time.Instant;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @DisplayName("ResponseMetadata Tests")
 class ResponseMetadataTest {
@@ -31,18 +29,14 @@ class ResponseMetadataTest {
         Instant after = Instant.now();
 
         assertNotNull(metadata.getTimestamp());
-        assertThat(metadata.getTimestamp())
-            .isAfterOrEqualTo(before)
-            .isBeforeOrEqualTo(after);
+        assertThat(metadata.getTimestamp()).isAfterOrEqualTo(before).isBeforeOrEqualTo(after);
     }
 
     @Test
     @DisplayName("Builder creates metadata with all fields")
     void testBuilderWithAllFields() {
-        ResponseMetadata metadata = ResponseMetadata.builder()
-            .durationMs(150L)
-            .quotaUsed(50)
-            .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(150L).quotaUsed(50).build();
 
         assertThat(metadata.getTimestamp()).isNotNull();
         assertThat(metadata.getDurationMs()).isEqualTo(150L);
@@ -52,9 +46,7 @@ class ResponseMetadataTest {
     @Test
     @DisplayName("Builder creates metadata with only duration")
     void testBuilderWithOnlyDuration() {
-        ResponseMetadata metadata = ResponseMetadata.builder()
-            .durationMs(200L)
-            .build();
+        ResponseMetadata metadata = ResponseMetadata.builder().durationMs(200L).build();
 
         assertThat(metadata.getDurationMs()).isEqualTo(200L);
         assertThat(metadata.getQuotaUsed()).isNull();
@@ -63,9 +55,7 @@ class ResponseMetadataTest {
     @Test
     @DisplayName("Builder creates metadata with only quota")
     void testBuilderWithOnlyQuota() {
-        ResponseMetadata metadata = ResponseMetadata.builder()
-            .quotaUsed(100)
-            .build();
+        ResponseMetadata metadata = ResponseMetadata.builder().quotaUsed(100).build();
 
         assertThat(metadata.getQuotaUsed()).isEqualTo(100);
         assertThat(metadata.getDurationMs()).isNull();
@@ -84,10 +74,8 @@ class ResponseMetadataTest {
     @Test
     @DisplayName("JSON serialization includes all non-null fields")
     void testJsonSerializationWithAllFields() throws Exception {
-        ResponseMetadata metadata = ResponseMetadata.builder()
-            .durationMs(150L)
-            .quotaUsed(50)
-            .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(150L).quotaUsed(50).build();
 
         String json = objectMapper.writeValueAsString(metadata);
 
@@ -99,21 +87,20 @@ class ResponseMetadataTest {
     @Test
     @DisplayName("JSON serialization excludes null fields")
     void testJsonSerializationExcludesNullFields() throws Exception {
-        ResponseMetadata metadata = ResponseMetadata.builder()
-            .durationMs(150L)
-            .build();
+        ResponseMetadata metadata = ResponseMetadata.builder().durationMs(150L).build();
 
         String json = objectMapper.writeValueAsString(metadata);
 
         assertThat(json).contains("\"timestamp\":");
         assertThat(json).contains("\"durationMs\":150");
-        assertThat(json).doesNotContain("quotaUsed");  // Should be omitted
+        assertThat(json).doesNotContain("quotaUsed"); // Should be omitted
     }
 
     @Test
     @DisplayName("JSON deserialization recreates object correctly")
     void testJsonDeserialization() throws Exception {
-        String json = """
+        String json =
+                """
             {
                 "timestamp": "2025-10-12T10:30:00.000Z",
                 "durationMs": 156,
@@ -131,10 +118,8 @@ class ResponseMetadataTest {
     @Test
     @DisplayName("toString contains all fields")
     void testToString() {
-        ResponseMetadata metadata = ResponseMetadata.builder()
-            .durationMs(150L)
-            .quotaUsed(50)
-            .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(150L).quotaUsed(50).build();
 
         String toString = metadata.toString();
 
@@ -160,10 +145,8 @@ class ResponseMetadataTest {
     @Test
     @DisplayName("Zero values are serialized")
     void testZeroValues() throws Exception {
-        ResponseMetadata metadata = ResponseMetadata.builder()
-            .durationMs(0L)
-            .quotaUsed(0)
-            .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(0L).quotaUsed(0).build();
 
         String json = objectMapper.writeValueAsString(metadata);
 
@@ -174,10 +157,8 @@ class ResponseMetadataTest {
     @Test
     @DisplayName("Negative values are allowed (for edge case testing)")
     void testNegativeValues() {
-        ResponseMetadata metadata = ResponseMetadata.builder()
-            .durationMs(-1L)
-            .quotaUsed(-1)
-            .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(-1L).quotaUsed(-1).build();
 
         assertThat(metadata.getDurationMs()).isEqualTo(-1L);
         assertThat(metadata.getQuotaUsed()).isEqualTo(-1);

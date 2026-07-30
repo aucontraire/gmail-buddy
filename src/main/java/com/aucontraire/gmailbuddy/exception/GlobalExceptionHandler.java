@@ -5,6 +5,8 @@ import com.aucontraire.gmailbuddy.dto.error.ProblemDetail;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import java.util.HashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -19,9 +21,6 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Global exception handler for the Gmail Buddy application.
@@ -117,8 +116,13 @@ public class GlobalExceptionHandler {
                 .category("SERVER_ERROR")
                 .build();
 
-        logger.error("Gmail API error [{}]: {} (correlation: {}, retryable: {})",
-                ex.getErrorCode(), ex.getMessage(), requestId, ex.isRetryable(), ex);
+        logger.error(
+                "Gmail API error [{}]: {} (correlation: {}, retryable: {})",
+                ex.getErrorCode(),
+                ex.getMessage(),
+                requestId,
+                ex.isRetryable(),
+                ex);
 
         return buildProblemResponse(problem, status);
     }
@@ -127,9 +131,7 @@ public class GlobalExceptionHandler {
      * Handles AuthenticationException (OAuth2 failures, invalid tokens).
      * Maps to RFC 7807 ProblemDetail with 401 Unauthorized status.
      */
-    @ExceptionHandler({
-            com.aucontraire.gmailbuddy.exception.AuthenticationException.class,
-            AuthenticationException.class
+    @ExceptionHandler({com.aucontraire.gmailbuddy.exception.AuthenticationException.class, AuthenticationException.class
     })
     public ResponseEntity<ProblemDetail> handleAuthenticationException(Exception ex) {
         String requestId = getRequestId();
@@ -157,10 +159,7 @@ public class GlobalExceptionHandler {
      * Handles AuthorizationException and AccessDeniedException (permission failures).
      * Maps to RFC 7807 ProblemDetail with 403 Forbidden status.
      */
-    @ExceptionHandler({
-            AuthorizationException.class,
-            AccessDeniedException.class
-    })
+    @ExceptionHandler({AuthorizationException.class, AccessDeniedException.class})
     public ResponseEntity<ProblemDetail> handleAuthorizationException(Exception ex) {
         String requestId = getRequestId();
         HttpStatus status = HttpStatus.FORBIDDEN;
@@ -204,8 +203,12 @@ public class GlobalExceptionHandler {
                 .extension("retryAfterSeconds", ex.getRetryAfterSeconds())
                 .build();
 
-        logger.warn("Rate limit exceeded [{}]: {} (correlation: {}, retry after: {}s)",
-                ex.getErrorCode(), ex.getMessage(), requestId, ex.getRetryAfterSeconds());
+        logger.warn(
+                "Rate limit exceeded [{}]: {} (correlation: {}, retry after: {}s)",
+                ex.getErrorCode(),
+                ex.getMessage(),
+                requestId,
+                ex.getRetryAfterSeconds());
 
         HttpHeaders headers = new HttpHeaders();
         headers.add("Retry-After", String.valueOf(ex.getRetryAfterSeconds()));
@@ -236,8 +239,13 @@ public class GlobalExceptionHandler {
                 .extension("retryAfterSeconds", ex.getRetryAfterSeconds())
                 .build();
 
-        logger.error("Service unavailable [{}]: {} (correlation: {}, retry after: {}s)",
-                ex.getErrorCode(), ex.getMessage(), requestId, ex.getRetryAfterSeconds(), ex);
+        logger.error(
+                "Service unavailable [{}]: {} (correlation: {}, retry after: {}s)",
+                ex.getErrorCode(),
+                ex.getMessage(),
+                requestId,
+                ex.getRetryAfterSeconds(),
+                ex);
 
         HttpHeaders headers = new HttpHeaders();
         headers.add("Retry-After", String.valueOf(ex.getRetryAfterSeconds()));
@@ -302,8 +310,11 @@ public class GlobalExceptionHandler {
                 .category("CLIENT_ERROR")
                 .build();
 
-        logger.warn("Recipient rejected by Gmail [{}]: {} (correlation: {})",
-                ex.getErrorCode(), ex.getMessage(), requestId);
+        logger.warn(
+                "Recipient rejected by Gmail [{}]: {} (correlation: {})",
+                ex.getErrorCode(),
+                ex.getMessage(),
+                requestId);
 
         return buildProblemResponse(problem, status);
     }
@@ -337,8 +348,11 @@ public class GlobalExceptionHandler {
                 .category("CLIENT_ERROR")
                 .build();
 
-        logger.warn("Original message not found for threading [{}]: {} (correlation: {})",
-                ex.getErrorCode(), ex.getMessage(), requestId);
+        logger.warn(
+                "Original message not found for threading [{}]: {} (correlation: {})",
+                ex.getErrorCode(),
+                ex.getMessage(),
+                requestId);
 
         return buildProblemResponse(problem, status);
     }
@@ -373,8 +387,11 @@ public class GlobalExceptionHandler {
                 .category("CLIENT_ERROR")
                 .build();
 
-        logger.warn("Message rejected by Gmail (too large) [{}]: {} (correlation: {})",
-                ex.getErrorCode(), ex.getMessage(), requestId);
+        logger.warn(
+                "Message rejected by Gmail (too large) [{}]: {} (correlation: {})",
+                ex.getErrorCode(),
+                ex.getMessage(),
+                requestId);
 
         return buildProblemResponse(problem, status);
     }
@@ -447,12 +464,9 @@ public class GlobalExceptionHandler {
                     return false;
                 });
 
-        String problemType = headerInjectionDetected
-                ? ProblemTypes.HEADER_INJECTION_DETECTED
-                : ProblemTypes.VALIDATION_ERROR;
-        String title = headerInjectionDetected
-                ? "Header Injection Detected"
-                : "Validation Error";
+        String problemType =
+                headerInjectionDetected ? ProblemTypes.HEADER_INJECTION_DETECTED : ProblemTypes.VALIDATION_ERROR;
+        String title = headerInjectionDetected ? "Header Injection Detected" : "Validation Error";
 
         ProblemDetail.Builder builder = ProblemDetail.builder()
                 .type(problemType)

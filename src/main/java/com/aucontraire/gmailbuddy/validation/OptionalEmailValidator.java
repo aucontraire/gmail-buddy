@@ -7,23 +7,21 @@ import java.util.regex.Pattern;
 /**
  * Validator implementation for the {@link OptionalEmail} annotation.
  * Validates email format only when a value is provided, allowing null or empty values.
- * 
+ *
  * @author Gmail Buddy Team
  * @since 1.0
  */
 public class OptionalEmailValidator implements ConstraintValidator<OptionalEmail, String> {
-    
+
     /**
      * Regular expression pattern for validating email addresses.
      * Based on RFC 5322 specification with practical constraints.
      */
-    private static final Pattern EMAIL_PATTERN = Pattern.compile(
-        "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-    );
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
 
     /**
      * Initializes the validator. No initialization required for this implementation.
-     * 
+     *
      * @param constraintAnnotation the annotation instance
      */
     @Override
@@ -33,7 +31,7 @@ public class OptionalEmailValidator implements ConstraintValidator<OptionalEmail
 
     /**
      * Validates the email value. Returns true if the value is null, empty, or a valid email.
-     * 
+     *
      * @param email the email value to validate
      * @param context the constraint validator context
      * @return true if valid, false otherwise
@@ -44,7 +42,7 @@ public class OptionalEmailValidator implements ConstraintValidator<OptionalEmail
         if (email == null || email.trim().isEmpty()) {
             return true;
         }
-        
+
         // Validate email format if value is provided
         return EMAIL_PATTERN.matcher(email.trim()).matches();
     }

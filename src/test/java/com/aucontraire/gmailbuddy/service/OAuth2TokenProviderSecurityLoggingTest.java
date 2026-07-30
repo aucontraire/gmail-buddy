@@ -1,5 +1,10 @@
 package com.aucontraire.gmailbuddy.service;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -8,6 +13,11 @@ import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.security.TokenReferenceService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,7 +31,6 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
@@ -31,17 +40,6 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-
-import java.time.Instant;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.lenient;
 
 /**
  * Security-focused test suite for OAuth2TokenProvider logging functionality.
@@ -106,8 +104,10 @@ class OAuth2TokenProviderSecurityLoggingTest {
     private MockedStatic<SecurityContextHolder> mockedSecurityContextHolder;
 
     // Test tokens that represent realistic sensitive values
-    private static final String LONG_OAUTH2_TOKEN = "ya29.a0AfH6SMC_SENSITIVE_DATA_1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    private static final String JWT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+    private static final String LONG_OAUTH2_TOKEN =
+            "ya29.a0AfH6SMC_SENSITIVE_DATA_1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private static final String JWT_TOKEN =
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
     private static final String API_KEY_TOKEN = "sk-SENSITIVE_API_KEY_DATA_1234567890abcdefghijklmnopqrstuvwxyz";
     private static final String GITHUB_TOKEN = "ghp_SENSITIVE_GITHUB_TOKEN_1234567890abcdefghijklmnopqrstuvwxyz";
     private static final String USER_EMAIL = "test@example.com";
@@ -115,7 +115,8 @@ class OAuth2TokenProviderSecurityLoggingTest {
 
     @BeforeEach
     void setUp() {
-        tokenProvider = new OAuth2TokenProvider(authorizedClientService, properties, tokenValidator, tokenReferenceService);
+        tokenProvider =
+                new OAuth2TokenProvider(authorizedClientService, properties, tokenValidator, tokenReferenceService);
 
         // Setup log capture
         oauth2TokenProviderLogger = (Logger) LoggerFactory.getLogger(OAuth2TokenProvider.class);
@@ -155,7 +156,8 @@ class OAuth2TokenProviderSecurityLoggingTest {
     class AccessTokenRetrievalLoggingSecurityTests {
 
         @ParameterizedTest
-        @MethodSource("com.aucontraire.gmailbuddy.service.OAuth2TokenProviderSecurityLoggingTest#provideSensitiveTokens")
+        @MethodSource(
+                "com.aucontraire.gmailbuddy.service.OAuth2TokenProviderSecurityLoggingTest#provideSensitiveTokens")
         @DisplayName("Should never log full access tokens when retrieving by user ID")
         void shouldNeverLogFullAccessTokensWhenRetrievingByUserId(String sensitiveToken) {
             // Given
@@ -182,10 +184,10 @@ class OAuth2TokenProviderSecurityLoggingTest {
             // Then
             List<String> logMessages = getLogMessages();
             assertThat(logMessages)
-                .anyMatch(message -> message.contains("Successfully retrieved access token"))
-                .anyMatch(message -> message.contains("ya29****WXYZ"))
-                .noneMatch(message -> message.contains("SENSITIVE_DATA"))
-                .noneMatch(message -> message.contains("a0AfH6SMC"));
+                    .anyMatch(message -> message.contains("Successfully retrieved access token"))
+                    .anyMatch(message -> message.contains("ya29****WXYZ"))
+                    .noneMatch(message -> message.contains("SENSITIVE_DATA"))
+                    .noneMatch(message -> message.contains("a0AfH6SMC"));
         }
 
         @Test
@@ -193,19 +195,19 @@ class OAuth2TokenProviderSecurityLoggingTest {
         void shouldHandleExpiredTokenLoggingSecurely() {
             // Given
             when(authorizedClientService.loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL))
-                .thenReturn(authorizedClient);
+                    .thenReturn(authorizedClient);
             when(authorizedClient.getAccessToken()).thenReturn(accessToken);
             when(accessToken.getExpiresAt()).thenReturn(Instant.now().minusSeconds(3600)); // Expired
 
             // When & Then
             assertThatThrownBy(() -> tokenProvider.getAccessToken(USER_EMAIL))
-                .isInstanceOf(AuthenticationException.class);
+                    .isInstanceOf(AuthenticationException.class);
 
             // Verify error logging doesn't expose sensitive data
             List<String> logMessages = getLogMessages();
             assertThat(logMessages)
-                .anyMatch(message -> message.contains("Access token is expired for user"))
-                .noneMatch(message -> message.contains("SENSITIVE_DATA"));
+                    .anyMatch(message -> message.contains("Access token is expired for user"))
+                    .noneMatch(message -> message.contains("SENSITIVE_DATA"));
         }
     }
 
@@ -214,7 +216,8 @@ class OAuth2TokenProviderSecurityLoggingTest {
     class BearerTokenProcessingLoggingSecurityTests {
 
         @ParameterizedTest
-        @MethodSource("com.aucontraire.gmailbuddy.service.OAuth2TokenProviderSecurityLoggingTest#provideSensitiveTokens")
+        @MethodSource(
+                "com.aucontraire.gmailbuddy.service.OAuth2TokenProviderSecurityLoggingTest#provideSensitiveTokens")
         @DisplayName("Should never log full Bearer tokens")
         void shouldNeverLogFullBearerTokens(String sensitiveToken) {
             // Given
@@ -241,10 +244,10 @@ class OAuth2TokenProviderSecurityLoggingTest {
             // Then
             List<String> logMessages = getLogMessages();
             assertThat(logMessages)
-                .anyMatch(message -> message.contains("Successfully extracted Bearer token"))
-                .anyMatch(message -> message.contains("eyJh****sw5c"))
-                .noneMatch(message -> message.contains("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"))
-                .noneMatch(message -> message.contains("SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"));
+                    .anyMatch(message -> message.contains("Successfully extracted Bearer token"))
+                    .anyMatch(message -> message.contains("eyJh****sw5c"))
+                    .noneMatch(message -> message.contains("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"))
+                    .noneMatch(message -> message.contains("SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"));
         }
 
         @Test
@@ -260,10 +263,10 @@ class OAuth2TokenProviderSecurityLoggingTest {
             // Then
             List<String> logMessages = getLogMessages();
             assertThat(logMessages)
-                .anyMatch(message -> message.contains("Successfully authenticated using Bearer token"))
-                .anyMatch(message -> message.contains("sk-S****wxyz"))
-                .noneMatch(message -> message.contains("SENSITIVE_API_KEY_DATA"))
-                .noneMatch(message -> message.contains("1234567890abcdefghijklmnopqrstuvwxyz"));
+                    .anyMatch(message -> message.contains("Successfully authenticated using Bearer token"))
+                    .anyMatch(message -> message.contains("sk-S****wxyz"))
+                    .noneMatch(message -> message.contains("SENSITIVE_API_KEY_DATA"))
+                    .noneMatch(message -> message.contains("1234567890abcdefghijklmnopqrstuvwxyz"));
         }
     }
 
@@ -286,10 +289,10 @@ class OAuth2TokenProviderSecurityLoggingTest {
 
             List<String> logMessages = getLogMessages();
             assertThat(logMessages)
-                .anyMatch(message -> message.contains("Successfully retrieved token from secure token reference"))
-                .anyMatch(message -> message.contains("ghp_****wxyz"))
-                .noneMatch(message -> message.contains("SENSITIVE_GITHUB_TOKEN"))
-                .noneMatch(message -> message.contains("1234567890abcdefghijklmnopqrstuvwxyz"));
+                    .anyMatch(message -> message.contains("Successfully retrieved token from secure token reference"))
+                    .anyMatch(message -> message.contains("ghp_****wxyz"))
+                    .noneMatch(message -> message.contains("SENSITIVE_GITHUB_TOKEN"))
+                    .noneMatch(message -> message.contains("1234567890abcdefghijklmnopqrstuvwxyz"));
         }
 
         @Test
@@ -299,17 +302,17 @@ class OAuth2TokenProviderSecurityLoggingTest {
             mockHttpRequestContext(null);
             when(securityContext.getAuthentication()).thenReturn(authentication);
             when(authentication.isAuthenticated()).thenReturn(true);
-            when(authentication.getAuthorities()).thenAnswer(invocation -> Arrays.asList(new SimpleGrantedAuthority("ROLE_API_USER")));
+            when(authentication.getAuthorities())
+                    .thenAnswer(invocation -> Arrays.asList(new SimpleGrantedAuthority("ROLE_API_USER")));
             when(authentication.getCredentials()).thenReturn(LONG_OAUTH2_TOKEN);
 
             // Mock OAuth2 fallback to fail as well
             when(authentication.getName()).thenReturn(USER_EMAIL);
             when(authorizedClientService.loadAuthorizedClient(any(), any()))
-                .thenThrow(new RuntimeException("OAuth2 service unavailable"));
+                    .thenThrow(new RuntimeException("OAuth2 service unavailable"));
 
             // When & Then
-            assertThatThrownBy(() -> tokenProvider.getTokenFromContext())
-                .isInstanceOf(AuthenticationException.class);
+            assertThatThrownBy(() -> tokenProvider.getTokenFromContext()).isInstanceOf(AuthenticationException.class);
 
             // Verify no sensitive data leaked during error handling
             verifyNoSensitiveDataInLogs(LONG_OAUTH2_TOKEN);
@@ -327,7 +330,8 @@ class OAuth2TokenProviderSecurityLoggingTest {
             mockHttpRequestContext(null);
             when(securityContext.getAuthentication()).thenReturn(authentication);
             when(authentication.isAuthenticated()).thenReturn(true);
-            when(authentication.getAuthorities()).thenAnswer(invocation -> Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
+            when(authentication.getAuthorities())
+                    .thenAnswer(invocation -> Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
             mockOAuth2Fallback(JWT_TOKEN);
 
             // When
@@ -338,10 +342,10 @@ class OAuth2TokenProviderSecurityLoggingTest {
 
             List<String> logMessages = getLogMessages();
             assertThat(logMessages)
-                .anyMatch(message -> message.contains("Successfully authenticated using OAuth2 context"))
-                .anyMatch(message -> message.contains("eyJh****sw5c"))
-                .noneMatch(message -> message.contains("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"))
-                .noneMatch(message -> message.contains("SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"));
+                    .anyMatch(message -> message.contains("Successfully authenticated using OAuth2 context"))
+                    .anyMatch(message -> message.contains("eyJh****sw5c"))
+                    .noneMatch(message -> message.contains("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"))
+                    .noneMatch(message -> message.contains("SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"));
         }
 
         @Test
@@ -352,20 +356,20 @@ class OAuth2TokenProviderSecurityLoggingTest {
             when(tokenValidator.isValidGoogleToken(INVALID_BEARER_TOKEN)).thenReturn(false);
             when(securityContext.getAuthentication()).thenReturn(authentication);
             when(authentication.isAuthenticated()).thenReturn(true);
-            when(authentication.getAuthorities()).thenAnswer(invocation -> Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
+            when(authentication.getAuthorities())
+                    .thenAnswer(invocation -> Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
             when(authentication.getName()).thenReturn(USER_EMAIL);
             when(authorizedClientService.loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL))
-                .thenThrow(new RuntimeException("OAuth2 client not found"));
+                    .thenThrow(new RuntimeException("OAuth2 client not found"));
 
             // When & Then
-            assertThatThrownBy(() -> tokenProvider.getTokenFromContext())
-                .isInstanceOf(AuthenticationException.class);
+            assertThatThrownBy(() -> tokenProvider.getTokenFromContext()).isInstanceOf(AuthenticationException.class);
 
             // Verify error logs don't contain sensitive data
             List<String> logMessages = getLogMessages();
             assertThat(logMessages)
-                .anyMatch(message -> message.contains("All authentication methods failed"))
-                .noneMatch(message -> message.contains(INVALID_BEARER_TOKEN));
+                    .anyMatch(message -> message.contains("All authentication methods failed"))
+                    .noneMatch(message -> message.contains(INVALID_BEARER_TOKEN));
         }
     }
 
@@ -415,9 +419,9 @@ class OAuth2TokenProviderSecurityLoggingTest {
 
             List<String> logMessages = getLogMessages();
             assertThat(logMessages)
-                .anyMatch(message -> message.contains("Bearer token validation failed"))
-                .anyMatch(message -> message.contains("Successfully retrieved token from secure token reference"))
-                .anyMatch(message -> message.contains("ghp_****wxyz"));
+                    .anyMatch(message -> message.contains("Bearer token validation failed"))
+                    .anyMatch(message -> message.contains("Successfully retrieved token from secure token reference"))
+                    .anyMatch(message -> message.contains("ghp_****wxyz"));
         }
     }
 
@@ -427,16 +431,17 @@ class OAuth2TokenProviderSecurityLoggingTest {
 
     private static Stream<Arguments> provideSensitiveTokens() {
         return Stream.of(
-            Arguments.of(LONG_OAUTH2_TOKEN),
-            Arguments.of(JWT_TOKEN),
-            Arguments.of(API_KEY_TOKEN),
-            Arguments.of(GITHUB_TOKEN)
-        );
+                Arguments.of(LONG_OAUTH2_TOKEN),
+                Arguments.of(JWT_TOKEN),
+                Arguments.of(API_KEY_TOKEN),
+                Arguments.of(GITHUB_TOKEN));
     }
 
     private void mockHttpRequestContext(String bearerToken) {
         String authHeader = bearerToken != null ? "Bearer " + bearerToken : null;
-        mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes).thenReturn(requestAttributes);
+        mockedRequestContextHolder
+                .when(RequestContextHolder::getRequestAttributes)
+                .thenReturn(requestAttributes);
         when(requestAttributes.getRequest()).thenReturn(httpRequest);
         when(httpRequest.getHeader("Authorization")).thenReturn(authHeader);
     }
@@ -446,7 +451,8 @@ class OAuth2TokenProviderSecurityLoggingTest {
 
         when(securityContext.getAuthentication()).thenReturn(authentication);
         when(authentication.isAuthenticated()).thenReturn(true);
-        when(authentication.getAuthorities()).thenAnswer(invocation -> Arrays.asList(new SimpleGrantedAuthority("ROLE_API_USER")));
+        when(authentication.getAuthorities())
+                .thenAnswer(invocation -> Arrays.asList(new SimpleGrantedAuthority("ROLE_API_USER")));
         when(authentication.getCredentials()).thenReturn(tokenReferenceId);
 
         // Mock the token reference service to return the actual token
@@ -459,8 +465,9 @@ class OAuth2TokenProviderSecurityLoggingTest {
         lenient().when(authentication.getName()).thenReturn(USER_EMAIL);
         lenient().when(authentication.isAuthenticated()).thenReturn(true);
 
-        lenient().when(authorizedClientService.loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL))
-            .thenReturn(authorizedClient);
+        lenient()
+                .when(authorizedClientService.loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL))
+                .thenReturn(authorizedClient);
         lenient().when(authorizedClient.getAccessToken()).thenReturn(accessToken);
         when(accessToken.getTokenValue()).thenReturn(tokenValue);
         when(accessToken.getExpiresAt()).thenReturn(Instant.now().plusSeconds(3600));
@@ -472,9 +479,7 @@ class OAuth2TokenProviderSecurityLoggingTest {
     }
 
     private List<String> getLogMessages() {
-        return logAppender.list.stream()
-            .map(ILoggingEvent::getFormattedMessage)
-            .toList();
+        return logAppender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
     }
 
     private void verifyNoSensitiveDataInLogs(String sensitiveToken) {
@@ -489,13 +494,13 @@ class OAuth2TokenProviderSecurityLoggingTest {
 
         // Verify no full token appears in logs
         assertThat(logMessages)
-            .as("Full token should never appear in logs")
-            .noneMatch(message -> message.contains(sensitiveToken));
+                .as("Full token should never appear in logs")
+                .noneMatch(message -> message.contains(sensitiveToken));
 
         // Verify no sensitive middle part appears in logs
         assertThat(logMessages)
-            .as("Sensitive token middle part should never appear in logs")
-            .noneMatch(message -> message.contains(sensitiveMiddle));
+                .as("Sensitive token middle part should never appear in logs")
+                .noneMatch(message -> message.contains(sensitiveMiddle));
     }
 
     private void verifyTokenMaskingInLogs(String originalToken) {
@@ -511,7 +516,7 @@ class OAuth2TokenProviderSecurityLoggingTest {
 
         // Verify that masked version appears in logs
         assertThat(logMessages)
-            .as("Masked token should appear in logs")
-            .anyMatch(message -> message.contains(expectedMasked));
+                .as("Masked token should appear in logs")
+                .anyMatch(message -> message.contains(expectedMasked));
     }
 }

@@ -6,9 +6,9 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class GmailQueryBuilder {
-    
+
     private final GmailBuddyProperties properties;
-    
+
     @Autowired
     public GmailQueryBuilder(GmailBuddyProperties properties) {
         this.properties = properties;

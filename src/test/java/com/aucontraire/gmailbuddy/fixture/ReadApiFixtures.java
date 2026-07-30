@@ -7,7 +7,6 @@ import com.google.api.services.gmail.model.MessagePart;
 import com.google.api.services.gmail.model.MessagePartBody;
 import com.google.api.services.gmail.model.MessagePartHeader;
 import com.google.api.services.gmail.model.Thread;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -31,8 +30,7 @@ import java.util.List;
 public final class ReadApiFixtures {
 
     private ReadApiFixtures() {
-        throw new AssertionError(
-                "ReadApiFixtures is a static factory class and must not be instantiated");
+        throw new AssertionError("ReadApiFixtures is a static factory class and must not be instantiated");
     }
 
     // -------------------------------------------------------------------------
@@ -101,10 +99,8 @@ public final class ReadApiFixtures {
      * headers (as {@link MessagePartHeader}s) and an optional body part. Used
      * to drive the 9-header whitelist mapper tests.
      */
-    public static Message buildMessageWithHeaders(String id, String threadId,
-                                                   List<MessagePartHeader> headers,
-                                                   String snippet,
-                                                   String bodyText) {
+    public static Message buildMessageWithHeaders(
+            String id, String threadId, List<MessagePartHeader> headers, String snippet, String bodyText) {
         Message message = new Message();
         message.setId(id);
         message.setThreadId(threadId);
@@ -114,8 +110,8 @@ public final class ReadApiFixtures {
         payload.setHeaders(headers);
         if (bodyText != null) {
             MessagePartBody body = new MessagePartBody();
-            body.setData(Base64.getUrlEncoder().withoutPadding()
-                    .encodeToString(bodyText.getBytes(StandardCharsets.UTF_8)));
+            body.setData(
+                    Base64.getUrlEncoder().withoutPadding().encodeToString(bodyText.getBytes(StandardCharsets.UTF_8)));
             body.setSize(bodyText.getBytes(StandardCharsets.UTF_8).length);
             payload.setBody(body);
         }
@@ -171,8 +167,7 @@ public final class ReadApiFixtures {
      * Returns a Gmail SDK {@link Label} with id/name/type plus a populated
      * {@link LabelColor} (for testing the color-extraction code path).
      */
-    public static Label buildLabelWithColor(String id, String name,
-                                             String textColor, String backgroundColor) {
+    public static Label buildLabelWithColor(String id, String name, String textColor, String backgroundColor) {
         Label label = buildLabel(id, name, "user");
         LabelColor color = new LabelColor();
         color.setTextColor(textColor);
@@ -190,8 +185,8 @@ public final class ReadApiFixtures {
      * leaf — body has a non-null {@code attachmentId} (which is how the mapper
      * recognises a part as an attachment per Decision 12).
      */
-    public static MessagePart buildAttachmentPart(String attachmentId, String filename,
-                                                   String mimeType, long sizeBytes) {
+    public static MessagePart buildAttachmentPart(
+            String attachmentId, String filename, String mimeType, long sizeBytes) {
         MessagePart part = new MessagePart();
         part.setFilename(filename);
         part.setMimeType(mimeType);

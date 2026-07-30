@@ -3,7 +3,6 @@ package com.aucontraire.gmailbuddy.dto.common;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
-
 import java.time.Instant;
 
 /**
@@ -92,10 +91,9 @@ public class ResponseMetadata {
 
     @Override
     public String toString() {
-        return "ResponseMetadata{" +
-                "timestamp=" + timestamp +
-                ", durationMs=" + durationMs +
-                ", quotaUsed=" + quotaUsed +
-                '}';
+        return "ResponseMetadata{" + "timestamp="
+                + timestamp + ", durationMs="
+                + durationMs + ", quotaUsed="
+                + quotaUsed + '}';
     }
 }

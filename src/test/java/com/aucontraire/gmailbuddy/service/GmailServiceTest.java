@@ -1,5 +1,11 @@
 package com.aucontraire.gmailbuddy.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.dto.DeleteResult;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
@@ -12,32 +18,18 @@ import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
 import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
-import com.aucontraire.gmailbuddy.service.AttachmentListResult;
-import com.aucontraire.gmailbuddy.service.DraftCreationResult;
-import com.aucontraire.gmailbuddy.service.DraftDetailResult;
-import com.aucontraire.gmailbuddy.service.DraftListResult;
-import com.aucontraire.gmailbuddy.service.OriginalMessageLookup;
 import com.google.api.services.gmail.model.FilterCriteria;
 import com.google.api.services.gmail.model.Message;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.util.unit.DataSize;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
 
 class GmailServiceTest {
 
@@ -61,8 +53,13 @@ class GmailServiceTest {
         send = mock(GmailBuddyProperties.Send.class);
         when(properties.send()).thenReturn(send);
         when(send.maxTotalPayloadSize()).thenReturn(DataSize.ofMegabytes(25));
-        gmailService = new GmailService(gmailRepository, gmailQueryBuilder, filterCriteriaMapper,
-                mimeMessageBuilder, gmailMessageMapper, properties);
+        gmailService = new GmailService(
+                gmailRepository,
+                gmailQueryBuilder,
+                filterCriteriaMapper,
+                mimeMessageBuilder,
+                gmailMessageMapper,
+                properties);
     }
 
     @Test
@@ -82,7 +79,13 @@ class GmailServiceTest {
         when(gmailQueryBuilder.hasAttachment(false)).thenReturn("has:attachment ");
         when(gmailQueryBuilder.query("some-query")).thenReturn("query:some-query ");
         when(gmailQueryBuilder.negatedQuery("-query-to-exclude")).thenReturn("-query-to-exclude ");
-        when(gmailQueryBuilder.build("from:test@example.com ", "to: ", "subject: ", "has:attachment ", "query:some-query ", "-query-to-exclude "))
+        when(gmailQueryBuilder.build(
+                        "from:test@example.com ",
+                        "to: ",
+                        "subject: ",
+                        "has:attachment ",
+                        "query:some-query ",
+                        "-query-to-exclude "))
                 .thenReturn("from:test@example.com to: subject: has:attachment query:some-query -query-to-exclude");
 
         // Act: call the new buildQuery method which accepts FilterCriteria.
@@ -96,7 +99,14 @@ class GmailServiceTest {
         verify(gmailQueryBuilder).hasAttachment(false);
         verify(gmailQueryBuilder).query("some-query");
         verify(gmailQueryBuilder).negatedQuery("-query-to-exclude");
-        verify(gmailQueryBuilder).build("from:test@example.com ", "to: ", "subject: ", "has:attachment ", "query:some-query ", "-query-to-exclude ");
+        verify(gmailQueryBuilder)
+                .build(
+                        "from:test@example.com ",
+                        "to: ",
+                        "subject: ",
+                        "has:attachment ",
+                        "query:some-query ",
+                        "-query-to-exclude ");
     }
 
     @Test
@@ -204,12 +214,8 @@ class GmailServiceTest {
         verify(gmailQueryBuilder).from(senderEmail);
         verify(gmailQueryBuilder).query("label:Spam");
         verify(gmailQueryBuilder).build("from:test@example.com ", "label:Spam");
-        verify(gmailRepository).modifyMessagesLabels(
-                userId,
-                labelsToAdd,
-                labelsToRemove,
-                "from:test@example.com label:Spam"
-        );
+        verify(gmailRepository)
+                .modifyMessagesLabels(userId, labelsToAdd, labelsToRemove, "from:test@example.com label:Spam");
     }
 
     @Test
@@ -235,8 +241,11 @@ class GmailServiceTest {
         when(gmailRepository.getMessageBody(userId, messageId)).thenThrow(ioException);
 
         // Act & Assert
-        GmailApiException exception = assertThrows(GmailApiException.class, () -> gmailService.getMessageBody(userId, messageId));
-        assertEquals("Failed to get message body for messageId: test-message-id for user: test-user", exception.getMessage());
+        GmailApiException exception =
+                assertThrows(GmailApiException.class, () -> gmailService.getMessageBody(userId, messageId));
+        assertEquals(
+                "Failed to get message body for messageId: test-message-id for user: test-user",
+                exception.getMessage());
         assertEquals(ioException, exception.getCause());
     }
 
@@ -322,10 +331,8 @@ class GmailServiceTest {
         when(gmailRepository.deleteMessage(userId, messageId)).thenThrow(ioException);
 
         // Act & Assert
-        GmailApiException exception = assertThrows(
-                GmailApiException.class,
-                () -> gmailService.deleteMessage(userId, messageId)
-        );
+        GmailApiException exception =
+                assertThrows(GmailApiException.class, () -> gmailService.deleteMessage(userId, messageId));
 
         assertThat(exception.getMessage())
                 .isEqualTo("Failed to delete message for messageId: msg12345 for user: test-user");
@@ -357,7 +364,8 @@ class GmailServiceTest {
 
     @Test
     @DisplayName("deleteMessagesByFilterCriteria() should return BulkOperationResult with all successes")
-    void deleteMessagesByFilterCriteria_AllSuccessful_ReturnsBulkResultWithSuccesses() throws IOException, GmailApiException {
+    void deleteMessagesByFilterCriteria_AllSuccessful_ReturnsBulkResultWithSuccesses()
+            throws IOException, GmailApiException {
         // Arrange
         String userId = "test-user";
         FilterCriteriaDTO filterCriteriaDTO = new FilterCriteriaDTO();
@@ -385,7 +393,8 @@ class GmailServiceTest {
         when(gmailQueryBuilder.negatedQuery(null)).thenReturn("");
         when(gmailQueryBuilder.build(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(expectedQuery);
-        when(gmailRepository.deleteMessagesByFilterCriteria(userId, expectedQuery)).thenReturn(bulkResult);
+        when(gmailRepository.deleteMessagesByFilterCriteria(userId, expectedQuery))
+                .thenReturn(bulkResult);
 
         // Act
         BulkOperationResult result = gmailService.deleteMessagesByFilterCriteria(userId, filterCriteriaDTO);
@@ -402,7 +411,8 @@ class GmailServiceTest {
 
     @Test
     @DisplayName("deleteMessagesByFilterCriteria() should return BulkOperationResult with partial success")
-    void deleteMessagesByFilterCriteria_PartialSuccess_ReturnsBulkResultWithMixedResults() throws IOException, GmailApiException {
+    void deleteMessagesByFilterCriteria_PartialSuccess_ReturnsBulkResultWithMixedResults()
+            throws IOException, GmailApiException {
         // Arrange
         String userId = "test-user";
         FilterCriteriaDTO filterCriteriaDTO = new FilterCriteriaDTO();
@@ -429,7 +439,8 @@ class GmailServiceTest {
         when(gmailQueryBuilder.negatedQuery(null)).thenReturn("");
         when(gmailQueryBuilder.build(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(expectedQuery);
-        when(gmailRepository.deleteMessagesByFilterCriteria(userId, expectedQuery)).thenReturn(bulkResult);
+        when(gmailRepository.deleteMessagesByFilterCriteria(userId, expectedQuery))
+                .thenReturn(bulkResult);
 
         // Act
         BulkOperationResult result = gmailService.deleteMessagesByFilterCriteria(userId, filterCriteriaDTO);
@@ -450,7 +461,8 @@ class GmailServiceTest {
 
     @Test
     @DisplayName("deleteMessagesByFilterCriteria() should return BulkOperationResult with all failures")
-    void deleteMessagesByFilterCriteria_AllFailed_ReturnsBulkResultWithOnlyFailures() throws IOException, GmailApiException {
+    void deleteMessagesByFilterCriteria_AllFailed_ReturnsBulkResultWithOnlyFailures()
+            throws IOException, GmailApiException {
         // Arrange
         String userId = "test-user";
         FilterCriteriaDTO filterCriteriaDTO = new FilterCriteriaDTO();
@@ -475,7 +487,8 @@ class GmailServiceTest {
         when(gmailQueryBuilder.negatedQuery(null)).thenReturn("");
         when(gmailQueryBuilder.build(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(expectedQuery);
-        when(gmailRepository.deleteMessagesByFilterCriteria(userId, expectedQuery)).thenReturn(bulkResult);
+        when(gmailRepository.deleteMessagesByFilterCriteria(userId, expectedQuery))
+                .thenReturn(bulkResult);
 
         // Act
         BulkOperationResult result = gmailService.deleteMessagesByFilterCriteria(userId, filterCriteriaDTO);
@@ -516,7 +529,8 @@ class GmailServiceTest {
         when(gmailQueryBuilder.negatedQuery(null)).thenReturn("");
         when(gmailQueryBuilder.build(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(expectedQuery);
-        when(gmailRepository.deleteMessagesByFilterCriteria(userId, expectedQuery)).thenReturn(bulkResult);
+        when(gmailRepository.deleteMessagesByFilterCriteria(userId, expectedQuery))
+                .thenReturn(bulkResult);
 
         // Act
         BulkOperationResult result = gmailService.deleteMessagesByFilterCriteria(userId, filterCriteriaDTO);
@@ -552,13 +566,12 @@ class GmailServiceTest {
         when(gmailQueryBuilder.negatedQuery(null)).thenReturn("");
         when(gmailQueryBuilder.build(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn("from:test@example.com");
-        when(gmailRepository.deleteMessagesByFilterCriteria(eq(userId), anyString())).thenThrow(ioException);
+        when(gmailRepository.deleteMessagesByFilterCriteria(eq(userId), anyString()))
+                .thenThrow(ioException);
 
         // Act & Assert
         GmailApiException exception = assertThrows(
-                GmailApiException.class,
-                () -> gmailService.deleteMessagesByFilterCriteria(userId, filterCriteriaDTO)
-        );
+                GmailApiException.class, () -> gmailService.deleteMessagesByFilterCriteria(userId, filterCriteriaDTO));
 
         assertThat(exception.getMessage()).contains("Failed to delete messages for user: test-user");
         assertThat(exception.getCause()).isEqualTo(ioException);
@@ -585,7 +598,8 @@ class GmailServiceTest {
         criteria.setQuery("label:Inbox");
         criteria.setNegatedQuery("label:Spam");
 
-        String expectedQuery = "from:sender@example.com to:recipient@example.com subject:Important has:attachment label:Inbox -label:Spam";
+        String expectedQuery =
+                "from:sender@example.com to:recipient@example.com subject:Important has:attachment label:Inbox -label:Spam";
 
         BulkOperationResult bulkResult = new BulkOperationResult("DELETE");
         bulkResult.addSuccess("msg1");
@@ -600,7 +614,8 @@ class GmailServiceTest {
         when(gmailQueryBuilder.negatedQuery("label:Spam")).thenReturn("-label:Spam ");
         when(gmailQueryBuilder.build(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(expectedQuery);
-        when(gmailRepository.deleteMessagesByFilterCriteria(userId, expectedQuery)).thenReturn(bulkResult);
+        when(gmailRepository.deleteMessagesByFilterCriteria(userId, expectedQuery))
+                .thenReturn(bulkResult);
 
         // Act
         BulkOperationResult result = gmailService.deleteMessagesByFilterCriteria(userId, filterCriteriaDTO);
@@ -639,8 +654,7 @@ class GmailServiceTest {
         IOException ioException = new IOException("API failure");
         when(gmailRepository.listDrafts(userId, null, 25)).thenThrow(ioException);
 
-        GmailApiException ex = assertThrows(GmailApiException.class,
-                () -> gmailService.listDrafts(userId, null, 25));
+        GmailApiException ex = assertThrows(GmailApiException.class, () -> gmailService.listDrafts(userId, null, 25));
 
         assertThat(ex.getMessage()).contains("Failed to list drafts for user: test-user");
         assertThat(ex.getCause()).isEqualTo(ioException);
@@ -652,9 +666,7 @@ class GmailServiceTest {
         String userId = "test-user";
         String draftId = "draft-abc123";
         DraftDetailResult expected = new DraftDetailResult(
-                draftId, "msg-1", null, List.of(), List.of(), List.of(),
-                null, null, null, "text", null, List.of()
-        );
+                draftId, "msg-1", null, List.of(), List.of(), List.of(), null, null, null, "text", null, List.of());
         when(gmailRepository.getDraft(userId, draftId)).thenReturn(expected);
 
         DraftDetailResult result = gmailService.getDraft(userId, draftId);
@@ -671,8 +683,7 @@ class GmailServiceTest {
         ResourceNotFoundException notFound = new ResourceNotFoundException("Draft not found");
         when(gmailRepository.getDraft(userId, draftId)).thenThrow(notFound);
 
-        assertThrows(ResourceNotFoundException.class,
-                () -> gmailService.getDraft(userId, draftId));
+        assertThrows(ResourceNotFoundException.class, () -> gmailService.getDraft(userId, draftId));
     }
 
     @Test
@@ -683,8 +694,7 @@ class GmailServiceTest {
         IOException ioException = new IOException("Timeout");
         when(gmailRepository.getDraft(userId, draftId)).thenThrow(ioException);
 
-        GmailApiException ex = assertThrows(GmailApiException.class,
-                () -> gmailService.getDraft(userId, draftId));
+        GmailApiException ex = assertThrows(GmailApiException.class, () -> gmailService.getDraft(userId, draftId));
 
         assertThat(ex.getCause()).isEqualTo(ioException);
     }
@@ -712,8 +722,7 @@ class GmailServiceTest {
         ResourceNotFoundException notFound = new ResourceNotFoundException("Not found");
         doThrow(notFound).when(gmailRepository).deleteDraft(userId, draftId);
 
-        assertThrows(ResourceNotFoundException.class,
-                () -> gmailService.deleteDraft(userId, draftId));
+        assertThrows(ResourceNotFoundException.class, () -> gmailService.deleteDraft(userId, draftId));
     }
 
     @Test
@@ -724,8 +733,7 @@ class GmailServiceTest {
         IOException ioException = new IOException("Network error");
         doThrow(ioException).when(gmailRepository).deleteDraft(userId, draftId);
 
-        GmailApiException ex = assertThrows(GmailApiException.class,
-                () -> gmailService.deleteDraft(userId, draftId));
+        GmailApiException ex = assertThrows(GmailApiException.class, () -> gmailService.deleteDraft(userId, draftId));
 
         assertThat(ex.getCause()).isEqualTo(ioException);
     }
@@ -755,9 +763,18 @@ class GmailServiceTest {
         when(gmailRepository.updateDraft(userId, draftId, mimeMessage)).thenReturn(updateResult);
 
         DraftDetailResult detailResult = new DraftDetailResult(
-                draftId, "msg-upd-1", null, List.of("to@example.com"), List.of(), List.of(),
-                "Subject", null, "Body text", "text", null, List.of()
-        );
+                draftId,
+                "msg-upd-1",
+                null,
+                List.of("to@example.com"),
+                List.of(),
+                List.of(),
+                "Subject",
+                null,
+                "Body text",
+                "text",
+                null,
+                List.of());
         when(gmailRepository.getDraft(userId, draftId)).thenReturn(detailResult);
 
         DraftDetailResult result = gmailService.updateDraft(userId, draftId, dto);
@@ -787,8 +804,7 @@ class GmailServiceTest {
         ResourceNotFoundException notFound = new ResourceNotFoundException("Draft not found");
         when(gmailRepository.updateDraft(userId, draftId, mimeMessage)).thenThrow(notFound);
 
-        assertThrows(ResourceNotFoundException.class,
-                () -> gmailService.updateDraft(userId, draftId, dto));
+        assertThrows(ResourceNotFoundException.class, () -> gmailService.updateDraft(userId, draftId, dto));
     }
 
     @Test
@@ -816,9 +832,18 @@ class GmailServiceTest {
         when(gmailRepository.updateDraft(userId, draftId, mimeMessage)).thenReturn(updateResult);
 
         DraftDetailResult detailResult = new DraftDetailResult(
-                draftId, "msg-1", "thread-1", List.of("to@example.com"), List.of(), List.of(),
-                "Re: Subject", null, "Reply body", "text", replyToId, List.of()
-        );
+                draftId,
+                "msg-1",
+                "thread-1",
+                List.of("to@example.com"),
+                List.of(),
+                List.of(),
+                "Re: Subject",
+                null,
+                "Reply body",
+                "text",
+                replyToId,
+                List.of());
         when(gmailRepository.getDraft(userId, draftId)).thenReturn(detailResult);
 
         DraftDetailResult result = gmailService.updateDraft(userId, draftId, dto);
@@ -902,8 +927,8 @@ class GmailServiceTest {
         IOException ioException = new IOException("Network failure");
         when(gmailRepository.listThreads(userId, null, null, 50)).thenThrow(ioException);
 
-        GmailApiException ex = assertThrows(GmailApiException.class,
-                () -> gmailService.listThreads(userId, null, null, 50));
+        GmailApiException ex =
+                assertThrows(GmailApiException.class, () -> gmailService.listThreads(userId, null, null, 50));
 
         assertThat(ex.getMessage()).contains("Failed to list threads for user: test-user");
         assertThat(ex.getCause()).isEqualTo(ioException);
@@ -948,8 +973,8 @@ class GmailServiceTest {
         ResourceNotFoundException notFound = new ResourceNotFoundException("Thread not found");
         when(gmailRepository.getThread(userId, threadId)).thenThrow(notFound);
 
-        ResourceNotFoundException thrown = assertThrows(ResourceNotFoundException.class,
-                () -> gmailService.getThread(userId, threadId));
+        ResourceNotFoundException thrown =
+                assertThrows(ResourceNotFoundException.class, () -> gmailService.getThread(userId, threadId));
 
         assertThat(thrown).isSameAs(notFound);
     }
@@ -962,8 +987,7 @@ class GmailServiceTest {
         IOException ioException = new IOException("Timeout");
         when(gmailRepository.getThread(userId, threadId)).thenThrow(ioException);
 
-        GmailApiException ex = assertThrows(GmailApiException.class,
-                () -> gmailService.getThread(userId, threadId));
+        GmailApiException ex = assertThrows(GmailApiException.class, () -> gmailService.getThread(userId, threadId));
 
         assertThat(ex.getMessage()).contains("Failed to get thread thread-io-fail for user: test-user");
         assertThat(ex.getCause()).isEqualTo(ioException);
@@ -975,15 +999,11 @@ class GmailServiceTest {
         String userId = "test-user";
         String threadId = "thread-with-msgs";
         MessageDetailResult msg1 = new MessageDetailResult(
-                "msg-1", threadId, Map.of(), "snippet 1", "body 1", "text",
-                List.of("INBOX"), List.of()
-        );
+                "msg-1", threadId, Map.of(), "snippet 1", "body 1", "text", List.of("INBOX"), List.of());
         MessageDetailResult msg2 = new MessageDetailResult(
-                "msg-2", threadId, Map.of(), "snippet 2", null, "text",
-                List.of("INBOX", "UNREAD"), List.of()
-        );
-        ThreadDetailResult twoMessages = new ThreadDetailResult(threadId,
-                List.of("INBOX", "UNREAD"), List.of(msg1, msg2));
+                "msg-2", threadId, Map.of(), "snippet 2", null, "text", List.of("INBOX", "UNREAD"), List.of());
+        ThreadDetailResult twoMessages =
+                new ThreadDetailResult(threadId, List.of("INBOX", "UNREAD"), List.of(msg1, msg2));
         when(gmailRepository.getThread(userId, threadId)).thenReturn(twoMessages);
 
         ThreadDetailResult result = gmailService.getThread(userId, threadId);
@@ -1015,11 +1035,14 @@ class GmailServiceTest {
         String userId = "test-user";
         String messageId = "1a2b3c4d5e6f7890";
         MessageDetailResult expected = new MessageDetailResult(
-                messageId, "thread-001",
+                messageId,
+                "thread-001",
                 Map.of("From", "sender@example.com", "Subject", "Hello"),
-                "snippet text", "<p>body content</p>", "html",
-                List.of("INBOX"), List.of()
-        );
+                "snippet text",
+                "<p>body content</p>",
+                "html",
+                List.of("INBOX"),
+                List.of());
         when(gmailRepository.getMessageDetail(userId, messageId, "full")).thenReturn(expected);
 
         MessageDetailResult result = gmailService.getMessageDetail(userId, messageId, "full");
@@ -1036,11 +1059,14 @@ class GmailServiceTest {
         String userId = "test-user";
         String messageId = "1a2b3c4d5e6f7890";
         MessageDetailResult expected = new MessageDetailResult(
-                messageId, "thread-002",
+                messageId,
+                "thread-002",
                 Map.of("From", "sender@example.com", "Subject", "Hi"),
-                "snippet", null, null,
-                List.of("INBOX"), List.of()
-        );
+                "snippet",
+                null,
+                null,
+                List.of("INBOX"),
+                List.of());
         when(gmailRepository.getMessageDetail(userId, messageId, "metadata")).thenReturn(expected);
 
         MessageDetailResult result = gmailService.getMessageDetail(userId, messageId, "metadata");
@@ -1055,10 +1081,8 @@ class GmailServiceTest {
     void getMessageDetail_formatFull_caseNormalized() throws IOException {
         String userId = "test-user";
         String messageId = "1a2b3c4d5e6f7890";
-        MessageDetailResult expected = new MessageDetailResult(
-                messageId, "thread-003", Map.of(), "s", "body", "text",
-                List.of(), List.of()
-        );
+        MessageDetailResult expected =
+                new MessageDetailResult(messageId, "thread-003", Map.of(), "s", "body", "text", List.of(), List.of());
         when(gmailRepository.getMessageDetail(userId, messageId, "full")).thenReturn(expected);
 
         // Simulates the controller normalizing "Full" → "full" before passing to service
@@ -1073,10 +1097,8 @@ class GmailServiceTest {
     void getMessageDetail_formatFULL_caseNormalized() throws IOException {
         String userId = "test-user";
         String messageId = "1a2b3c4d5e6f7890";
-        MessageDetailResult expected = new MessageDetailResult(
-                messageId, "thread-004", Map.of(), "s", "body", "text",
-                List.of(), List.of()
-        );
+        MessageDetailResult expected =
+                new MessageDetailResult(messageId, "thread-004", Map.of(), "s", "body", "text", List.of(), List.of());
         when(gmailRepository.getMessageDetail(userId, messageId, "full")).thenReturn(expected);
 
         // Controller normalizes "FULL" → "full"
@@ -1094,8 +1116,8 @@ class GmailServiceTest {
         ResourceNotFoundException notFound = new ResourceNotFoundException("Message not found");
         when(gmailRepository.getMessageDetail(userId, messageId, "full")).thenThrow(notFound);
 
-        ResourceNotFoundException thrown = assertThrows(ResourceNotFoundException.class,
-                () -> gmailService.getMessageDetail(userId, messageId, "full"));
+        ResourceNotFoundException thrown = assertThrows(
+                ResourceNotFoundException.class, () -> gmailService.getMessageDetail(userId, messageId, "full"));
 
         assertThat(thrown).isSameAs(notFound);
     }
@@ -1108,8 +1130,8 @@ class GmailServiceTest {
         IOException ioException = new IOException("Timeout");
         when(gmailRepository.getMessageDetail(userId, messageId, "full")).thenThrow(ioException);
 
-        GmailApiException ex = assertThrows(GmailApiException.class,
-                () -> gmailService.getMessageDetail(userId, messageId, "full"));
+        GmailApiException ex =
+                assertThrows(GmailApiException.class, () -> gmailService.getMessageDetail(userId, messageId, "full"));
 
         assertThat(ex.getMessage()).contains("getMessageDetail");
         assertThat(ex.getCause()).isEqualTo(ioException);
@@ -1122,10 +1144,8 @@ class GmailServiceTest {
         // is in ReadApiConstitutionVIIComplianceTest (integration level).
         String userId = "test-user";
         String messageId = "1a2b3c4d5e6f7890";
-        MessageDetailResult result_from_repo = new MessageDetailResult(
-                messageId, "thread-log", Map.of(), "snippet", null, null,
-                List.of(), List.of()
-        );
+        MessageDetailResult result_from_repo =
+                new MessageDetailResult(messageId, "thread-log", Map.of(), "snippet", null, null, List.of(), List.of());
         when(gmailRepository.getMessageDetail(userId, messageId, "metadata")).thenReturn(result_from_repo);
 
         assertDoesNotThrow(() -> gmailService.getMessageDetail(userId, messageId, "metadata"));
@@ -1177,8 +1197,7 @@ class GmailServiceTest {
         IOException ioException = new IOException("Network timeout");
         when(gmailRepository.listLabels(userId)).thenThrow(ioException);
 
-        GmailApiException ex = assertThrows(GmailApiException.class,
-                () -> gmailService.listLabels(userId));
+        GmailApiException ex = assertThrows(GmailApiException.class, () -> gmailService.listLabels(userId));
 
         assertThat(ex.getMessage()).contains("list labels");
         assertThat(ex.getCause()).isEqualTo(ioException);
@@ -1190,11 +1209,7 @@ class GmailServiceTest {
         String userId = "test-user";
         String labelId = "Label_42";
         LabelDetailResult expected = new LabelDetailResult(
-                labelId, "Recruiters", "user",
-                "show", "labelShow",
-                "#222222", "#16a766",
-                42, 5, 38, 4
-        );
+                labelId, "Recruiters", "user", "show", "labelShow", "#222222", "#16a766", 42, 5, 38, 4);
         when(gmailRepository.getLabel(userId, labelId)).thenReturn(expected);
 
         LabelDetailResult result = gmailService.getLabel(userId, labelId);
@@ -1210,12 +1225,8 @@ class GmailServiceTest {
     void getLabel_systemLabelWithoutColor_returnsNullColor() throws IOException {
         String userId = "test-user";
         String labelId = "INBOX";
-        LabelDetailResult expected = new LabelDetailResult(
-                labelId, "INBOX", "system",
-                "show", "labelShow",
-                null, null,
-                100, 10, 80, 8
-        );
+        LabelDetailResult expected =
+                new LabelDetailResult(labelId, "INBOX", "system", "show", "labelShow", null, null, 100, 10, 80, 8);
         when(gmailRepository.getLabel(userId, labelId)).thenReturn(expected);
 
         LabelDetailResult result = gmailService.getLabel(userId, labelId);
@@ -1234,8 +1245,8 @@ class GmailServiceTest {
         ResourceNotFoundException notFound = new ResourceNotFoundException("Label not found");
         when(gmailRepository.getLabel(userId, labelId)).thenThrow(notFound);
 
-        ResourceNotFoundException thrown = assertThrows(ResourceNotFoundException.class,
-                () -> gmailService.getLabel(userId, labelId));
+        ResourceNotFoundException thrown =
+                assertThrows(ResourceNotFoundException.class, () -> gmailService.getLabel(userId, labelId));
 
         assertThat(thrown).isSameAs(notFound);
     }
@@ -1248,8 +1259,7 @@ class GmailServiceTest {
         IOException ioException = new IOException("Timeout");
         when(gmailRepository.getLabel(userId, labelId)).thenThrow(ioException);
 
-        GmailApiException ex = assertThrows(GmailApiException.class,
-                () -> gmailService.getLabel(userId, labelId));
+        GmailApiException ex = assertThrows(GmailApiException.class, () -> gmailService.getLabel(userId, labelId));
 
         assertThat(ex.getMessage().toLowerCase()).containsAnyOf("getlabel", "label");
         assertThat(ex.getCause()).isEqualTo(ioException);
@@ -1264,10 +1274,9 @@ class GmailServiceTest {
     void listAttachments_withAttachments_returnsResult() throws IOException {
         String userId = "test-user";
         String messageId = "1a2b3c4d5e6f7890";
-        MessageAttachmentMetadata att1 = new MessageAttachmentMetadata(
-                "att-id-1", "report.pdf", "application/pdf", 12345L);
-        MessageAttachmentMetadata att2 = new MessageAttachmentMetadata(
-                "att-id-2", "photo.jpg", "image/jpeg", 67890L);
+        MessageAttachmentMetadata att1 =
+                new MessageAttachmentMetadata("att-id-1", "report.pdf", "application/pdf", 12345L);
+        MessageAttachmentMetadata att2 = new MessageAttachmentMetadata("att-id-2", "photo.jpg", "image/jpeg", 67890L);
         AttachmentListResult expected = new AttachmentListResult(List.of(att1, att2));
         when(gmailRepository.listAttachments(userId, messageId)).thenReturn(expected);
 
@@ -1302,8 +1311,8 @@ class GmailServiceTest {
         ResourceNotFoundException notFound = new ResourceNotFoundException("Message not found");
         when(gmailRepository.listAttachments(userId, messageId)).thenThrow(notFound);
 
-        ResourceNotFoundException thrown = assertThrows(ResourceNotFoundException.class,
-                () -> gmailService.listAttachments(userId, messageId));
+        ResourceNotFoundException thrown =
+                assertThrows(ResourceNotFoundException.class, () -> gmailService.listAttachments(userId, messageId));
 
         assertThat(thrown).isSameAs(notFound);
     }
@@ -1316,8 +1325,8 @@ class GmailServiceTest {
         IOException ioException = new IOException("Network error");
         when(gmailRepository.listAttachments(userId, messageId)).thenThrow(ioException);
 
-        GmailApiException ex = assertThrows(GmailApiException.class,
-                () -> gmailService.listAttachments(userId, messageId));
+        GmailApiException ex =
+                assertThrows(GmailApiException.class, () -> gmailService.listAttachments(userId, messageId));
 
         assertThat(ex.getMessage().toLowerCase()).containsAnyOf("attachment", "list");
         assertThat(ex.getCause()).isEqualTo(ioException);
@@ -1351,8 +1360,8 @@ class GmailServiceTest {
         ResourceNotFoundException notFound = new ResourceNotFoundException("Attachment not found");
         when(gmailRepository.getAttachment(userId, messageId, attachmentId)).thenThrow(notFound);
 
-        ResourceNotFoundException thrown = assertThrows(ResourceNotFoundException.class,
-                () -> gmailService.getAttachment(userId, messageId, attachmentId));
+        ResourceNotFoundException thrown = assertThrows(
+                ResourceNotFoundException.class, () -> gmailService.getAttachment(userId, messageId, attachmentId));
 
         assertThat(thrown).isSameAs(notFound);
     }
@@ -1366,8 +1375,8 @@ class GmailServiceTest {
         IOException ioException = new IOException("Connection reset");
         when(gmailRepository.getAttachment(userId, messageId, attachmentId)).thenThrow(ioException);
 
-        GmailApiException ex = assertThrows(GmailApiException.class,
-                () -> gmailService.getAttachment(userId, messageId, attachmentId));
+        GmailApiException ex = assertThrows(
+                GmailApiException.class, () -> gmailService.getAttachment(userId, messageId, attachmentId));
 
         assertThat(ex.getMessage().toLowerCase()).containsAnyOf("attachment", "get");
         assertThat(ex.getCause()).isEqualTo(ioException);

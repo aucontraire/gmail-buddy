@@ -2,8 +2,8 @@ package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.dto.Attachment;
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
-import jakarta.mail.Message.RecipientType;
 import jakarta.activation.DataHandler;
+import jakarta.mail.Message.RecipientType;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Part;
 import jakarta.mail.Session;
@@ -13,13 +13,12 @@ import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
 import jakarta.mail.internet.MimeUtility;
 import jakarta.mail.util.ByteArrayDataSource;
-import org.springframework.stereotype.Component;
-
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import java.util.Properties;
+import org.springframework.stereotype.Component;
 
 // Note on responsibilities (T034):
 // MimeMessageBuilder is responsible for constructing the RFC 5322 MIME message,
@@ -60,7 +59,7 @@ import java.util.Properties;
 public class MimeMessageBuilder {
 
     private static final String CONTENT_TYPE_TEXT_PLAIN = "text/plain; charset=UTF-8";
-    private static final String CONTENT_TYPE_TEXT_HTML  = "text/html; charset=UTF-8";
+    private static final String CONTENT_TYPE_TEXT_HTML = "text/html; charset=UTF-8";
 
     /**
      * Builds a {@link MimeMessage} from the validated {@link SendMessageDTO}.
@@ -77,8 +76,7 @@ public class MimeMessageBuilder {
      * @throws UnsupportedEncodingException  if the UTF-8 charset is unavailable
      *                                       (should never occur on any conforming JVM)
      */
-    public MimeMessage build(SendMessageDTO dto)
-            throws MessagingException, UnsupportedEncodingException {
+    public MimeMessage build(SendMessageDTO dto) throws MessagingException, UnsupportedEncodingException {
         return build(dto, null);
     }
 
@@ -153,9 +151,7 @@ public class MimeMessageBuilder {
 
         message.setSubject(dto.subject(), StandardCharsets.UTF_8.name());
 
-        String contentType = "html".equalsIgnoreCase(dto.bodyType())
-                ? CONTENT_TYPE_TEXT_HTML
-                : CONTENT_TYPE_TEXT_PLAIN;
+        String contentType = "html".equalsIgnoreCase(dto.bodyType()) ? CONTENT_TYPE_TEXT_HTML : CONTENT_TYPE_TEXT_PLAIN;
 
         if (dto.attachments().isEmpty()) {
             // Single-part path (FR-021 backward compatibility): no attachments present.
@@ -260,9 +256,7 @@ public class MimeMessageBuilder {
      * @param addresses     the list of RFC 5322 address strings
      * @throws MessagingException if any address cannot be set
      */
-    private void setRecipients(MimeMessage message,
-                                RecipientType recipientType,
-                                List<String> addresses)
+    private void setRecipients(MimeMessage message, RecipientType recipientType, List<String> addresses)
             throws MessagingException {
 
         if (addresses == null || addresses.isEmpty()) {

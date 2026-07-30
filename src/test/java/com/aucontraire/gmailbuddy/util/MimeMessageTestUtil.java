@@ -3,7 +3,6 @@ package com.aucontraire.gmailbuddy.util;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -67,8 +66,7 @@ public final class MimeMessageTestUtil {
      *                            happen in practice but declared to keep callers honest)
      * @throws IllegalArgumentException if {@code base64UrlRaw} is {@code null} or blank
      */
-    public static MimeMessage fromBase64Url(String base64UrlRaw)
-            throws MessagingException, IOException {
+    public static MimeMessage fromBase64Url(String base64UrlRaw) throws MessagingException, IOException {
 
         if (base64UrlRaw == null || base64UrlRaw.isBlank()) {
             throw new IllegalArgumentException(
@@ -108,8 +106,7 @@ public final class MimeMessageTestUtil {
      * @throws MessagingException if the underlying MIME parsing fails
      * @throws IllegalArgumentException if {@code message} is {@code null}
      */
-    public static String getHeader(MimeMessage message, String headerName)
-            throws MessagingException {
+    public static String getHeader(MimeMessage message, String headerName) throws MessagingException {
 
         if (message == null) {
             throw new IllegalArgumentException("message must not be null");

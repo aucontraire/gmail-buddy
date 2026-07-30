@@ -1,7 +1,6 @@
 package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.dto.response.MessageAttachmentMetadata;
-
 import java.util.List;
 
 /**
@@ -14,6 +13,4 @@ import java.util.List;
  * @param results list of attachment metadata items; never null; empty when the
  *                message has no attachments
  */
-public record AttachmentListResult(
-        List<MessageAttachmentMetadata> attachments
-) {}
+public record AttachmentListResult(List<MessageAttachmentMetadata> attachments) {}

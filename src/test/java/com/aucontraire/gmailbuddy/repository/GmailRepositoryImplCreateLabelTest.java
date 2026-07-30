@@ -1,5 +1,13 @@
 package com.aucontraire.gmailbuddy.repository;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
@@ -11,6 +19,8 @@ import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.Label;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,17 +28,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link GmailRepositoryImpl#createLabel(String, String, String, String)}.
@@ -49,27 +48,45 @@ class GmailRepositoryImplCreateLabelTest {
     // Standard test constants
     // -------------------------------------------------------------------------
 
-    private static final String TEST_USER_ID    = "me";
+    private static final String TEST_USER_ID = "me";
     private static final String TEST_ACCESS_TOKEN = "test-access-token-xyz";
-    private static final String TEST_LABEL_ID    = "Label_123";
-    private static final String TEST_LABEL_NAME  = "pending-purge";
+    private static final String TEST_LABEL_ID = "Label_123";
+    private static final String TEST_LABEL_NAME = "pending-purge";
 
     // -------------------------------------------------------------------------
     // Mocks for the full Gmail service dependency chain
     // -------------------------------------------------------------------------
 
-    @Mock private GmailClient gmailClient;
-    @Mock private GmailBatchClient gmailBatchClient;
-    @Mock private TokenProvider tokenProvider;
-    @Mock private GmailBuddyProperties properties;
-    @Mock private GmailMessageMapper gmailMessageMapper;
-    @Mock private GmailQueryBuilder gmailQueryBuilder;
+    @Mock
+    private GmailClient gmailClient;
+
+    @Mock
+    private GmailBatchClient gmailBatchClient;
+
+    @Mock
+    private TokenProvider tokenProvider;
+
+    @Mock
+    private GmailBuddyProperties properties;
+
+    @Mock
+    private GmailMessageMapper gmailMessageMapper;
+
+    @Mock
+    private GmailQueryBuilder gmailQueryBuilder;
 
     // Gmail API call chain: Gmail → Users → Labels → Create
-    @Mock private Gmail gmail;
-    @Mock private Gmail.Users users;
-    @Mock private Gmail.Users.Labels labels;
-    @Mock private Gmail.Users.Labels.Create labelsCreate;
+    @Mock
+    private Gmail gmail;
+
+    @Mock
+    private Gmail.Users users;
+
+    @Mock
+    private Gmail.Users.Labels labels;
+
+    @Mock
+    private Gmail.Users.Labels.Create labelsCreate;
 
     private GmailRepositoryImpl repository;
 
@@ -116,7 +133,8 @@ class GmailRepositoryImplCreateLabelTest {
     @DisplayName("createLabel_validName_returnsLabelSummaryWithCorrectIdNameAndType")
     void createLabel_validName_returnsLabelSummaryWithCorrectIdNameAndType() throws Exception {
         // Arrange
-        Label createdLabel = new Label().setId(TEST_LABEL_ID).setName(TEST_LABEL_NAME).setType("user");
+        Label createdLabel =
+                new Label().setId(TEST_LABEL_ID).setName(TEST_LABEL_NAME).setType("user");
         givenGmailLabelCreateChainReturns(createdLabel);
 
         LabelSummary expectedSummary = new LabelSummary(TEST_LABEL_ID, TEST_LABEL_NAME, "user", null, null);
@@ -142,7 +160,8 @@ class GmailRepositoryImplCreateLabelTest {
     @DisplayName("createLabel_validNameNoVisibility_defaultsVisibilityFieldsOnCreatePayload")
     void createLabel_validNameNoVisibility_defaultsVisibilityFieldsOnCreatePayload() throws Exception {
         // Arrange
-        Label createdLabel = new Label().setId(TEST_LABEL_ID).setName(TEST_LABEL_NAME).setType("user");
+        Label createdLabel =
+                new Label().setId(TEST_LABEL_ID).setName(TEST_LABEL_NAME).setType("user");
 
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
@@ -186,8 +205,12 @@ class GmailRepositoryImplCreateLabelTest {
         // Arrange
         String messageListVisibility = "show";
         String labelListVisibility = "labelShow";
-        Label createdLabel = new Label().setId(TEST_LABEL_ID).setName(TEST_LABEL_NAME).setType("user")
-                .setMessageListVisibility(messageListVisibility).setLabelListVisibility(labelListVisibility);
+        Label createdLabel = new Label()
+                .setId(TEST_LABEL_ID)
+                .setName(TEST_LABEL_NAME)
+                .setType("user")
+                .setMessageListVisibility(messageListVisibility)
+                .setLabelListVisibility(labelListVisibility);
 
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN)).thenReturn(gmail);
@@ -218,8 +241,7 @@ class GmailRepositoryImplCreateLabelTest {
 
     @Test
     @DisplayName("createLabel_duplicateNameConflict_throwsLabelAlreadyExistsExceptionWithoutLeakingName")
-    void createLabel_duplicateNameConflict_throwsLabelAlreadyExistsExceptionWithoutLeakingName()
-            throws Exception {
+    void createLabel_duplicateNameConflict_throwsLabelAlreadyExistsExceptionWithoutLeakingName() throws Exception {
         // Arrange: Gmail rejects the create with a 409 conflict when the name already exists.
         GoogleJsonResponseException gmailError = buildGoogleJsonException(409);
 
@@ -242,8 +264,7 @@ class GmailRepositoryImplCreateLabelTest {
 
     @Test
     @DisplayName("createLabel_generalSecurityExceptionFromServiceCreation_wrapsToIOException")
-    void createLabel_generalSecurityExceptionFromServiceCreation_wrapsToIOException()
-            throws Exception {
+    void createLabel_generalSecurityExceptionFromServiceCreation_wrapsToIOException() throws Exception {
         // Arrange: gmailClient.createGmailService throws GeneralSecurityException.
         when(tokenProvider.getAccessToken()).thenReturn(TEST_ACCESS_TOKEN);
         when(gmailClient.createGmailService(TEST_ACCESS_TOKEN))

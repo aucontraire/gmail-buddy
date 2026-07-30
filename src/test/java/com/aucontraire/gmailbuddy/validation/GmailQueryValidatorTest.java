@@ -1,15 +1,14 @@
 package com.aucontraire.gmailbuddy.validation;
 
-import com.aucontraire.gmailbuddy.validation.GmailQueryValidator;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
+
 import jakarta.validation.ConstraintValidatorContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
 
 class GmailQueryValidatorTest {
 
@@ -25,7 +24,7 @@ class GmailQueryValidatorTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         validator = new GmailQueryValidator();
-        
+
         when(context.buildConstraintViolationWithTemplate(anyString())).thenReturn(violationBuilder);
         when(violationBuilder.addConstraintViolation()).thenReturn(context);
     }
@@ -67,7 +66,7 @@ class GmailQueryValidatorTest {
         assertFalse(validator.isValid("query | with | pipes", context));
         assertFalse(validator.isValid("query * with * asterisks", context));
         assertFalse(validator.isValid("query with $variables", context));
-        
+
         verify(context, atLeastOnce()).disableDefaultConstraintViolation();
         verify(context, atLeastOnce()).buildConstraintViolationWithTemplate(contains("invalid characters"));
     }
