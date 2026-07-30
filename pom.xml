@@ -81,21 +81,22 @@
             <scope>test</scope>
         </dependency>
         <!--
-            logback pinned to 1.5.13 (ahead of Spring Boot 3.4.0's managed 1.5.12) to pick up
-            the CVE-2024-12798 / CVE-2024-12801 fixes. Keep this on the 1.5.x line: 1.6.x requires
-            SLF4J 2.1, but Spring Boot 3.4 uses SLF4J 2.0.x — so logback can only move to 1.6.x
-            together with a Spring Boot 4 upgrade. Dependabot is capped at <1.6.0 for
-            ch.qos.logback in .github/dependabot.yml; it may still propose 1.5.x patch bumps.
+            logback pinned on the 1.5.x line (ahead of Spring Boot 3.4.0's managed 1.5.12) to pick
+            up the CVE-2024-12798 / CVE-2024-12801 fixes. Keep it on 1.5.x: 1.6.x requires SLF4J 2.1,
+            but Spring Boot 3.4 uses SLF4J 2.0.x — so logback only moves to 1.6.x together with a
+            Spring Boot 4 upgrade (Dependabot is capped at <1.6.0 in .github/dependabot.yml).
+            logback-classic and logback-core MUST stay on the same version (a mismatch throws
+            NoClassDefFoundError); the dependabot.yml `logback` group keeps them bumping together.
         -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.5.13</version>
+            <version>1.5.38</version>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-core</artifactId>
-            <version>1.5.13</version>
+            <version>1.5.38</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
