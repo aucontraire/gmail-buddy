@@ -236,7 +236,7 @@
             <plugin>
                 <groupId>org.owasp</groupId>
                 <artifactId>dependency-check-maven</artifactId>
-                <version>10.0.4</version>
+                <version>12.2.2</version>
                 <configuration>
                     <failBuildOnCVSS>7</failBuildOnCVSS>
                     <formats>
@@ -246,6 +246,9 @@
                     <suppressionFiles>
                         <suppressionFile>dependency-check-suppressions.xml</suppressionFile>
                     </suppressionFiles>
+                    <!-- OSS Index needs Sonatype credentials we don't provide; it only
+                         adds noise + errors, so disable it (NVD data is the primary source). -->
+                    <ossindexAnalyzerEnabled>false</ossindexAnalyzerEnabled>
                 </configuration>
             </plugin>
         </plugins>
