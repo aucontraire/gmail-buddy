@@ -1,0 +1,8 @@
+{
+  "status": "PARTIAL_SUCCESS",
+  "totalOperations": 2,
+  "successCount": 1,
+  "failureCount": 1,
+  "successfulOperations": ["id1"],
+  "failedOperations": {"id2": "notFound"}
+}

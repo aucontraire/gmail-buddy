@@ -1,0 +1,8 @@
+{
+  "status": "FAILURE",
+  "totalOperations": 2,
+  "successCount": 0,
+  "failureCount": 2,
+  "successfulOperations": [],
+  "failedOperations": {"id1": "notFound", "id2": "notFound"}
+}
