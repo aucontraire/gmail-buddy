@@ -10,7 +10,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-
 import java.util.List;
 
 /**
@@ -54,90 +53,72 @@ import java.util.List;
  * {@code bodyType} defaults to {@code "text"} when omitted.</p>
  */
 public record SendMessageDTO(
+        @NotEmpty @Size(min = 1, max = 500) List<@NotBlank @OptionalEmail @NoHeaderInjection String> to,
+        @Size(max = 500) List<@NotBlank @OptionalEmail @NoHeaderInjection String> cc,
+        @Size(max = 500) List<@NotBlank @OptionalEmail @NoHeaderInjection String> bcc,
+        @NotBlank @Size(max = 998) @NoHeaderInjection String subject,
+        @NotBlank @MaxBodySize String body,
+        @Pattern(regexp = "^(text|html)$") String bodyType,
 
-    @NotEmpty
-    @Size(min = 1, max = 500)
-    List<@NotBlank @OptionalEmail @NoHeaderInjection String> to,
+        /**
+         * Optional Gmail thread ID. When non-null, this message is placed into the
+         * specified thread. Accepts only 1–32 hexadecimal characters.
+         *
+         * <p>If {@code inReplyToMessageId} is also supplied and the fetched original message's
+         * thread ID differs from this value, the fetched thread ID wins (FR-006). The
+         * {@code @Pattern} regex rejects all non-hex characters, including CR/LF and Unicode
+         * line terminators, satisfying both the header-injection defence (FR-001a) and the
+         * format requirement (FR-001b) — no separate {@code @NoHeaderInjection} annotation
+         * is needed.</p>
+         */
+        @Schema(
+                        description =
+                                "Optional Gmail short thread ID (16-32 hex chars). When supplied, the outgoing message is "
+                                        + "placed in this thread. If inReplyToMessageId is also supplied and references a message in "
+                                        + "a different thread, the original message's threadId wins.",
+                        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+                        nullable = true,
+                        example = "1976a4bc3fe89d0c")
+                @GmailMessageId
+                String threadId,
 
-    @Size(max = 500)
-    List<@NotBlank @OptionalEmail @NoHeaderInjection String> cc,
+        /**
+         * Optional Gmail short message ID of the message being replied to. When non-null,
+         * triggers a {@code users.messages.get} metadata lookup (quota: ~5 units) to extract
+         * the RFC 5322 {@code Message-ID} header. That header is then set as the
+         * {@code In-Reply-To} and {@code References} headers on the outgoing MIME message,
+         * and the resolved thread ID is used to set {@code Message.setThreadId(...)}.
+         *
+         * <p>Accepts only 1–32 hexadecimal characters (same format as {@code threadId}).
+         * If the specified message is not found or not accessible, the service throws
+         * {@link com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException}
+         * (HTTP 422).</p>
+         */
+        @Schema(
+                        description =
+                                "Optional Gmail short message ID (16-32 hex chars). When supplied, gmail-buddy fetches the "
+                                        + "original message and constructs In-Reply-To and References headers for proper RFC 5322 "
+                                        + "threading. Returns 422 if the message doesn't exist.",
+                        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+                        nullable = true,
+                        example = "1976a4bc3fe89d0c")
+                @GmailMessageId
+                String inReplyToMessageId,
 
-    @Size(max = 500)
-    List<@NotBlank @OptionalEmail @NoHeaderInjection String> bcc,
-
-    @NotBlank
-    @Size(max = 998)
-    @NoHeaderInjection
-    String subject,
-
-    @NotBlank
-    @MaxBodySize
-    String body,
-
-    @Pattern(regexp = "^(text|html)$")
-    String bodyType,
-
-    /**
-     * Optional Gmail thread ID. When non-null, this message is placed into the
-     * specified thread. Accepts only 1–32 hexadecimal characters.
-     *
-     * <p>If {@code inReplyToMessageId} is also supplied and the fetched original message's
-     * thread ID differs from this value, the fetched thread ID wins (FR-006). The
-     * {@code @Pattern} regex rejects all non-hex characters, including CR/LF and Unicode
-     * line terminators, satisfying both the header-injection defence (FR-001a) and the
-     * format requirement (FR-001b) — no separate {@code @NoHeaderInjection} annotation
-     * is needed.</p>
-     */
-    @Schema(
-        description = "Optional Gmail short thread ID (16-32 hex chars). When supplied, the outgoing message is " +
-                      "placed in this thread. If inReplyToMessageId is also supplied and references a message in " +
-                      "a different thread, the original message's threadId wins.",
-        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
-        nullable = true,
-        example = "1976a4bc3fe89d0c"
-    )
-    @GmailMessageId
-    String threadId,
-
-    /**
-     * Optional Gmail short message ID of the message being replied to. When non-null,
-     * triggers a {@code users.messages.get} metadata lookup (quota: ~5 units) to extract
-     * the RFC 5322 {@code Message-ID} header. That header is then set as the
-     * {@code In-Reply-To} and {@code References} headers on the outgoing MIME message,
-     * and the resolved thread ID is used to set {@code Message.setThreadId(...)}.
-     *
-     * <p>Accepts only 1–32 hexadecimal characters (same format as {@code threadId}).
-     * If the specified message is not found or not accessible, the service throws
-     * {@link com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException}
-     * (HTTP 422).</p>
-     */
-    @Schema(
-        description = "Optional Gmail short message ID (16-32 hex chars). When supplied, gmail-buddy fetches the " +
-                      "original message and constructs In-Reply-To and References headers for proper RFC 5322 " +
-                      "threading. Returns 422 if the message doesn't exist.",
-        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
-        nullable = true,
-        example = "1976a4bc3fe89d0c"
-    )
-    @GmailMessageId
-    String inReplyToMessageId,
-
-    /**
-     * Optional list of file attachments. Null is normalized to an empty immutable list
-     * by the compact constructor; an empty list is treated identically to absent (FR-015).
-     * Each element is validated via {@code @Valid} cascade using the constraints declared
-     * on {@link Attachment} fields.
-     */
-    @Schema(
-        description = "Optional list of base64-encoded attachments. When non-empty, the message is built as " +
-                      "multipart/mixed; total payload (body + attachments) capped at 25 MB.",
-        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
-        nullable = true
-    )
-    @Valid
-    List<Attachment> attachments
-
-) {
+        /**
+         * Optional list of file attachments. Null is normalized to an empty immutable list
+         * by the compact constructor; an empty list is treated identically to absent (FR-015).
+         * Each element is validated via {@code @Valid} cascade using the constraints declared
+         * on {@link Attachment} fields.
+         */
+        @Schema(
+                        description =
+                                "Optional list of base64-encoded attachments. When non-empty, the message is built as "
+                                        + "multipart/mixed; total payload (body + attachments) capped at 25 MB.",
+                        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+                        nullable = true)
+                @Valid
+                List<Attachment> attachments) {
 
     /**
      * Compact constructor that normalises null collections to empty immutable lists,

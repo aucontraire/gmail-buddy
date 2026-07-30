@@ -19,17 +19,16 @@ import com.google.api.services.gmail.model.FilterCriteria;
 import com.google.api.services.gmail.model.Message;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @Service
 public class GmailService {
@@ -43,10 +42,13 @@ public class GmailService {
     private final Logger logger = LoggerFactory.getLogger(GmailService.class);
 
     @Autowired
-    public GmailService(GmailRepository gmailRepository, GmailQueryBuilder gmailQueryBuilder,
-                        FilterCriteriaMapper filterCriteriaMapper, MimeMessageBuilder mimeMessageBuilder,
-                        GmailMessageMapper gmailMessageMapper,
-                        GmailBuddyProperties properties) {
+    public GmailService(
+            GmailRepository gmailRepository,
+            GmailQueryBuilder gmailQueryBuilder,
+            FilterCriteriaMapper filterCriteriaMapper,
+            MimeMessageBuilder mimeMessageBuilder,
+            GmailMessageMapper gmailMessageMapper,
+            GmailBuddyProperties properties) {
         this.gmailRepository = gmailRepository;
         this.gmailQueryBuilder = gmailQueryBuilder;
         this.filterCriteriaMapper = filterCriteriaMapper;
@@ -72,15 +74,17 @@ public class GmailService {
     }
 
     // File: src/main/java/com/aucontraire/gmailbuddy/service/GmailService.java
-// Language: java
+    // Language: java
     public String buildQuery(FilterCriteriaWithLabelsDTO dto) {
         // Build search parts using non-null checks.
         String from = gmailQueryBuilder.from(dto.getFrom());
         String to = dto.getTo() != null ? gmailQueryBuilder.to(dto.getTo()) : "";
         String subject = dto.getSubject() != null ? gmailQueryBuilder.subject(dto.getSubject()) : "";
-        String hasAttachment = dto.getHasAttachment() != null ? gmailQueryBuilder.hasAttachment(dto.getHasAttachment()) : "";
+        String hasAttachment =
+                dto.getHasAttachment() != null ? gmailQueryBuilder.hasAttachment(dto.getHasAttachment()) : "";
         String additionalQuery = dto.getQuery() != null ? gmailQueryBuilder.query(dto.getQuery()) : "";
-        String negatedQuery = dto.getNegatedQuery() != null ? gmailQueryBuilder.negatedQuery(dto.getNegatedQuery()) : "";
+        String negatedQuery =
+                dto.getNegatedQuery() != null ? gmailQueryBuilder.negatedQuery(dto.getNegatedQuery()) : "";
 
         // Build the label-based criteria.
         String labelsQuery = "";
@@ -92,7 +96,11 @@ public class GmailService {
         }
 
         // Check if there is any search criteria besides the "from" value.
-        boolean hasSearchCriteria = !(to.isEmpty() && subject.isEmpty() && hasAttachment.isEmpty() && additionalQuery.isEmpty() && negatedQuery.isEmpty());
+        boolean hasSearchCriteria = !(to.isEmpty()
+                && subject.isEmpty()
+                && hasAttachment.isEmpty()
+                && additionalQuery.isEmpty()
+                && negatedQuery.isEmpty());
 
         if (!hasSearchCriteria) {
             // Only "from" is provided along with label modifications.
@@ -126,11 +134,13 @@ public class GmailService {
             return gmailRepository.getLatestMessages(userId, maxResults);
         } catch (IOException e) {
             logger.error("Failed to list latest {} messages for user: {}", maxResults, userId, e);
-            throw new GmailApiException(String.format("Failed to list latest %d messages for user: %s", maxResults, userId), e);
+            throw new GmailApiException(
+                    String.format("Failed to list latest %d messages for user: %s", maxResults, userId), e);
         }
     }
 
-    public List<Message> listMessagesByFilterCriteria(String userId, FilterCriteriaDTO filterCriteriaDTO) throws GmailApiException {
+    public List<Message> listMessagesByFilterCriteria(String userId, FilterCriteriaDTO filterCriteriaDTO)
+            throws GmailApiException {
         FilterCriteria criteria = filterCriteriaMapper.toFilterCriteria(filterCriteriaDTO);
         String query = buildQuery(criteria);
 
@@ -152,9 +162,14 @@ public class GmailService {
      * @return MessageListResult containing messages, next page token, and result size estimate
      * @throws GmailApiException if the Gmail API call fails
      */
-    public MessageListResult listMessagesWithPagination(String userId, String pageToken, int limit) throws GmailApiException {
+    public MessageListResult listMessagesWithPagination(String userId, String pageToken, int limit)
+            throws GmailApiException {
         try {
-            logger.debug("Listing messages with pagination - userId: {}, pageToken: {}, limit: {}", userId, pageToken, limit);
+            logger.debug(
+                    "Listing messages with pagination - userId: {}, pageToken: {}, limit: {}",
+                    userId,
+                    pageToken,
+                    limit);
             return gmailRepository.getMessagesWithPagination(userId, pageToken, limit);
         } catch (IOException e) {
             logger.error("Failed to list messages with pagination for user: {}", userId, e);
@@ -171,13 +186,19 @@ public class GmailService {
      * @return MessageListResult containing messages, next page token, and result size estimate
      * @throws GmailApiException if the Gmail API call fails
      */
-    public MessageListResult listLatestMessagesWithPagination(String userId, String pageToken, int maxResults) throws GmailApiException {
+    public MessageListResult listLatestMessagesWithPagination(String userId, String pageToken, int maxResults)
+            throws GmailApiException {
         try {
-            logger.debug("Listing latest messages with pagination - userId: {}, pageToken: {}, maxResults: {}", userId, pageToken, maxResults);
+            logger.debug(
+                    "Listing latest messages with pagination - userId: {}, pageToken: {}, maxResults: {}",
+                    userId,
+                    pageToken,
+                    maxResults);
             return gmailRepository.getLatestMessagesWithPagination(userId, pageToken, maxResults);
         } catch (IOException e) {
             logger.error("Failed to list latest {} messages with pagination for user: {}", maxResults, userId, e);
-            throw new GmailApiException(String.format("Failed to list latest %d messages for user: %s", maxResults, userId), e);
+            throw new GmailApiException(
+                    String.format("Failed to list latest %d messages for user: %s", maxResults, userId), e);
         }
     }
 
@@ -191,12 +212,14 @@ public class GmailService {
      * @return MessageListResult containing messages, next page token, and result size estimate
      * @throws GmailApiException if the Gmail API call fails
      */
-    public MessageListResult listMessagesByFilterCriteriaWithPagination(String userId, FilterCriteriaDTO filterCriteriaDTO, String pageToken, int limit) throws GmailApiException {
+    public MessageListResult listMessagesByFilterCriteriaWithPagination(
+            String userId, FilterCriteriaDTO filterCriteriaDTO, String pageToken, int limit) throws GmailApiException {
         FilterCriteria criteria = filterCriteriaMapper.toFilterCriteria(filterCriteriaDTO);
         String query = buildQuery(criteria);
 
         try {
-            logger.info("Fetching messages with pagination - query: {}, pageToken: {}, limit: {}", query, pageToken, limit);
+            logger.info(
+                    "Fetching messages with pagination - query: {}, pageToken: {}, limit: {}", query, pageToken, limit);
             return gmailRepository.getMessagesByFilterCriteriaWithPagination(userId, query, pageToken, limit);
         } catch (IOException e) {
             logger.error("Failed to list messages with pagination for user: {}. Query: {}", userId, query, e);
@@ -209,7 +232,8 @@ public class GmailService {
             BulkOperationResult bulkResult = gmailRepository.deleteMessage(userId, messageId);
 
             // Convert BulkOperationResult to DeleteResult for single message operations
-            if (bulkResult.hasSuccesses() && bulkResult.getSuccessfulOperations().contains(messageId)) {
+            if (bulkResult.hasSuccesses()
+                    && bulkResult.getSuccessfulOperations().contains(messageId)) {
                 logger.info("Successfully deleted message: {}", messageId);
                 return DeleteResult.success(messageId);
             } else if (bulkResult.hasFailures()) {
@@ -224,12 +248,12 @@ public class GmailService {
         } catch (IOException e) {
             logger.error("Failed to delete message for messageId: {} for user: {}", messageId, userId, e);
             throw new GmailApiException(
-                    String.format("Failed to delete message for messageId: %s for user: %s", messageId, userId), e
-            );
+                    String.format("Failed to delete message for messageId: %s for user: %s", messageId, userId), e);
         }
     }
 
-    public BulkOperationResult deleteMessagesByFilterCriteria(String userId, FilterCriteriaDTO filterCriteriaDTO) throws GmailApiException {
+    public BulkOperationResult deleteMessagesByFilterCriteria(String userId, FilterCriteriaDTO filterCriteriaDTO)
+            throws GmailApiException {
         try {
             FilterCriteria criteria = filterCriteriaMapper.toFilterCriteria(filterCriteriaDTO);
             String query = buildQuery(criteria);
@@ -237,19 +261,23 @@ public class GmailService {
             // Use the constructed query to delete messages
             BulkOperationResult result = gmailRepository.deleteMessagesByFilterCriteria(userId, query);
 
-            logger.info("Bulk delete operation completed for user {}: {} successful, {} failed out of {} total",
-                       userId, result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations());
+            logger.info(
+                    "Bulk delete operation completed for user {}: {} successful, {} failed out of {} total",
+                    userId,
+                    result.getSuccessCount(),
+                    result.getFailureCount(),
+                    result.getTotalOperations());
 
             return result;
         } catch (IOException e) {
             logger.error("Failed to delete messages for user: {}. Query: {}", userId, null, e);
             throw new GmailApiException(
-                    String.format("Failed to delete messages for user: %s. Query: %s", userId, null), e
-            );
+                    String.format("Failed to delete messages for user: %s. Query: %s", userId, null), e);
         }
     }
 
-    public BulkOperationResult modifyMessagesLabelsByFilterCriteria(String userId, FilterCriteriaWithLabelsDTO dto) throws GmailApiException {
+    public BulkOperationResult modifyMessagesLabelsByFilterCriteria(String userId, FilterCriteriaWithLabelsDTO dto)
+            throws GmailApiException {
         try {
             // Use the existing mapper to map filter criteria portion if needed
             // Otherwise build a FilterCriteria manually here
@@ -258,9 +286,7 @@ public class GmailService {
             String query = buildQuery(dto);
             return gmailRepository.modifyMessagesLabels(userId, dto.getLabelsToAdd(), dto.getLabelsToRemove(), query);
         } catch (IOException e) {
-            throw new GmailApiException(
-                    String.format("Failed to modify labels for messages for user: %s", userId), e
-            );
+            throw new GmailApiException(String.format("Failed to modify labels for messages for user: %s", userId), e);
         }
     }
 
@@ -286,15 +312,17 @@ public class GmailService {
         try {
             BulkOperationResult result = gmailRepository.batchTrashMessages(userId, messageIds);
 
-            logger.info("Batch trash operation completed for user {}: batchSize={}, {} successful, {} failed",
-                       userId, messageIds.size(), result.getSuccessCount(), result.getFailureCount());
+            logger.info(
+                    "Batch trash operation completed for user {}: batchSize={}, {} successful, {} failed",
+                    userId,
+                    messageIds.size(),
+                    result.getSuccessCount(),
+                    result.getFailureCount());
 
             return result;
         } catch (IOException e) {
             logger.error("Failed to batch trash messages for user: {}. batchSize={}", userId, messageIds.size(), e);
-            throw new GmailApiException(
-                    String.format("Failed to batch trash messages for user: %s", userId), e
-            );
+            throw new GmailApiException(String.format("Failed to batch trash messages for user: %s", userId), e);
         }
     }
 
@@ -314,15 +342,17 @@ public class GmailService {
         try {
             BulkOperationResult result = gmailRepository.batchUntrashMessages(userId, messageIds);
 
-            logger.info("Batch untrash operation completed for user {}: batchSize={}, {} successful, {} failed",
-                       userId, messageIds.size(), result.getSuccessCount(), result.getFailureCount());
+            logger.info(
+                    "Batch untrash operation completed for user {}: batchSize={}, {} successful, {} failed",
+                    userId,
+                    messageIds.size(),
+                    result.getSuccessCount(),
+                    result.getFailureCount());
 
             return result;
         } catch (IOException e) {
             logger.error("Failed to batch untrash messages for user: {}. batchSize={}", userId, messageIds.size(), e);
-            throw new GmailApiException(
-                    String.format("Failed to batch untrash messages for user: %s", userId), e
-            );
+            throw new GmailApiException(String.format("Failed to batch untrash messages for user: %s", userId), e);
         }
     }
 
@@ -344,24 +374,35 @@ public class GmailService {
      * @throws ValidationException if {@code messageIds} exceeds the configured maximum
      * @throws GmailApiException   if the underlying Gmail API call fails
      */
-    public BulkOperationResult batchModifyLabelsByIds(String userId, List<String> messageIds,
-                                                       List<String> labelIdsToAdd, List<String> labelIdsToRemove) throws GmailApiException {
+    public BulkOperationResult batchModifyLabelsByIds(
+            String userId, List<String> messageIds, List<String> labelIdsToAdd, List<String> labelIdsToRemove)
+            throws GmailApiException {
         validateBatchSize(messageIds);
         int addCount = labelIdsToAdd != null ? labelIdsToAdd.size() : 0;
         int removeCount = labelIdsToRemove != null ? labelIdsToRemove.size() : 0;
         try {
-            BulkOperationResult result = gmailRepository.batchModifyLabelsByIds(userId, messageIds, labelIdsToAdd, labelIdsToRemove);
+            BulkOperationResult result =
+                    gmailRepository.batchModifyLabelsByIds(userId, messageIds, labelIdsToAdd, labelIdsToRemove);
 
-            logger.info("Batch modify labels by id operation completed for user {}: batchSize={}, addCount={}, removeCount={}, {} successful, {} failed",
-                       userId, messageIds.size(), addCount, removeCount, result.getSuccessCount(), result.getFailureCount());
+            logger.info(
+                    "Batch modify labels by id operation completed for user {}: batchSize={}, addCount={}, removeCount={}, {} successful, {} failed",
+                    userId,
+                    messageIds.size(),
+                    addCount,
+                    removeCount,
+                    result.getSuccessCount(),
+                    result.getFailureCount());
 
             return result;
         } catch (IOException e) {
-            logger.error("Failed to batch modify labels by id for user: {}. batchSize={}, addCount={}, removeCount={}",
-                       userId, messageIds.size(), addCount, removeCount, e);
-            throw new GmailApiException(
-                    String.format("Failed to batch modify labels by id for user: %s", userId), e
-            );
+            logger.error(
+                    "Failed to batch modify labels by id for user: {}. batchSize={}, addCount={}, removeCount={}",
+                    userId,
+                    messageIds.size(),
+                    addCount,
+                    removeCount,
+                    e);
+            throw new GmailApiException(String.format("Failed to batch modify labels by id for user: %s", userId), e);
         }
     }
 
@@ -379,8 +420,7 @@ public class GmailService {
         long max = properties.gmailApi().batchDeleteMaxResults();
         if (messageIds.size() > max) {
             throw new ValidationException(
-                    String.format("messageIds size (%d) exceeds the configured maximum (%d)", messageIds.size(), max)
-            );
+                    String.format("messageIds size (%d) exceeds the configured maximum (%d)", messageIds.size(), max));
         }
     }
 
@@ -390,9 +430,7 @@ public class GmailService {
         } catch (IOException e) {
             logger.error("Failed to get message body for messageId: {} for user: {}", messageId, userId, e);
             throw new GmailApiException(
-                    String.format("Failed to get message body for messageId: %s for user: %s", messageId, userId),
-                    e
-            );
+                    String.format("Failed to get message body for messageId: %s for user: %s", messageId, userId), e);
         }
     }
 
@@ -403,8 +441,7 @@ public class GmailService {
             logger.error("Failed to mark message as read for messageId: {} for user: {}", messageId, userId, e);
             throw new GmailApiException(
                     String.format("Failed to mark message as read for messageId: %s for user: %s", messageId, userId),
-                    e
-            );
+                    e);
         }
     }
 
@@ -484,15 +521,14 @@ public class GmailService {
             // MIME types. Never log filenames, base64Data, or message body content.
             // This log SUPPLEMENTS the threading-related log from Checkpoint B (T035) — do not
             // remove the threading log statement; this is the US2 attachment diagnostic.
-            logger.info("Creating draft: attachmentCount={}, estimatedPayloadBytes={}, actualMimeBytes={}, mimeTypes={}",
+            logger.info(
+                    "Creating draft: attachmentCount={}, estimatedPayloadBytes={}, actualMimeBytes={}, mimeTypes={}",
                     dto.attachments().size(),
                     estimateBytes,
                     actualBytes,
                     dto.attachments().stream().map(Attachment::mimeType).toList());
 
-            logger.info("Creating draft: threaded={}, threadId={}",
-                    lookup != null,
-                    resolvedThreadId);
+            logger.info("Creating draft: threaded={}, threadId={}", lookup != null, resolvedThreadId);
 
             return gmailRepository.createDraft(userId, mimeMessage, resolvedThreadId);
         } catch (MessageTooLargeException e) {
@@ -504,9 +540,7 @@ public class GmailService {
             throw new GmailApiException("Failed to construct email message for draft", e);
         } catch (IOException e) {
             logger.error("Failed to create draft for user: {}", userId, e);
-            throw new GmailApiException(
-                    String.format("Failed to create draft for user: %s", userId), e
-            );
+            throw new GmailApiException(String.format("Failed to create draft for user: %s", userId), e);
         }
     }
 
@@ -531,8 +565,7 @@ public class GmailService {
         } catch (IOException e) {
             logger.error("Failed to send draft for draftId: {} for user: {}", draftId, userId, e);
             throw new GmailApiException(
-                    String.format("Failed to send draft for draftId: %s for user: %s", draftId, userId), e
-            );
+                    String.format("Failed to send draft for draftId: %s for user: %s", draftId, userId), e);
         }
     }
 
@@ -605,15 +638,14 @@ public class GmailService {
             // MIME types. Never log filenames, base64Data, or message body content.
             // This log SUPPLEMENTS the threading-related log from Checkpoint B (T035) — do not
             // remove the threading log statement; this is the US2 attachment diagnostic.
-            logger.info("Sending message: attachmentCount={}, estimatedPayloadBytes={}, actualMimeBytes={}, mimeTypes={}",
+            logger.info(
+                    "Sending message: attachmentCount={}, estimatedPayloadBytes={}, actualMimeBytes={}, mimeTypes={}",
                     dto.attachments().size(),
                     estimateBytes,
                     actualBytes,
                     dto.attachments().stream().map(Attachment::mimeType).toList());
 
-            logger.info("Sending message: threaded={}, threadId={}",
-                    lookup != null,
-                    resolvedThreadId);
+            logger.info("Sending message: threaded={}, threadId={}", lookup != null, resolvedThreadId);
 
             return gmailRepository.sendMessage(userId, mimeMessage, resolvedThreadId);
         } catch (MessageTooLargeException e) {
@@ -625,9 +657,7 @@ public class GmailService {
             throw new GmailApiException("Failed to construct email message for send", e);
         } catch (IOException e) {
             logger.error("Failed to send message for user: {}", userId, e);
-            throw new GmailApiException(
-                    String.format("Failed to send message for user: %s", userId), e
-            );
+            throw new GmailApiException(String.format("Failed to send message for user: %s", userId), e);
         }
     }
 
@@ -651,9 +681,7 @@ public class GmailService {
             return result;
         } catch (IOException e) {
             logger.error("Failed to list drafts for user: {}", userId, e);
-            throw new GmailApiException(
-                    String.format("Failed to list drafts for user: %s", userId), e
-            );
+            throw new GmailApiException(String.format("Failed to list drafts for user: %s", userId), e);
         }
     }
 
@@ -669,16 +697,16 @@ public class GmailService {
     public DraftDetailResult getDraft(String userId, String draftId) throws GmailApiException {
         try {
             DraftDetailResult result = gmailRepository.getDraft(userId, draftId);
-            logger.info("Draft operation: op=get, draftId={}, attachmentCount={}",
-                    draftId, result.attachments().size());
+            logger.info(
+                    "Draft operation: op=get, draftId={}, attachmentCount={}",
+                    draftId,
+                    result.attachments().size());
             return result;
         } catch (ResourceNotFoundException e) {
             throw e;
         } catch (IOException e) {
             logger.error("Failed to get draft draftId={} for user: {}", draftId, userId, e);
-            throw new GmailApiException(
-                    String.format("Failed to get draft %s for user: %s", draftId, userId), e
-            );
+            throw new GmailApiException(String.format("Failed to get draft %s for user: %s", draftId, userId), e);
         }
     }
 
@@ -698,9 +726,7 @@ public class GmailService {
             throw e;
         } catch (IOException e) {
             logger.error("Failed to delete draft draftId={} for user: {}", draftId, userId, e);
-            throw new GmailApiException(
-                    String.format("Failed to delete draft %s for user: %s", draftId, userId), e
-            );
+            throw new GmailApiException(String.format("Failed to delete draft %s for user: %s", draftId, userId), e);
         }
     }
 
@@ -731,8 +757,11 @@ public class GmailService {
             // Fetch the updated draft to return the full DraftDetailResult
             DraftDetailResult result = gmailRepository.getDraft(userId, updateResult.draftId());
 
-            logger.info("Draft operation: op=update, draftId={}, attachmentCount={}, hasThreading={}",
-                    draftId, result.attachments().size(), hasThreading);
+            logger.info(
+                    "Draft operation: op=update, draftId={}, attachmentCount={}, hasThreading={}",
+                    draftId,
+                    result.attachments().size(),
+                    hasThreading);
             return result;
 
         } catch (ResourceNotFoundException e) {
@@ -744,9 +773,7 @@ public class GmailService {
             throw new GmailApiException("Failed to construct email message for draft update", e);
         } catch (IOException e) {
             logger.error("Failed to update draft draftId={} for user: {}", draftId, userId, e);
-            throw new GmailApiException(
-                    String.format("Failed to update draft %s for user: %s", draftId, userId), e
-            );
+            throw new GmailApiException(String.format("Failed to update draft %s for user: %s", draftId, userId), e);
         }
     }
 
@@ -766,17 +793,17 @@ public class GmailService {
      * @return a {@link ThreadListResult} with thread summaries and pagination state
      * @throws GmailApiException if the Gmail API returns an error
      */
-    public ThreadListResult listThreads(String userId, FilterCriteriaDTO filterCriteria,
-                                        String pageToken, int limit) throws GmailApiException {
+    public ThreadListResult listThreads(String userId, FilterCriteriaDTO filterCriteria, String pageToken, int limit)
+            throws GmailApiException {
         try {
             ThreadListResult result = gmailRepository.listThreads(userId, filterCriteria, pageToken, limit);
-            logger.info("Thread operation: op=listThreads, count={}", result.threads().size());
+            logger.info(
+                    "Thread operation: op=listThreads, count={}",
+                    result.threads().size());
             return result;
         } catch (IOException e) {
             logger.error("Failed to list threads for user: {}", userId, e);
-            throw new GmailApiException(
-                    String.format("Failed to list threads for user: %s", userId), e
-            );
+            throw new GmailApiException(String.format("Failed to list threads for user: %s", userId), e);
         }
     }
 
@@ -793,16 +820,16 @@ public class GmailService {
     public ThreadDetailResult getThread(String userId, String threadId) throws GmailApiException {
         try {
             ThreadDetailResult result = gmailRepository.getThread(userId, threadId);
-            logger.info("Thread operation: op=getThread, threadId={}, messageCount={}",
-                    threadId, result.messages().size());
+            logger.info(
+                    "Thread operation: op=getThread, threadId={}, messageCount={}",
+                    threadId,
+                    result.messages().size());
             return result;
         } catch (ResourceNotFoundException e) {
             throw e;
         } catch (IOException e) {
             logger.error("Failed to get thread threadId={} for user: {}", threadId, userId, e);
-            throw new GmailApiException(
-                    String.format("Failed to get thread %s for user: %s", threadId, userId), e
-            );
+            throw new GmailApiException(String.format("Failed to get thread %s for user: %s", threadId, userId), e);
         }
     }
 
@@ -833,16 +860,18 @@ public class GmailService {
         String normalizedFormat = format != null ? format.toLowerCase() : "full";
         try {
             MessageDetailResult result = gmailRepository.getMessageDetail(userId, messageId, normalizedFormat);
-            logger.info("Message detail op: op=getMessageDetail, messageId={}, format={}, attachmentCount={}",
-                    messageId, normalizedFormat, result.attachments().size());
+            logger.info(
+                    "Message detail op: op=getMessageDetail, messageId={}, format={}, attachmentCount={}",
+                    messageId,
+                    normalizedFormat,
+                    result.attachments().size());
             return result;
         } catch (ResourceNotFoundException e) {
             throw e;
         } catch (IOException e) {
             logger.error("Failed to get message detail for messageId={} for user: {}", messageId, userId, e);
             throw new GmailApiException(
-                    String.format("Failed to getMessageDetail for messageId: %s for user: %s", messageId, userId), e
-            );
+                    String.format("Failed to getMessageDetail for messageId: %s for user: %s", messageId, userId), e);
         }
     }
 
@@ -866,9 +895,7 @@ public class GmailService {
             return result;
         } catch (IOException e) {
             logger.error("Failed to list labels for user: {}", userId, e);
-            throw new GmailApiException(
-                    String.format("Failed to list labels for user: %s", userId), e
-            );
+            throw new GmailApiException(String.format("Failed to list labels for user: %s", userId), e);
         }
     }
 
@@ -891,9 +918,7 @@ public class GmailService {
             throw e;
         } catch (IOException e) {
             logger.error("Failed to get label labelId={} for user: {}", labelId, userId, e);
-            throw new GmailApiException(
-                    String.format("Failed to get label %s for user: %s", labelId, userId), e
-            );
+            throw new GmailApiException(String.format("Failed to get label %s for user: %s", labelId, userId), e);
         }
     }
 
@@ -917,8 +942,9 @@ public class GmailService {
      * @throws LabelAlreadyExistsException if a label with this name already exists (Gmail 409)
      * @throws GmailApiException if the underlying Gmail API call fails
      */
-    public LabelSummary createLabel(String userId, String name, String messageListVisibility,
-                                     String labelListVisibility) throws GmailApiException {
+    public LabelSummary createLabel(
+            String userId, String name, String messageListVisibility, String labelListVisibility)
+            throws GmailApiException {
         try {
             LabelSummary result = gmailRepository.createLabel(userId, name, messageListVisibility, labelListVisibility);
             logger.info("Label operation: op=createLabel, labelId={}", result.id());
@@ -927,9 +953,7 @@ public class GmailService {
             throw e;
         } catch (IOException e) {
             logger.error("Failed to create label for user: {}", userId, e);
-            throw new GmailApiException(
-                    String.format("Failed to create label for user: %s", userId), e
-            );
+            throw new GmailApiException(String.format("Failed to create label for user: %s", userId), e);
         }
     }
 
@@ -958,16 +982,17 @@ public class GmailService {
     public AttachmentListResult listAttachments(String userId, String messageId) throws GmailApiException {
         try {
             AttachmentListResult result = gmailRepository.listAttachments(userId, messageId);
-            logger.info("Attachment operation: op=listAttachments, messageId={}, attachmentCount={}",
-                    messageId, result.attachments().size());
+            logger.info(
+                    "Attachment operation: op=listAttachments, messageId={}, attachmentCount={}",
+                    messageId,
+                    result.attachments().size());
             return result;
         } catch (ResourceNotFoundException e) {
             throw e;
         } catch (IOException e) {
             logger.error("Failed to list attachments for messageId={} for user: {}", messageId, userId, e);
             throw new GmailApiException(
-                    String.format("Failed to list attachments for messageId: %s for user: %s", messageId, userId), e
-            );
+                    String.format("Failed to list attachments for messageId: %s for user: %s", messageId, userId), e);
         }
     }
 
@@ -988,22 +1013,27 @@ public class GmailService {
      * @throws ResourceNotFoundException if the message or attachment does not exist
      * @throws GmailApiException if the Gmail API returns an error
      */
-    public StreamingResponseBody getAttachment(String userId, String messageId,
-                                               String attachmentId) throws GmailApiException {
+    public StreamingResponseBody getAttachment(String userId, String messageId, String attachmentId)
+            throws GmailApiException {
         try {
             StreamingResponseBody stream = gmailRepository.getAttachment(userId, messageId, attachmentId);
-            logger.info("Attachment operation: op=getAttachment, messageId={}, attachmentId={}",
-                    messageId, attachmentId);
+            logger.info(
+                    "Attachment operation: op=getAttachment, messageId={}, attachmentId={}", messageId, attachmentId);
             return stream;
         } catch (ResourceNotFoundException e) {
             throw e;
         } catch (IOException e) {
-            logger.error("Failed to get attachment for messageId={}, attachmentId={} for user: {}",
-                    messageId, attachmentId, userId, e);
+            logger.error(
+                    "Failed to get attachment for messageId={}, attachmentId={} for user: {}",
+                    messageId,
+                    attachmentId,
+                    userId,
+                    e);
             throw new GmailApiException(
-                    String.format("Failed to get attachment for messageId: %s, attachmentId: %s for user: %s",
-                            messageId, attachmentId, userId), e
-            );
+                    String.format(
+                            "Failed to get attachment for messageId: %s, attachmentId: %s for user: %s",
+                            messageId, attachmentId, userId),
+                    e);
         }
     }
 
@@ -1053,8 +1083,7 @@ public class GmailService {
         long maxTotal = properties.send().maxTotalPayloadSize().toBytes();
         long threshold = (long) (0.9 * maxTotal);
         if (estimateBytes > threshold) {
-            throw new MessageTooLargeException(
-                    "Total payload estimate (" + estimateBytes + " bytes) exceeds 90% of "
+            throw new MessageTooLargeException("Total payload estimate (" + estimateBytes + " bytes) exceeds 90% of "
                     + maxTotal + " byte cap (Stage 1 fast reject, FR-017)");
         }
     }
@@ -1073,9 +1102,8 @@ public class GmailService {
     private void enforceSizeStage2(long actualBytes) {
         long maxTotal = properties.send().maxTotalPayloadSize().toBytes();
         if (actualBytes > maxTotal) {
-            throw new MessageTooLargeException(
-                    "Assembled MIME payload (" + actualBytes + " bytes) exceeds "
-                    + maxTotal + " byte cap (Stage 2 safety net, FR-017)");
+            throw new MessageTooLargeException("Assembled MIME payload (" + actualBytes + " bytes) exceeds " + maxTotal
+                    + " byte cap (Stage 2 safety net, FR-017)");
         }
     }
 }

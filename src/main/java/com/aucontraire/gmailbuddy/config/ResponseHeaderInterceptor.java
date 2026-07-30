@@ -1,13 +1,12 @@
 package com.aucontraire.gmailbuddy.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-import org.springframework.stereotype.Component;
-import org.springframework.web.servlet.HandlerInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
  * Interceptor that adds standardized response headers to all API responses.
@@ -43,9 +42,7 @@ public class ResponseHeaderInterceptor implements HandlerInterceptor {
      * @return true to continue execution, false to abort
      */
     @Override
-    public boolean preHandle(HttpServletRequest request,
-                            HttpServletResponse response,
-                            Object handler) {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         // Generate or use existing request ID
         String requestId = request.getHeader(REQUEST_ID_HEADER);
         if (requestId == null || requestId.isEmpty()) {
@@ -58,8 +55,10 @@ public class ResponseHeaderInterceptor implements HandlerInterceptor {
         // Store start time for response time calculation
         request.setAttribute(REQUEST_START_TIME, System.currentTimeMillis());
 
-        logger.info("ResponseHeaderInterceptor.preHandle invoked for {} - requestId: {}",
-                    request.getRequestURI(), requestId);
+        logger.info(
+                "ResponseHeaderInterceptor.preHandle invoked for {} - requestId: {}",
+                request.getRequestURI(),
+                requestId);
 
         return true;
     }
@@ -74,10 +73,11 @@ public class ResponseHeaderInterceptor implements HandlerInterceptor {
      * @param modelAndView the ModelAndView (null for REST controllers)
      */
     @Override
-    public void postHandle(HttpServletRequest request,
-                          HttpServletResponse response,
-                          Object handler,
-                          org.springframework.web.servlet.ModelAndView modelAndView) {
+    public void postHandle(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Object handler,
+            org.springframework.web.servlet.ModelAndView modelAndView) {
         // Add request ID to response
         String requestId = MDC.get(MDC_REQUEST_ID_KEY);
         if (requestId != null) {
@@ -93,10 +93,12 @@ public class ResponseHeaderInterceptor implements HandlerInterceptor {
             logger.info("Setting X-Response-Time header: {}ms", responseTime);
         }
 
-        logger.info("ResponseHeaderInterceptor.postHandle invoked for {} - requestId: {}, responseTime: {}ms, committed: {}",
-                    request.getRequestURI(), requestId,
-                    (startTime != null ? (System.currentTimeMillis() - startTime) : "N/A"),
-                    response.isCommitted());
+        logger.info(
+                "ResponseHeaderInterceptor.postHandle invoked for {} - requestId: {}, responseTime: {}ms, committed: {}",
+                request.getRequestURI(),
+                requestId,
+                (startTime != null ? (System.currentTimeMillis() - startTime) : "N/A"),
+                response.isCommitted());
     }
 
     /**
@@ -109,13 +111,14 @@ public class ResponseHeaderInterceptor implements HandlerInterceptor {
      * @param ex any exception thrown during handler execution (null if none)
      */
     @Override
-    public void afterCompletion(HttpServletRequest request,
-                               HttpServletResponse response,
-                               Object handler,
-                               Exception ex) {
+    public void afterCompletion(
+            HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
         String requestId = MDC.get(MDC_REQUEST_ID_KEY);
-        logger.info("ResponseHeaderInterceptor.afterCompletion invoked for {} - requestId: {}, committed: {}",
-                    request.getRequestURI(), requestId, response.isCommitted());
+        logger.info(
+                "ResponseHeaderInterceptor.afterCompletion invoked for {} - requestId: {}, committed: {}",
+                request.getRequestURI(),
+                requestId,
+                response.isCommitted());
 
         // Clean up MDC to prevent memory leaks
         MDC.clear();

@@ -1,51 +1,7 @@
 package com.aucontraire.gmailbuddy.controller;
 
-import com.aucontraire.gmailbuddy.GmailBuddyApplication;
-import com.aucontraire.gmailbuddy.config.TestTokenProviderConfiguration;
-import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
-import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
-import com.aucontraire.gmailbuddy.exception.GmailApiException;
-import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
-import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
-import com.aucontraire.gmailbuddy.repository.GmailRepository;
-import com.aucontraire.gmailbuddy.dto.response.ThreadSummary;
-import com.aucontraire.gmailbuddy.service.AttachmentListResult;
-import com.aucontraire.gmailbuddy.service.DraftDetailResult;
-import com.aucontraire.gmailbuddy.service.DraftListResult;
-import com.aucontraire.gmailbuddy.service.GmailService;
-import com.aucontraire.gmailbuddy.service.MessageDetailResult;
-import com.aucontraire.gmailbuddy.service.MessageListResult;
-import com.aucontraire.gmailbuddy.service.ThreadDetailResult;
-import com.aucontraire.gmailbuddy.service.ThreadListResult;
-import com.google.api.services.gmail.model.Message;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.context.annotation.Import;
-import org.springframework.http.MediaType;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
-import org.springframework.security.oauth2.core.OAuth2AccessToken;
-import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
-import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -59,6 +15,47 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.aucontraire.gmailbuddy.GmailBuddyApplication;
+import com.aucontraire.gmailbuddy.config.TestTokenProviderConfiguration;
+import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
+import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
+import com.aucontraire.gmailbuddy.dto.response.ThreadSummary;
+import com.aucontraire.gmailbuddy.exception.GmailApiException;
+import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
+import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
+import com.aucontraire.gmailbuddy.repository.GmailRepository;
+import com.aucontraire.gmailbuddy.service.AttachmentListResult;
+import com.aucontraire.gmailbuddy.service.DraftDetailResult;
+import com.aucontraire.gmailbuddy.service.DraftListResult;
+import com.aucontraire.gmailbuddy.service.GmailService;
+import com.aucontraire.gmailbuddy.service.MessageDetailResult;
+import com.aucontraire.gmailbuddy.service.MessageListResult;
+import com.aucontraire.gmailbuddy.service.ThreadDetailResult;
+import com.aucontraire.gmailbuddy.service.ThreadListResult;
+import com.google.api.services.gmail.model.Message;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @SpringBootTest(classes = GmailBuddyApplication.class, webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
@@ -79,29 +76,30 @@ public class GmailControllerTest {
 
     @BeforeEach
     public void setup() {
-        OAuth2AccessToken accessToken = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "token-value", null, null);
+        OAuth2AccessToken accessToken =
+                new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, "token-value", null, null);
         OAuth2User principal = new DefaultOAuth2User(
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")),
                 Collections.singletonMap("name", "testuser"),
-                "name"
-        );
-        OAuth2AuthenticationToken authentication = new OAuth2AuthenticationToken(principal, principal.getAuthorities(), "google");
+                "name");
+        OAuth2AuthenticationToken authentication =
+                new OAuth2AuthenticationToken(principal, principal.getAuthorities(), "google");
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
     @Test
     public void testListMessagesByFilterCriteria() throws Exception {
-        String jsonPayload = "{\n" +
-                "  \"from\": \"jobalerts-noreply@linkedin.com\",\n" +
-                "  \"to\": \"ocontreras.sf@gmail.com\",\n" +
-                "  \"subject\": \"4 new jobs in United States\",\n" +
-                "  \"hasAttachment\": false,\n" +
-                "  \"query\": \"label:Inbox\",\n" +
-                "  \"negatedQuery\": \"label:Spam\"\n" +
-                "}";
+        String jsonPayload = "{\n" + "  \"from\": \"jobalerts-noreply@linkedin.com\",\n"
+                + "  \"to\": \"ocontreras.sf@gmail.com\",\n"
+                + "  \"subject\": \"4 new jobs in United States\",\n"
+                + "  \"hasAttachment\": false,\n"
+                + "  \"query\": \"label:Inbox\",\n"
+                + "  \"negatedQuery\": \"label:Spam\"\n"
+                + "}";
 
         MessageListResult mockResult = new MessageListResult(Collections.emptyList(), null, 0);
-        when(gmailService.listMessagesByFilterCriteriaWithPagination(eq("me"), any(FilterCriteriaDTO.class), any(), anyInt()))
+        when(gmailService.listMessagesByFilterCriteriaWithPagination(
+                        eq("me"), any(FilterCriteriaDTO.class), any(), anyInt()))
                 .thenReturn(mockResult);
 
         mockMvc.perform(post("/api/v1/gmail/messages/filter")
@@ -133,7 +131,8 @@ public class GmailControllerTest {
         // totalCount (201) is far larger than the 2 messages on this page, proving
         // it reflects Gmail's full-set resultSizeEstimate, not the page size.
         MessageListResult mockResult = new MessageListResult(List.of(message1, message2), "page-2-token", 201);
-        when(gmailService.listMessagesByFilterCriteriaWithPagination(eq("me"), any(FilterCriteriaDTO.class), any(), anyInt()))
+        when(gmailService.listMessagesByFilterCriteriaWithPagination(
+                        eq("me"), any(FilterCriteriaDTO.class), any(), anyInt()))
                 .thenReturn(mockResult);
 
         mockMvc.perform(post("/api/v1/gmail/messages/filter")
@@ -155,7 +154,8 @@ public class GmailControllerTest {
         Message message1 = new Message().setId("msg-201").setThreadId("thread-201");
         // null nextPageToken signals the last page.
         MessageListResult mockResult = new MessageListResult(List.of(message1), null, 201);
-        when(gmailService.listMessagesByFilterCriteriaWithPagination(eq("me"), any(FilterCriteriaDTO.class), eq("page-2-token"), anyInt()))
+        when(gmailService.listMessagesByFilterCriteriaWithPagination(
+                        eq("me"), any(FilterCriteriaDTO.class), eq("page-2-token"), anyInt()))
                 .thenReturn(mockResult);
 
         mockMvc.perform(post("/api/v1/gmail/messages/filter")
@@ -179,7 +179,8 @@ public class GmailControllerTest {
         String jsonPayload = "{ \"query\": \"label:Inbox\" }";
 
         MessageListResult mockResult = new MessageListResult(Collections.emptyList(), null, 0);
-        when(gmailService.listMessagesByFilterCriteriaWithPagination(eq("me"), any(FilterCriteriaDTO.class), eq("page-3-token"), anyInt()))
+        when(gmailService.listMessagesByFilterCriteriaWithPagination(
+                        eq("me"), any(FilterCriteriaDTO.class), eq("page-3-token"), anyInt()))
                 .thenReturn(mockResult);
 
         mockMvc.perform(post("/api/v1/gmail/messages/filter")
@@ -189,7 +190,9 @@ public class GmailControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk());
 
-        verify(gmailService).listMessagesByFilterCriteriaWithPagination(eq("me"), any(FilterCriteriaDTO.class), eq("page-3-token"), anyInt());
+        verify(gmailService)
+                .listMessagesByFilterCriteriaWithPagination(
+                        eq("me"), any(FilterCriteriaDTO.class), eq("page-3-token"), anyInt());
     }
 
     @Test
@@ -208,11 +211,9 @@ public class GmailControllerTest {
 
     @Test
     public void testGetMessageBody_ResourceNotFoundException() throws Exception {
-        when(gmailService.getMessageBody("me", "12345"))
-                .thenThrow(new ResourceNotFoundException("Message not found"));
+        when(gmailService.getMessageBody("me", "12345")).thenThrow(new ResourceNotFoundException("Message not found"));
 
-        mockMvc.perform(get("/api/v1/gmail/messages/{messageId}/body", "12345")
-                        .with(csrf()))
+        mockMvc.perform(get("/api/v1/gmail/messages/{messageId}/body", "12345").with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
@@ -237,10 +238,18 @@ public class GmailControllerTest {
     @Test
     public void listDrafts_200WithResults_returnsListItems() throws Exception {
         DraftDetailResult draft = new DraftDetailResult(
-                "draft-1", "msg-1", null,
-                List.of("to@example.com"), List.of(), List.of(),
-                "Test Subject", "snippet", "body", "text", null, List.of()
-        );
+                "draft-1",
+                "msg-1",
+                null,
+                List.of("to@example.com"),
+                List.of(),
+                List.of(),
+                "Test Subject",
+                "snippet",
+                "body",
+                "text",
+                null,
+                List.of());
         DraftListResult listResult = new DraftListResult(List.of(draft), "next-token", 1);
         when(gmailService.listDrafts(eq("me"), any(), anyInt())).thenReturn(listResult);
 
@@ -300,11 +309,18 @@ public class GmailControllerTest {
     @Test
     public void getDraft_200WithFullDraftDetailResponse() throws Exception {
         DraftDetailResult detail = new DraftDetailResult(
-                "abc123", "msg-abc", "thread-1",
-                List.of("to@example.com"), List.of(), List.of(),
-                "Subject", "snippet", "<p>HTML body</p>", "html",
-                "in-reply-to", List.of()
-        );
+                "abc123",
+                "msg-abc",
+                "thread-1",
+                List.of("to@example.com"),
+                List.of(),
+                List.of(),
+                "Subject",
+                "snippet",
+                "<p>HTML body</p>",
+                "html",
+                "in-reply-to",
+                List.of());
         when(gmailService.getDraft(eq("me"), eq("abc123"))).thenReturn(detail);
 
         mockMvc.perform(get("/api/v1/gmail/drafts/{draftId}", "abc123")
@@ -365,25 +381,23 @@ public class GmailControllerTest {
     @Test
     public void deleteDraft_204NoContentOnSuccess() throws Exception {
         // doNothing is default for void mocks
-        mockMvc.perform(delete("/api/v1/gmail/drafts/{draftId}", "abc123")
-                        .with(csrf()))
+        mockMvc.perform(delete("/api/v1/gmail/drafts/{draftId}", "abc123").with(csrf()))
                 .andExpect(status().isNoContent());
     }
 
     @Test
     public void deleteDraft_404ForUnknownDraftId() throws Exception {
         doThrow(new ResourceNotFoundException("Draft not found"))
-                .when(gmailService).deleteDraft(eq("me"), eq("deadbeef"));
+                .when(gmailService)
+                .deleteDraft(eq("me"), eq("deadbeef"));
 
-        mockMvc.perform(delete("/api/v1/gmail/drafts/{draftId}", "deadbeef")
-                        .with(csrf()))
+        mockMvc.perform(delete("/api/v1/gmail/drafts/{draftId}", "deadbeef").with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     public void deleteDraft_400ForInvalidDraftId() throws Exception {
-        mockMvc.perform(delete("/api/v1/gmail/drafts/{draftId}", "invalid!!!")
-                        .with(csrf()))
+        mockMvc.perform(delete("/api/v1/gmail/drafts/{draftId}", "invalid!!!").with(csrf()))
                 .andExpect(status().isBadRequest());
     }
 
@@ -391,18 +405,17 @@ public class GmailControllerTest {
     public void deleteDraft_401WhenUnauthenticated() throws Exception {
         SecurityContextHolder.clearContext();
 
-        mockMvc.perform(delete("/api/v1/gmail/drafts/{draftId}", "abc123")
-                        .with(csrf()))
+        mockMvc.perform(delete("/api/v1/gmail/drafts/{draftId}", "abc123").with(csrf()))
                 .andExpect(status().isFound());
     }
 
     @Test
     public void deleteDraft_502WhenGmailApiException() throws Exception {
         doThrow(new GmailApiException("Gmail error", new java.io.IOException("io")))
-                .when(gmailService).deleteDraft(eq("me"), eq("abc123"));
+                .when(gmailService)
+                .deleteDraft(eq("me"), eq("abc123"));
 
-        mockMvc.perform(delete("/api/v1/gmail/drafts/{draftId}", "abc123")
-                        .with(csrf()))
+        mockMvc.perform(delete("/api/v1/gmail/drafts/{draftId}", "abc123").with(csrf()))
                 .andExpect(status().isBadGateway());
     }
 
@@ -413,15 +426,23 @@ public class GmailControllerTest {
     @Test
     public void updateDraft_200WithUpdatedDraftDetailResponse() throws Exception {
         DraftDetailResult updated = new DraftDetailResult(
-                "abc123", "msg-1", null,
-                List.of("to@example.com"), List.of(), List.of(),
-                "Updated Subject", "snippet", "Updated body", "text",
-                null, List.of()
-        );
+                "abc123",
+                "msg-1",
+                null,
+                List.of("to@example.com"),
+                List.of(),
+                List.of(),
+                "Updated Subject",
+                "snippet",
+                "Updated body",
+                "text",
+                null,
+                List.of());
         when(gmailService.updateDraft(eq("me"), eq("abc123"), any(SendMessageDTO.class)))
                 .thenReturn(updated);
 
-        String requestBody = """
+        String requestBody =
+                """
                 {
                   "to": ["to@example.com"],
                   "cc": [],
@@ -447,7 +468,8 @@ public class GmailControllerTest {
         when(gmailService.updateDraft(eq("me"), eq("deadbeef"), any(SendMessageDTO.class)))
                 .thenThrow(new ResourceNotFoundException("Draft not found"));
 
-        String requestBody = """
+        String requestBody =
+                """
                 {
                   "to": ["to@example.com"],
                   "cc": [],
@@ -468,7 +490,8 @@ public class GmailControllerTest {
 
     @Test
     public void updateDraft_400ForInvalidDraftId() throws Exception {
-        String requestBody = """
+        String requestBody =
+                """
                 {
                   "to": ["to@example.com"],
                   "cc": [],
@@ -492,7 +515,8 @@ public class GmailControllerTest {
         when(gmailService.updateDraft(eq("me"), eq("abc123"), any(SendMessageDTO.class)))
                 .thenThrow(new OriginalMessageNotFoundException("inReplyTo target not found"));
 
-        String requestBody = """
+        String requestBody =
+                """
                 {
                   "to": ["to@example.com"],
                   "cc": [],
@@ -516,7 +540,8 @@ public class GmailControllerTest {
     public void updateDraft_401WhenUnauthenticated() throws Exception {
         SecurityContextHolder.clearContext();
 
-        String requestBody = """
+        String requestBody =
+                """
                 {
                   "to": ["to@example.com"],
                   "cc": [],
@@ -540,7 +565,8 @@ public class GmailControllerTest {
         when(gmailService.updateDraft(eq("me"), eq("abc123"), any(SendMessageDTO.class)))
                 .thenThrow(new GmailApiException("Gmail API error", new java.io.IOException("io")));
 
-        String requestBody = """
+        String requestBody =
+                """
                 {
                   "to": ["to@example.com"],
                   "cc": [],
@@ -756,16 +782,17 @@ public class GmailControllerTest {
     @Test
     public void getThread_200WithFullThreadDetailResponse() throws Exception {
         MessageDetailResult msg = new MessageDetailResult(
-                "msg-1", "thread-abc123",
+                "msg-1",
+                "thread-abc123",
                 Map.of("From", "sender@example.com", "Subject", "Hello"),
-                "snippet text", "<p>body</p>", "html",
-                List.of("INBOX", "CATEGORY_PERSONAL"), List.of()
-        );
-        ThreadDetailResult detail = new ThreadDetailResult(
-                "thread-abc123", List.of("INBOX", "CATEGORY_PERSONAL"), List.of(msg)
-        );
-        when(gmailService.getThread(eq("me"), eq("1a2b3c4d5e6f7890")))
-                .thenReturn(detail);
+                "snippet text",
+                "<p>body</p>",
+                "html",
+                List.of("INBOX", "CATEGORY_PERSONAL"),
+                List.of());
+        ThreadDetailResult detail =
+                new ThreadDetailResult("thread-abc123", List.of("INBOX", "CATEGORY_PERSONAL"), List.of(msg));
+        when(gmailService.getThread(eq("me"), eq("1a2b3c4d5e6f7890"))).thenReturn(detail);
 
         mockMvc.perform(get("/api/v1/gmail/threads/{threadId}", "1a2b3c4d5e6f7890")
                         .accept(MediaType.APPLICATION_JSON)
@@ -782,15 +809,16 @@ public class GmailControllerTest {
     @Test
     public void getThread_200WithSingleMessageThread_returnsOneMessage() throws Exception {
         MessageDetailResult msg = new MessageDetailResult(
-                "msg-only", "thread-single",
-                Map.of(), "only message snippet", "body text", "text",
-                List.of("INBOX"), List.of()
-        );
-        ThreadDetailResult singleMsg = new ThreadDetailResult(
-                "thread-single", List.of("INBOX"), List.of(msg)
-        );
-        when(gmailService.getThread(eq("me"), eq("1a2b3c4d5e6f7891")))
-                .thenReturn(singleMsg);
+                "msg-only",
+                "thread-single",
+                Map.of(),
+                "only message snippet",
+                "body text",
+                "text",
+                List.of("INBOX"),
+                List.of());
+        ThreadDetailResult singleMsg = new ThreadDetailResult("thread-single", List.of("INBOX"), List.of(msg));
+        when(gmailService.getThread(eq("me"), eq("1a2b3c4d5e6f7891"))).thenReturn(singleMsg);
 
         mockMvc.perform(get("/api/v1/gmail/threads/{threadId}", "1a2b3c4d5e6f7891")
                         .accept(MediaType.APPLICATION_JSON)
@@ -804,22 +832,14 @@ public class GmailControllerTest {
     @Test
     public void getThread_200WithMultipleMessages_preservesChronologicalOrder() throws Exception {
         MessageDetailResult msg1 = new MessageDetailResult(
-                "msg-first", "thread-multi",
-                Map.of(), "first", "body1", "text", List.of("INBOX"), List.of()
-        );
+                "msg-first", "thread-multi", Map.of(), "first", "body1", "text", List.of("INBOX"), List.of());
         MessageDetailResult msg2 = new MessageDetailResult(
-                "msg-second", "thread-multi",
-                Map.of(), "second", "body2", "text", List.of("INBOX"), List.of()
-        );
+                "msg-second", "thread-multi", Map.of(), "second", "body2", "text", List.of("INBOX"), List.of());
         MessageDetailResult msg3 = new MessageDetailResult(
-                "msg-third", "thread-multi",
-                Map.of(), "third", "body3", "text", List.of("INBOX", "UNREAD"), List.of()
-        );
-        ThreadDetailResult multiMsg = new ThreadDetailResult(
-                "thread-multi", List.of("INBOX", "UNREAD"), List.of(msg1, msg2, msg3)
-        );
-        when(gmailService.getThread(eq("me"), eq("1a2b3c4d5e6f7892")))
-                .thenReturn(multiMsg);
+                "msg-third", "thread-multi", Map.of(), "third", "body3", "text", List.of("INBOX", "UNREAD"), List.of());
+        ThreadDetailResult multiMsg =
+                new ThreadDetailResult("thread-multi", List.of("INBOX", "UNREAD"), List.of(msg1, msg2, msg3));
+        when(gmailService.getThread(eq("me"), eq("1a2b3c4d5e6f7892"))).thenReturn(multiMsg);
 
         mockMvc.perform(get("/api/v1/gmail/threads/{threadId}", "1a2b3c4d5e6f7892")
                         .accept(MediaType.APPLICATION_JSON)
@@ -834,18 +854,19 @@ public class GmailControllerTest {
     @Test
     public void getThread_200WithMixedLabelMessages_returnsLabelUnion() throws Exception {
         MessageDetailResult msg1 = new MessageDetailResult(
-                "msg-a", "thread-labels",
-                Map.of(), "s1", "b1", "text", List.of("INBOX"), List.of()
-        );
+                "msg-a", "thread-labels", Map.of(), "s1", "b1", "text", List.of("INBOX"), List.of());
         MessageDetailResult msg2 = new MessageDetailResult(
-                "msg-b", "thread-labels",
-                Map.of(), "s2", "b2", "text", List.of("INBOX", "UNREAD", "Label_42"), List.of()
-        );
-        ThreadDetailResult mixedLabels = new ThreadDetailResult(
-                "thread-labels", List.of("INBOX", "UNREAD", "Label_42"), List.of(msg1, msg2)
-        );
-        when(gmailService.getThread(eq("me"), eq("1a2b3c4d5e6f7893")))
-                .thenReturn(mixedLabels);
+                "msg-b",
+                "thread-labels",
+                Map.of(),
+                "s2",
+                "b2",
+                "text",
+                List.of("INBOX", "UNREAD", "Label_42"),
+                List.of());
+        ThreadDetailResult mixedLabels =
+                new ThreadDetailResult("thread-labels", List.of("INBOX", "UNREAD", "Label_42"), List.of(msg1, msg2));
+        when(gmailService.getThread(eq("me"), eq("1a2b3c4d5e6f7893"))).thenReturn(mixedLabels);
 
         mockMvc.perform(get("/api/v1/gmail/threads/{threadId}", "1a2b3c4d5e6f7893")
                         .accept(MediaType.APPLICATION_JSON)
@@ -908,8 +929,7 @@ public class GmailControllerTest {
     @Test
     public void getThread_quotaHeaderIs10() throws Exception {
         ThreadDetailResult detail = new ThreadDetailResult("thread-q", List.of(), List.of());
-        when(gmailService.getThread(eq("me"), eq("1a2b3c4d5e6f7890")))
-                .thenReturn(detail);
+        when(gmailService.getThread(eq("me"), eq("1a2b3c4d5e6f7890"))).thenReturn(detail);
 
         mockMvc.perform(get("/api/v1/gmail/threads/{threadId}", "1a2b3c4d5e6f7890")
                         .accept(MediaType.APPLICATION_JSON)
@@ -928,15 +948,22 @@ public class GmailControllerTest {
                 new com.aucontraire.gmailbuddy.dto.response.MessageAttachmentMetadata(
                         "att-id-1", "report.pdf", "application/pdf", 12345L);
         MessageDetailResult detail = new MessageDetailResult(
-                "1a2b3c4d5e6f7890", "thread-abc123",
-                Map.of("From", "sender@example.com", "Subject", "Hello",
-                        "To", "me@example.com", "Date", "Mon, 1 Jan 2026 00:00:00 +0000"),
+                "1a2b3c4d5e6f7890",
+                "thread-abc123",
+                Map.of(
+                        "From",
+                        "sender@example.com",
+                        "Subject",
+                        "Hello",
+                        "To",
+                        "me@example.com",
+                        "Date",
+                        "Mon, 1 Jan 2026 00:00:00 +0000"),
                 "preview snippet text",
                 "<p>body content here</p>",
                 "html",
                 List.of("INBOX", "CATEGORY_PERSONAL"),
-                List.of(att)
-        );
+                List.of(att));
         when(gmailService.getMessageDetail(eq("me"), eq("1a2b3c4d5e6f7890"), eq("full")))
                 .thenReturn(detail);
 
@@ -963,11 +990,14 @@ public class GmailControllerTest {
     @Test
     public void getMessageDetail_200WithMetadataFormat_bodyIsNull_quotaIs5() throws Exception {
         MessageDetailResult detail = new MessageDetailResult(
-                "1a2b3c4d5e6f7890", "thread-meta",
+                "1a2b3c4d5e6f7890",
+                "thread-meta",
                 Map.of("From", "sender@example.com", "Subject", "Hi"),
-                "snippet", null, null,
-                List.of("INBOX"), List.of()
-        );
+                "snippet",
+                null,
+                null,
+                List.of("INBOX"),
+                List.of());
         when(gmailService.getMessageDetail(eq("me"), eq("1a2b3c4d5e6f7890"), eq("metadata")))
                 .thenReturn(detail);
 
@@ -985,11 +1015,14 @@ public class GmailControllerTest {
     @Test
     public void getMessageDetail_200WithFormatFull_caseInsensitive_Full() throws Exception {
         MessageDetailResult detail = new MessageDetailResult(
-                "1a2b3c4d5e6f7890", "thread-ci",
+                "1a2b3c4d5e6f7890",
+                "thread-ci",
                 Map.of("Subject", "Case test"),
-                "snippet", "body text", "text",
-                List.of("INBOX"), List.of()
-        );
+                "snippet",
+                "body text",
+                "text",
+                List.of("INBOX"),
+                List.of());
         // Controller normalizes "Full" → "full" before service call
         when(gmailService.getMessageDetail(eq("me"), eq("1a2b3c4d5e6f7890"), eq("full")))
                 .thenReturn(detail);
@@ -1006,11 +1039,14 @@ public class GmailControllerTest {
     @Test
     public void getMessageDetail_200WithFormatFull_caseInsensitive_FULL() throws Exception {
         MessageDetailResult detail = new MessageDetailResult(
-                "1a2b3c4d5e6f7890", "thread-ci2",
+                "1a2b3c4d5e6f7890",
+                "thread-ci2",
                 Map.of("Subject", "FULL test"),
-                "snippet2", "body2", "text",
-                List.of("INBOX"), List.of()
-        );
+                "snippet2",
+                "body2",
+                "text",
+                List.of("INBOX"),
+                List.of());
         when(gmailService.getMessageDetail(eq("me"), eq("1a2b3c4d5e6f7890"), eq("full")))
                 .thenReturn(detail);
 
@@ -1041,7 +1077,8 @@ public class GmailControllerTest {
                         String detailValue = detailNode.asText();
                         org.junit.jupiter.api.Assertions.assertFalse(
                                 detailValue.equalsIgnoreCase("raw"),
-                                "detail field must not echo the literal 'raw' user-provided value (FR-035a), but was: " + detailValue);
+                                "detail field must not echo the literal 'raw' user-provided value (FR-035a), but was: "
+                                        + detailValue);
                     }
                 });
     }
@@ -1073,7 +1110,8 @@ public class GmailControllerTest {
                         String detailValue = detailNode.asText();
                         org.junit.jupiter.api.Assertions.assertFalse(
                                 detailValue.contains("bad.id"),
-                                "detail field must not echo the malformed messageId 'bad.id' (FR-035a), but was: " + detailValue);
+                                "detail field must not echo the malformed messageId 'bad.id' (FR-035a), but was: "
+                                        + detailValue);
                     }
                 });
     }
@@ -1123,10 +1161,7 @@ public class GmailControllerTest {
     @Test
     public void getMessageDetail_quotaHeaderIs10ForFormatFull() throws Exception {
         MessageDetailResult detail = new MessageDetailResult(
-                "1a2b3c4d5e6f7890", "thread-quota",
-                Map.of(), "snippet", "body", "text",
-                List.of(), List.of()
-        );
+                "1a2b3c4d5e6f7890", "thread-quota", Map.of(), "snippet", "body", "text", List.of(), List.of());
         when(gmailService.getMessageDetail(eq("me"), eq("1a2b3c4d5e6f7890"), eq("full")))
                 .thenReturn(detail);
 
@@ -1140,10 +1175,7 @@ public class GmailControllerTest {
     @Test
     public void getMessageDetail_quotaHeaderIs5ForFormatMetadata() throws Exception {
         MessageDetailResult detail = new MessageDetailResult(
-                "1a2b3c4d5e6f7890", "thread-quota-meta",
-                Map.of(), "snippet", null, null,
-                List.of(), List.of()
-        );
+                "1a2b3c4d5e6f7890", "thread-quota-meta", Map.of(), "snippet", null, null, List.of(), List.of());
         when(gmailService.getMessageDetail(eq("me"), eq("1a2b3c4d5e6f7890"), eq("metadata")))
                 .thenReturn(detail);
 
@@ -1167,10 +1199,8 @@ public class GmailControllerTest {
                                 new com.aucontraire.gmailbuddy.dto.response.LabelSummary(
                                         "INBOX", "INBOX", "system", "show", "labelShow"),
                                 new com.aucontraire.gmailbuddy.dto.response.LabelSummary(
-                                        "Label_42", "Recruiters", "user", "show", "labelShow")
-                        ),
-                        2
-                );
+                                        "Label_42", "Recruiters", "user", "show", "labelShow")),
+                        2);
         when(gmailService.listLabels(eq("me"))).thenReturn(listResult);
 
         mockMvc.perform(get("/api/v1/gmail/labels")
@@ -1188,12 +1218,9 @@ public class GmailControllerTest {
     public void listLabels_200WithEmptyUserLabels_returnsOnlySystemLabels() throws Exception {
         com.aucontraire.gmailbuddy.service.LabelListResult listResult =
                 new com.aucontraire.gmailbuddy.service.LabelListResult(
-                        List.of(
-                                new com.aucontraire.gmailbuddy.dto.response.LabelSummary(
-                                        "INBOX", "INBOX", "system", "show", "labelShow")
-                        ),
-                        1
-                );
+                        List.of(new com.aucontraire.gmailbuddy.dto.response.LabelSummary(
+                                "INBOX", "INBOX", "system", "show", "labelShow")),
+                        1);
         when(gmailService.listLabels(eq("me"))).thenReturn(listResult);
 
         mockMvc.perform(get("/api/v1/gmail/labels")
@@ -1242,11 +1269,7 @@ public class GmailControllerTest {
     public void getLabel_200WithColorSet() throws Exception {
         com.aucontraire.gmailbuddy.service.LabelDetailResult detailResult =
                 new com.aucontraire.gmailbuddy.service.LabelDetailResult(
-                        "Label_42", "Recruiters", "user",
-                        "show", "labelShow",
-                        "#222222", "#16a766",
-                        42, 5, 38, 4
-                );
+                        "Label_42", "Recruiters", "user", "show", "labelShow", "#222222", "#16a766", 42, 5, 38, 4);
         when(gmailService.getLabel(eq("me"), eq("Label_42"))).thenReturn(detailResult);
 
         mockMvc.perform(get("/api/v1/gmail/labels/{labelId}", "Label_42")
@@ -1268,11 +1291,7 @@ public class GmailControllerTest {
     public void getLabel_200SystemLabelWithoutColor() throws Exception {
         com.aucontraire.gmailbuddy.service.LabelDetailResult detailResult =
                 new com.aucontraire.gmailbuddy.service.LabelDetailResult(
-                        "INBOX", "INBOX", "system",
-                        "show", "labelShow",
-                        null, null,
-                        100, 10, 80, 8
-                );
+                        "INBOX", "INBOX", "system", "show", "labelShow", null, null, 100, 10, 80, 8);
         when(gmailService.getLabel(eq("me"), eq("INBOX"))).thenReturn(detailResult);
 
         mockMvc.perform(get("/api/v1/gmail/labels/{labelId}", "INBOX")
@@ -1288,11 +1307,7 @@ public class GmailControllerTest {
     public void getLabel_200WithFullCounts() throws Exception {
         com.aucontraire.gmailbuddy.service.LabelDetailResult detailResult =
                 new com.aucontraire.gmailbuddy.service.LabelDetailResult(
-                        "SENT", "SENT", "system",
-                        "hide", "labelHide",
-                        null, null,
-                        500, 0, 400, 0
-                );
+                        "SENT", "SENT", "system", "hide", "labelHide", null, null, 500, 0, 400, 0);
         when(gmailService.getLabel(eq("me"), eq("SENT"))).thenReturn(detailResult);
 
         mockMvc.perform(get("/api/v1/gmail/labels/{labelId}", "SENT")
@@ -1360,11 +1375,7 @@ public class GmailControllerTest {
     public void getLabel_quotaHeaderIs1() throws Exception {
         com.aucontraire.gmailbuddy.service.LabelDetailResult detailResult =
                 new com.aucontraire.gmailbuddy.service.LabelDetailResult(
-                        "INBOX", "INBOX", "system",
-                        "show", "labelShow",
-                        null, null,
-                        0, 0, 0, 0
-                );
+                        "INBOX", "INBOX", "system", "show", "labelShow", null, null, 0, 0, 0, 0);
         when(gmailService.getLabel(eq("me"), eq("INBOX"))).thenReturn(detailResult);
 
         mockMvc.perform(get("/api/v1/gmail/labels/{labelId}", "INBOX")
@@ -1456,8 +1467,10 @@ public class GmailControllerTest {
         when(gmailService.getAttachment(eq("me"), eq("1a2b3c4d5e6f7890"), eq("ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")))
                 .thenReturn(stream);
 
-        mockMvc.perform(get("/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
-                        "1a2b3c4d5e6f7890", "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
+        mockMvc.perform(get(
+                                "/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
+                                "1a2b3c4d5e6f7890",
+                                "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
                         .param("filename", "report.pdf")
                         .param("mimeType", "application/pdf")
                         .with(csrf()))
@@ -1474,8 +1487,10 @@ public class GmailControllerTest {
         when(gmailService.getAttachment(eq("me"), eq("1a2b3c4d5e6f7890"), eq("ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")))
                 .thenReturn(stream);
 
-        mockMvc.perform(get("/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
-                        "1a2b3c4d5e6f7890", "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
+        mockMvc.perform(get(
+                                "/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
+                                "1a2b3c4d5e6f7890",
+                                "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", "attachment; filename=\"attachment\""))
@@ -1488,16 +1503,20 @@ public class GmailControllerTest {
         when(gmailService.getAttachment(eq("me"), eq("1a2b3c4d5e6f7890"), eq("ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")))
                 .thenThrow(new ResourceNotFoundException("Attachment not found"));
 
-        mockMvc.perform(get("/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
-                        "1a2b3c4d5e6f7890", "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
+        mockMvc.perform(get(
+                                "/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
+                                "1a2b3c4d5e6f7890",
+                                "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
                         .with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     public void getAttachment_400ForInvalidMessageId() throws Exception {
-        mockMvc.perform(get("/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
-                        "not-valid!", "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
+        mockMvc.perform(get(
+                                "/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
+                                "not-valid!",
+                                "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
     }
@@ -1510,8 +1529,10 @@ public class GmailControllerTest {
                 .thenReturn(stream);
 
         // LF in filename triggers FR-026a sanitization → HTTP 400
-        mockMvc.perform(get("/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
-                        "1a2b3c4d5e6f7890", "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
+        mockMvc.perform(get(
+                                "/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
+                                "1a2b3c4d5e6f7890",
+                                "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
                         .param("filename", "evil\nContent-Type: text/html")
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
@@ -1525,8 +1546,10 @@ public class GmailControllerTest {
                 .thenReturn(stream);
 
         // CR in filename triggers FR-026a sanitization → HTTP 400
-        mockMvc.perform(get("/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
-                        "1a2b3c4d5e6f7890", "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
+        mockMvc.perform(get(
+                                "/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
+                                "1a2b3c4d5e6f7890",
+                                "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
                         .param("filename", "evil\rfile.pdf")
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
@@ -1544,8 +1567,10 @@ public class GmailControllerTest {
         // to a space in the query string → arrives here as `image/svg xml`.)
         // MediaType.parseMediaType throws InvalidMediaTypeException; controller surfaces
         // it as HTTP 400 instead of letting it bubble to the catch-all 500 handler.
-        mockMvc.perform(get("/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
-                        "1a2b3c4d5e6f7890", "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
+        mockMvc.perform(get(
+                                "/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
+                                "1a2b3c4d5e6f7890",
+                                "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
                         .param("mimeType", "image/svg xml")
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
@@ -1558,8 +1583,10 @@ public class GmailControllerTest {
         when(gmailService.getAttachment(eq("me"), eq("1a2b3c4d5e6f7890"), eq("ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")))
                 .thenReturn(stream);
 
-        mockMvc.perform(get("/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
-                        "1a2b3c4d5e6f7890", "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
+        mockMvc.perform(get(
+                                "/api/v1/gmail/messages/{messageId}/attachments/{attachmentId}",
+                                "1a2b3c4d5e6f7890",
+                                "ANGjdJ8BwFpn3nQ0oFQ7wPjVLfRx")
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Gmail-Quota-Used", "5"));

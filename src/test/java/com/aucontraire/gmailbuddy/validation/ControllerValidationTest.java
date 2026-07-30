@@ -1,5 +1,11 @@
 package com.aucontraire.gmailbuddy.validation;
 
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.aucontraire.gmailbuddy.controller.GmailController;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaDTO;
 import com.aucontraire.gmailbuddy.dto.FilterCriteriaWithLabelsDTO;
@@ -13,24 +19,17 @@ import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Collections;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.Collections;
-import java.util.List;
-
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(GmailController.class)
 @Import(TestGmailBuddyPropertiesConfiguration.class)
@@ -77,13 +76,14 @@ class ControllerValidationTest {
 
         // Mock the paginated service method
         MessageListResult mockResult = new MessageListResult(Collections.emptyList(), null, 0);
-        when(gmailService.listMessagesByFilterCriteriaWithPagination(eq("me"), any(FilterCriteriaDTO.class), any(), anyInt()))
+        when(gmailService.listMessagesByFilterCriteriaWithPagination(
+                        eq("me"), any(FilterCriteriaDTO.class), any(), anyInt()))
                 .thenReturn(mockResult);
 
         mockMvc.perform(post("/api/v1/gmail/messages/filter")
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk());
     }
 
@@ -95,9 +95,9 @@ class ControllerValidationTest {
         dto.setTo("also-invalid");
 
         mockMvc.perform(post("/api/v1/gmail/messages/filter")
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.type").value("/problems/validation-error"))
                 .andExpect(jsonPath("$.title").value("Validation Error"))
@@ -112,9 +112,9 @@ class ControllerValidationTest {
         dto.setSubject("a".repeat(256)); // Exceeds max length of 255
 
         mockMvc.perform(post("/api/v1/gmail/messages/filter")
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.type").value("/problems/validation-error"))
                 .andExpect(jsonPath("$.title").value("Validation Error"))
@@ -128,9 +128,9 @@ class ControllerValidationTest {
         dto.setQuery("dangerous<script>alert('xss')</script>");
 
         mockMvc.perform(post("/api/v1/gmail/messages/filter")
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.type").value("/problems/validation-error"))
                 .andExpect(jsonPath("$.title").value("Validation Error"))
@@ -143,13 +143,14 @@ class ControllerValidationTest {
         FilterCriteriaWithLabelsDTO dto = new FilterCriteriaWithLabelsDTO();
         dto.setFrom("test@example.com");
         dto.setLabelsToAdd(List.of("", "valid-label", "a".repeat(51))); // Empty label and too long label
-        dto.setLabelsToRemove(List.of("label1", "label2", "label3", "label4", "label5",
-                                     "label6", "label7", "label8", "label9", "label10", "label11")); // Too many labels
+        dto.setLabelsToRemove(List.of(
+                "label1", "label2", "label3", "label4", "label5", "label6", "label7", "label8", "label9", "label10",
+                "label11")); // Too many labels
 
         mockMvc.perform(post("/api/v1/gmail/messages/filter/modifyLabels")
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.type").value("/problems/validation-error"))
                 .andExpect(jsonPath("$.title").value("Validation Error"))
@@ -172,9 +173,9 @@ class ControllerValidationTest {
 
         // The endpoint now returns 200 OK with a LabelModificationResponse instead of 204 No Content
         mockMvc.perform(post("/api/v1/gmail/messages/filter/modifyLabels")
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dto)))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk());
     }
 }

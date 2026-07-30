@@ -1,14 +1,24 @@
 package com.aucontraire.gmailbuddy.integration;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.aucontraire.gmailbuddy.config.TestTokenProviderConfiguration;
-import com.aucontraire.gmailbuddy.service.TestTokenProvider;
-import com.aucontraire.gmailbuddy.service.TokenProvider;
+import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
-import com.aucontraire.gmailbuddy.repository.GmailRepository;
+import com.aucontraire.gmailbuddy.service.TestTokenProvider;
+import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.gmail.model.Message;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -17,30 +27,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.test.context.support.WithSecurityContext;
-import org.springframework.security.test.context.support.WithSecurityContextTestExecutionListener;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestExecutionListeners;
-import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.*;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
  * Integration tests for Phase 1 dual authentication implementation.
@@ -85,9 +77,12 @@ class DualAuthenticationIntegrationTest {
             // Setup default mock behavior for Gmail service
             List<Message> mockMessages = new ArrayList<>();
             MessageListResult mockResult = new MessageListResult(mockMessages, null, mockMessages.size());
-            when(gmailService.listLatestMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
-            when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
-            when(gmailService.listMessagesByFilterCriteriaWithPagination(anyString(), any(), any(), anyInt())).thenReturn(mockResult);
+            when(gmailService.listLatestMessagesWithPagination(anyString(), any(), anyInt()))
+                    .thenReturn(mockResult);
+            when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt()))
+                    .thenReturn(mockResult);
+            when(gmailService.listMessagesByFilterCriteriaWithPagination(anyString(), any(), any(), anyInt()))
+                    .thenReturn(mockResult);
         }
 
         if (gmailRepository != null) {
@@ -130,14 +125,12 @@ class DualAuthenticationIntegrationTest {
 
             // When & Then: API request with JWT should succeed
             mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                    .with(jwt().jwt(builder -> builder
-                        .claim("sub", "test-user@example.com")
-                        .claim("email", "test-user@example.com")
-                        .claim("scope", "https://www.googleapis.com/auth/gmail.readonly")
-                    ))
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                            .with(jwt().jwt(builder -> builder.claim("sub", "test-user@example.com")
+                                    .claim("email", "test-user@example.com")
+                                    .claim("scope", "https://www.googleapis.com/auth/gmail.readonly")))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON));
         }
 
         @Test
@@ -145,9 +138,9 @@ class DualAuthenticationIntegrationTest {
         void testJwtAuthenticationFailure() throws Exception {
             // When & Then: API request with invalid JWT should fail
             mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                    .header("Authorization", "Bearer invalid-jwt-token")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                            .header("Authorization", "Bearer invalid-jwt-token")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
         }
 
         @Test
@@ -158,13 +151,13 @@ class DualAuthenticationIntegrationTest {
 
             // When & Then: JWT token without Gmail scopes should still authenticate
             mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                    .with(jwt().jwt(builder -> builder
-                        .claim("sub", "test-user@example.com")
-                        .claim("email", "test-user@example.com")
-                        .claim("scope", "openid email profile") // Missing Gmail scopes
-                    ))
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk()); // Should still authenticate, scope validation is in service layer
+                            .with(jwt().jwt(
+                                            builder -> builder.claim("sub", "test-user@example.com")
+                                                    .claim("email", "test-user@example.com")
+                                                    .claim("scope", "openid email profile") // Missing Gmail scopes
+                                            ))
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk()); // Should still authenticate, scope validation is in service layer
         }
     }
 
@@ -185,10 +178,10 @@ class DualAuthenticationIntegrationTest {
 
             // When & Then: API request with Bearer token should succeed
             mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                    .header("Authorization", "Bearer ya29.valid-bearer-token")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON));
+                            .header("Authorization", "Bearer ya29.valid-bearer-token")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON));
         }
 
         @Test
@@ -196,9 +189,8 @@ class DualAuthenticationIntegrationTest {
         void testMissingAuthorizationHeader() throws Exception {
             // When & Then: API request without Authorization header should redirect to OAuth2 login
             // This is expected behavior - browser requests without Bearer token get OAuth2 redirect
-            mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().is3xxRedirection());
+            mockMvc.perform(get("/api/v1/gmail/messages/latest").contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().is3xxRedirection());
         }
 
         @Test
@@ -207,9 +199,9 @@ class DualAuthenticationIntegrationTest {
             // When & Then: API request with malformed Bearer token should redirect to OAuth2 login
             // Invalid Bearer token triggers OAuth2 fallback which redirects unauthenticated requests
             mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                    .header("Authorization", "InvalidScheme some-token")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().is3xxRedirection());
+                            .header("Authorization", "InvalidScheme some-token")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().is3xxRedirection());
         }
 
         @Test
@@ -220,9 +212,9 @@ class DualAuthenticationIntegrationTest {
 
             // When & Then: API request should handle validation error
             mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                    .header("Authorization", "Bearer invalid-token")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                            .header("Authorization", "Bearer invalid-token")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
         }
     }
 
@@ -235,8 +227,8 @@ class DualAuthenticationIntegrationTest {
         void testOAuth2LoginRedirection() throws Exception {
             // When & Then: Browser request without authentication should redirect to OAuth2 login
             mockMvc.perform(get("/dashboard"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location", containsString("/oauth2/authorization/google")));
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(header().string("Location", containsString("/oauth2/authorization/google")));
         }
 
         @Test
@@ -244,8 +236,7 @@ class DualAuthenticationIntegrationTest {
         @DisplayName("Should allow authenticated browser requests to protected endpoints")
         void testOAuth2AuthenticatedAccess() throws Exception {
             // When & Then: Authenticated browser request should succeed
-            mockMvc.perform(get("/dashboard"))
-                .andExpect(status().isOk());
+            mockMvc.perform(get("/dashboard")).andExpect(status().isOk());
         }
 
         @Test
@@ -254,8 +245,7 @@ class DualAuthenticationIntegrationTest {
             // When & Then: Public endpoints should be accessible without authentication
             // /login pattern is permitted but no controller exists, returns 404
             // The key test is that it's NOT redirected to OAuth2 (not 302)
-            mockMvc.perform(get("/login"))
-                .andExpect(status().isNotFound()); // No controller exists, Spring returns 404
+            mockMvc.perform(get("/login")).andExpect(status().isNotFound()); // No controller exists, Spring returns 404
         }
     }
 
@@ -273,14 +263,12 @@ class DualAuthenticationIntegrationTest {
 
             // When & Then: JWT should take precedence
             mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                    .with(jwt().jwt(builder -> builder
-                        .claim("sub", "jwt-user@example.com")
-                        .claim("email", "jwt-user@example.com")
-                        .claim("scope", "https://www.googleapis.com/auth/gmail.readonly")
-                    ))
-                    .header("Authorization", "Bearer bearer-token")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                            .with(jwt().jwt(builder -> builder.claim("sub", "jwt-user@example.com")
+                                    .claim("email", "jwt-user@example.com")
+                                    .claim("scope", "https://www.googleapis.com/auth/gmail.readonly")))
+                            .header("Authorization", "Bearer bearer-token")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
         }
 
         @Test
@@ -293,9 +281,9 @@ class DualAuthenticationIntegrationTest {
 
             // When & Then: Should fallback to OAuth2 authentication
             mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                    .header("Authorization", "Bearer invalid-bearer-token")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                            .header("Authorization", "Bearer invalid-bearer-token")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk());
         }
 
         @Test
@@ -306,9 +294,9 @@ class DualAuthenticationIntegrationTest {
 
             // When & Then: Should return unauthorized
             mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                    .header("Authorization", "Bearer invalid-token")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                            .header("Authorization", "Bearer invalid-token")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
         }
     }
 
@@ -329,19 +317,18 @@ class DualAuthenticationIntegrationTest {
 
             // When & Then: POST request to API endpoint should work without CSRF token
             mockMvc.perform(post("/api/v1/gmail/messages/filter")
-                    .header("Authorization", "Bearer valid-csrf-token")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"query\":\"from:example@test.com\"}"))
-                .andExpect(status().isOk());
+                            .header("Authorization", "Bearer valid-csrf-token")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"query\":\"from:example@test.com\"}"))
+                    .andExpect(status().isOk());
         }
 
         @Test
         @DisplayName("Should allow session creation for browser flows")
         void testSessionManagementForBrowser() throws Exception {
             // When & Then: Browser request should allow session creation
-            mockMvc.perform(get("/dashboard"))
-                .andExpect(status().is3xxRedirection()); // Redirects to OAuth2 login
-                // Note: Session attribute validation would require actual session setup
+            mockMvc.perform(get("/dashboard")).andExpect(status().is3xxRedirection()); // Redirects to OAuth2 login
+            // Note: Session attribute validation would require actual session setup
         }
 
         @Test
@@ -350,8 +337,7 @@ class DualAuthenticationIntegrationTest {
             // When & Then: Response should include security headers
             // /login is permitted but no controller exists, returns 404
             // Spring Boot's default error handling may not include security headers on 404 errors
-            mockMvc.perform(get("/login"))
-                .andExpect(status().isNotFound()); // No controller exists, Spring returns 404
+            mockMvc.perform(get("/login")).andExpect(status().isNotFound()); // No controller exists, Spring returns 404
             // Note: Security headers may not be present on 404 error responses
         }
 
@@ -361,7 +347,7 @@ class DualAuthenticationIntegrationTest {
             // When & Then: Static resources should be accessible
             // favicon.ico is permitted, returns 200 from default Spring Boot handling
             mockMvc.perform(get("/favicon.ico"))
-                .andExpect(status().isOk()); // Spring Boot returns 200 with empty response for favicon
+                    .andExpect(status().isOk()); // Spring Boot returns 200 with empty response for favicon
         }
     }
 
@@ -377,9 +363,9 @@ class DualAuthenticationIntegrationTest {
 
             // When & Then: Authentication failure returns 401 Unauthorized
             mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                    .header("Authorization", "Bearer expired-token")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                            .header("Authorization", "Bearer expired-token")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
         }
 
         @Test
@@ -390,9 +376,9 @@ class DualAuthenticationIntegrationTest {
 
             // When & Then: Should handle token provider exceptions
             mockMvc.perform(get("/api/v1/gmail/messages/latest")
-                    .header("Authorization", "Bearer some-token")
-                    .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isUnauthorized());
+                            .header("Authorization", "Bearer some-token")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
         }
     }
 }

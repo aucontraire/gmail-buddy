@@ -1,5 +1,7 @@
 package com.aucontraire.gmailbuddy.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.aucontraire.gmailbuddy.dto.Attachment;
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.fixture.AttachmentFixtures;
@@ -12,14 +14,11 @@ import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
 import jakarta.mail.internet.MimeUtility;
+import java.io.UnsupportedEncodingException;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.io.UnsupportedEncodingException;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link MimeMessageBuilder#build(SendMessageDTO)}.
@@ -66,8 +65,7 @@ class MimeMessageBuilderTest {
     }
 
     @Test
-    void build_singlePrimaryRecipient_noUnexpectedCcOrBcc()
-            throws MessagingException, UnsupportedEncodingException {
+    void build_singlePrimaryRecipient_noUnexpectedCcOrBcc() throws MessagingException, UnsupportedEncodingException {
 
         // Arrange: the validSingleRecipient fixture has no cc or bcc.
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
@@ -102,8 +100,7 @@ class MimeMessageBuilderTest {
     }
 
     @Test
-    void build_ccRecipientPresent_ccHeaderContainsAddress()
-            throws MessagingException, UnsupportedEncodingException {
+    void build_ccRecipientPresent_ccHeaderContainsAddress() throws MessagingException, UnsupportedEncodingException {
 
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validMultiRecipientWithCcAndBcc();
@@ -118,8 +115,7 @@ class MimeMessageBuilderTest {
     }
 
     @Test
-    void build_bccRecipientPresent_bccHeaderContainsAddress()
-            throws MessagingException, UnsupportedEncodingException {
+    void build_bccRecipientPresent_bccHeaderContainsAddress() throws MessagingException, UnsupportedEncodingException {
 
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validMultiRecipientWithCcAndBcc();
@@ -154,8 +150,7 @@ class MimeMessageBuilderTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void build_dtoWithSubject_subjectHeaderPreservedExactly()
-            throws MessagingException, UnsupportedEncodingException {
+    void build_dtoWithSubject_subjectHeaderPreservedExactly() throws MessagingException, UnsupportedEncodingException {
 
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
@@ -164,8 +159,7 @@ class MimeMessageBuilderTest {
         MimeMessage message = builder.build(dto);
 
         // Assert: subject must round-trip without modification.
-        assertThat(message.getSubject())
-                .isEqualTo("Software Engineer – Application Follow-up");
+        assertThat(message.getSubject()).isEqualTo("Software Engineer – Application Follow-up");
     }
 
     @Test
@@ -183,15 +177,13 @@ class MimeMessageBuilderTest {
                 "text",
                 null,
                 null,
-                null
-        );
+                null);
 
         // Act
         MimeMessage message = builder.build(dto);
 
         // Assert
-        assertThat(message.getSubject())
-                .isEqualTo("Réponse à votre annonce – Développeur");
+        assertThat(message.getSubject()).isEqualTo("Réponse à votre annonce – Développeur");
     }
 
     // -------------------------------------------------------------------------
@@ -268,8 +260,7 @@ class MimeMessageBuilderTest {
     // -------------------------------------------------------------------------
 
     @Test
-    void build_dtoWithTextBody_bodyContentRoundTrips()
-            throws Exception {
+    void build_dtoWithTextBody_bodyContentRoundTrips() throws Exception {
 
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
@@ -286,8 +277,7 @@ class MimeMessageBuilderTest {
     }
 
     @Test
-    void build_dtoWithHtmlBody_htmlBodyContentRoundTrips()
-            throws Exception {
+    void build_dtoWithHtmlBody_htmlBodyContentRoundTrips() throws Exception {
 
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validHtmlBody();
@@ -317,11 +307,10 @@ class MimeMessageBuilderTest {
                 null,
                 "Test Subject",
                 "<p>Hello</p>",
-                "HTML",   // uppercase — should still map to text/html
+                "HTML", // uppercase — should still map to text/html
                 null,
                 null,
-                null
-        );
+                null);
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -344,11 +333,10 @@ class MimeMessageBuilderTest {
                 null,
                 "Test Subject",
                 "Body text",
-                null,  // compact constructor defaults to "text"
+                null, // compact constructor defaults to "text"
                 null,
                 null,
-                null
-        );
+                null);
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -373,11 +361,8 @@ class MimeMessageBuilderTest {
 
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
-        OriginalMessageLookup lookup = new OriginalMessageLookup(
-                "1a2b3c4d5e6f7a8b",
-                "thread-xyz",
-                "<CABc123xyz@mail.gmail.com>"
-        );
+        OriginalMessageLookup lookup =
+                new OriginalMessageLookup("1a2b3c4d5e6f7a8b", "thread-xyz", "<CABc123xyz@mail.gmail.com>");
 
         // Act
         MimeMessage message = builder.build(dto, lookup);
@@ -395,11 +380,8 @@ class MimeMessageBuilderTest {
 
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
-        OriginalMessageLookup lookup = new OriginalMessageLookup(
-                "1a2b3c4d5e6f7a8b",
-                "thread-xyz",
-                "<CABc123xyz@mail.gmail.com>"
-        );
+        OriginalMessageLookup lookup =
+                new OriginalMessageLookup("1a2b3c4d5e6f7a8b", "thread-xyz", "<CABc123xyz@mail.gmail.com>");
 
         // Act
         MimeMessage message = builder.build(dto, lookup);
@@ -416,8 +398,7 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withNullLookup_inReplyToHeaderIsAbsent")
-    void build_withNullLookup_inReplyToHeaderIsAbsent()
-            throws MessagingException, UnsupportedEncodingException {
+    void build_withNullLookup_inReplyToHeaderIsAbsent() throws MessagingException, UnsupportedEncodingException {
 
         // Arrange: null lookup — non-threaded send path (FR-021 backward compatibility)
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
@@ -432,8 +413,7 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withNullLookup_referencesHeaderIsAbsent")
-    void build_withNullLookup_referencesHeaderIsAbsent()
-            throws MessagingException, UnsupportedEncodingException {
+    void build_withNullLookup_referencesHeaderIsAbsent() throws MessagingException, UnsupportedEncodingException {
 
         // Arrange: null lookup — non-threaded path
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
@@ -448,8 +428,7 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_singleArgForm_inReplyToHeaderIsAbsent")
-    void build_singleArgForm_inReplyToHeaderIsAbsent()
-            throws MessagingException, UnsupportedEncodingException {
+    void build_singleArgForm_inReplyToHeaderIsAbsent() throws MessagingException, UnsupportedEncodingException {
 
         // Arrange: the single-arg form delegates to build(dto, null) — verify the delegation
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
@@ -477,17 +456,18 @@ class MimeMessageBuilderTest {
         // Arrange: DTO has a different threadId; lookup's threadId should win (FR-006)
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("someone@example.com"),
-                null, null,
-                "Subject", "Body", "text",
-                "caller-supplied-thread-id",  // dto.threadId() — should be IGNORED
+                null,
+                null,
+                "Subject",
+                "Body",
+                "text",
+                "caller-supplied-thread-id", // dto.threadId() — should be IGNORED
                 "1a2b3c4d",
-                null
-        );
+                null);
         OriginalMessageLookup lookup = new OriginalMessageLookup(
                 "1a2b3c4d",
-                "canonical-thread-id-from-gmail",  // authoritative value
-                "<msg@mail.gmail.com>"
-        );
+                "canonical-thread-id-from-gmail", // authoritative value
+                "<msg@mail.gmail.com>");
 
         // Act
         String resolved = builder.resolveThreadId(dto, lookup);
@@ -507,12 +487,14 @@ class MimeMessageBuilderTest {
         // Arrange: no lookup performed (no inReplyToMessageId); caller supplied threadId
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("someone@example.com"),
-                null, null,
-                "Subject", "Body", "text",
-                "thread-from-dto",   // FR-007: pass this through
-                null,                // no inReplyToMessageId
-                null
-        );
+                null,
+                null,
+                "Subject",
+                "Body",
+                "text",
+                "thread-from-dto", // FR-007: pass this through
+                null, // no inReplyToMessageId
+                null);
 
         // Act
         String resolved = builder.resolveThreadId(dto, null);
@@ -550,19 +532,19 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withSingleAttachment_contentTypeIsMultipartMixed")
-    void build_withSingleAttachment_contentTypeIsMultipartMixed()
-            throws Exception {
+    void build_withSingleAttachment_contentTypeIsMultipartMixed() throws Exception {
 
         // Arrange: DTO with one valid PDF attachment
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Hello with attachment",
                 "Please see the attached PDF.",
                 "text",
-                null, null,
-                List.of(AttachmentFixtures.validSinglePdf())
-        );
+                null,
+                null,
+                List.of(AttachmentFixtures.validSinglePdf()));
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -574,19 +556,19 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withSingleAttachment_contentIsInstanceOfMimeMultipart")
-    void build_withSingleAttachment_contentIsInstanceOfMimeMultipart()
-            throws Exception {
+    void build_withSingleAttachment_contentIsInstanceOfMimeMultipart() throws Exception {
 
         // Arrange
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Subject",
                 "Body text",
                 "text",
-                null, null,
-                List.of(AttachmentFixtures.validSinglePdf())
-        );
+                null,
+                null,
+                List.of(AttachmentFixtures.validSinglePdf()));
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -598,19 +580,19 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withSingleAttachment_multipartHasTwoParts")
-    void build_withSingleAttachment_multipartHasTwoParts()
-            throws Exception {
+    void build_withSingleAttachment_multipartHasTwoParts() throws Exception {
 
         // Arrange
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Subject",
                 "Body text",
                 "text",
-                null, null,
-                List.of(AttachmentFixtures.validSinglePdf())
-        );
+                null,
+                null,
+                List.of(AttachmentFixtures.validSinglePdf()));
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -622,19 +604,19 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withMultipleAttachments_multipartHasCorrectPartCount")
-    void build_withMultipleAttachments_multipartHasCorrectPartCount()
-            throws Exception {
+    void build_withMultipleAttachments_multipartHasCorrectPartCount() throws Exception {
 
         // Arrange: two attachments → 3 total parts (body + 2 attachments)
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Subject",
                 "Body text",
                 "text",
-                null, null,
-                AttachmentFixtures.validMultiAttachmentList()
-        );
+                null,
+                null,
+                AttachmentFixtures.validMultiAttachmentList());
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -650,20 +632,20 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withAttachment_firstPartBodyTextMatchesDto")
-    void build_withAttachment_firstPartBodyTextMatchesDto()
-            throws Exception {
+    void build_withAttachment_firstPartBodyTextMatchesDto() throws Exception {
 
         // Arrange
         String expectedBody = "Please review the attached résumé.";
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Subject",
                 expectedBody,
                 "text",
-                null, null,
-                List.of(AttachmentFixtures.validSinglePdf())
-        );
+                null,
+                null,
+                List.of(AttachmentFixtures.validSinglePdf()));
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -676,19 +658,19 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withTextBodyTypeAndAttachment_firstPartContentTypeIsTextPlain")
-    void build_withTextBodyTypeAndAttachment_firstPartContentTypeIsTextPlain()
-            throws Exception {
+    void build_withTextBodyTypeAndAttachment_firstPartContentTypeIsTextPlain() throws Exception {
 
         // Arrange
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Subject",
                 "Plain body",
                 "text",
-                null, null,
-                List.of(AttachmentFixtures.validSinglePdf())
-        );
+                null,
+                null,
+                List.of(AttachmentFixtures.validSinglePdf()));
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -702,19 +684,19 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withHtmlBodyTypeAndAttachment_firstPartContentTypeIsTextHtml")
-    void build_withHtmlBodyTypeAndAttachment_firstPartContentTypeIsTextHtml()
-            throws Exception {
+    void build_withHtmlBodyTypeAndAttachment_firstPartContentTypeIsTextHtml() throws Exception {
 
         // Arrange
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Subject",
                 "<p>Hello</p>",
                 "html",
-                null, null,
-                List.of(AttachmentFixtures.validSinglePdf())
-        );
+                null,
+                null,
+                List.of(AttachmentFixtures.validSinglePdf()));
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -732,19 +714,19 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withSingleAttachment_attachmentPartDispositionIsAttachment")
-    void build_withSingleAttachment_attachmentPartDispositionIsAttachment()
-            throws Exception {
+    void build_withSingleAttachment_attachmentPartDispositionIsAttachment() throws Exception {
 
         // Arrange
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Subject",
                 "Body",
                 "text",
-                null, null,
-                List.of(AttachmentFixtures.validSinglePdf())
-        );
+                null,
+                null,
+                List.of(AttachmentFixtures.validSinglePdf()));
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -757,19 +739,19 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withMultipleAttachments_allAttachmentPartsDispositionIsAttachment")
-    void build_withMultipleAttachments_allAttachmentPartsDispositionIsAttachment()
-            throws Exception {
+    void build_withMultipleAttachments_allAttachmentPartsDispositionIsAttachment() throws Exception {
 
         // Arrange: two attachments
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Subject",
                 "Body",
                 "text",
-                null, null,
-                AttachmentFixtures.validMultiAttachmentList()
-        );
+                null,
+                null,
+                AttachmentFixtures.validMultiAttachmentList());
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -778,9 +760,7 @@ class MimeMessageBuilderTest {
         // Assert: parts 1 and 2 (index 1 and 2) are both attachment-disposition
         for (int i = 1; i < multipart.getCount(); i++) {
             MimeBodyPart part = (MimeBodyPart) multipart.getBodyPart(i);
-            assertThat(part.getDisposition())
-                    .as("Part %d disposition", i)
-                    .isEqualToIgnoringCase("attachment");
+            assertThat(part.getDisposition()).as("Part %d disposition", i).isEqualToIgnoringCase("attachment");
         }
     }
 
@@ -790,20 +770,12 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withPdfAttachment_attachmentPartContentTypeMatchesMimeType")
-    void build_withPdfAttachment_attachmentPartContentTypeMatchesMimeType()
-            throws Exception {
+    void build_withPdfAttachment_attachmentPartContentTypeMatchesMimeType() throws Exception {
 
         // Arrange
         Attachment pdf = AttachmentFixtures.validSinglePdf();
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("recruiter@example.com"),
-                null, null,
-                "Subject",
-                "Body",
-                "text",
-                null, null,
-                List.of(pdf)
-        );
+                List.of("recruiter@example.com"), null, null, "Subject", "Body", "text", null, null, List.of(pdf));
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -816,20 +788,12 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withMultipleAttachments_eachPartContentTypeMatchesItsAttachment")
-    void build_withMultipleAttachments_eachPartContentTypeMatchesItsAttachment()
-            throws Exception {
+    void build_withMultipleAttachments_eachPartContentTypeMatchesItsAttachment() throws Exception {
 
         // Arrange: two attachments with different MIME types
         List<Attachment> attachments = AttachmentFixtures.validMultiAttachmentList();
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("recruiter@example.com"),
-                null, null,
-                "Subject",
-                "Body",
-                "text",
-                null, null,
-                attachments
-        );
+                List.of("recruiter@example.com"), null, null, "Subject", "Body", "text", null, null, attachments);
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -850,20 +814,12 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withAsciiFilename_attachmentPartFilenameMatchesInput")
-    void build_withAsciiFilename_attachmentPartFilenameMatchesInput()
-            throws Exception {
+    void build_withAsciiFilename_attachmentPartFilenameMatchesInput() throws Exception {
 
         // Arrange: simple ASCII filename (no encoding required)
         Attachment pdf = AttachmentFixtures.validSinglePdf();
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("recruiter@example.com"),
-                null, null,
-                "Subject",
-                "Body",
-                "text",
-                null, null,
-                List.of(pdf)
-        );
+                List.of("recruiter@example.com"), null, null, "Subject", "Body", "text", null, null, List.of(pdf));
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -871,27 +827,26 @@ class MimeMessageBuilderTest {
         MimeBodyPart attachmentPart = (MimeBodyPart) multipart.getBodyPart(1);
 
         // Assert: getFileName() decodes RFC 2047 automatically — must equal original
-        assertThat(MimeUtility.decodeText(attachmentPart.getFileName()))
-                .isEqualTo(pdf.filename());
+        assertThat(MimeUtility.decodeText(attachmentPart.getFileName())).isEqualTo(pdf.filename());
     }
 
     @Test
     @DisplayName("build_withNonAsciiFilename_attachmentPartFilenameDecodesToOriginal")
-    void build_withNonAsciiFilename_attachmentPartFilenameDecodesToOriginal()
-            throws Exception {
+    void build_withNonAsciiFilename_attachmentPartFilenameDecodesToOriginal() throws Exception {
 
         // Arrange: non-ASCII filename triggers RFC 2047 B-encoding (research.md Decision 1)
         String nonAsciiFilename = "Résumé_2026.pdf";
         Attachment attachment = new Attachment(nonAsciiFilename, "application/pdf", "JVBERi0xLjQK");
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Subject",
                 "Body",
                 "text",
-                null, null,
-                List.of(attachment)
-        );
+                null,
+                null,
+                List.of(attachment));
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -909,20 +864,12 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withEmptyAttachmentList_contentTypeIsNotMultipart")
-    void build_withEmptyAttachmentList_contentTypeIsNotMultipart()
-            throws Exception {
+    void build_withEmptyAttachmentList_contentTypeIsNotMultipart() throws Exception {
 
         // Arrange: explicit empty list — compact constructor normalises null→List.of(),
         // but we also verify that an explicitly supplied empty list hits the single-part path
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("recruiter@example.com"),
-                null, null,
-                "Subject",
-                "Body text",
-                "text",
-                null, null,
-                List.of()
-        );
+                List.of("recruiter@example.com"), null, null, "Subject", "Body text", "text", null, null, List.of());
 
         // Act
         MimeMessage message = builder.build(dto);
@@ -935,8 +882,7 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withEmptyAttachmentList_contentRoundTripsAsString")
-    void build_withEmptyAttachmentList_contentRoundTripsAsString()
-            throws Exception {
+    void build_withEmptyAttachmentList_contentRoundTripsAsString() throws Exception {
 
         // Arrange: omitting the attachments field (null → normalised to List.of())
         String expectedBody = "This is the body without attachments.";
@@ -957,25 +903,21 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withAttachmentAndNonNullLookup_inReplyToHeaderPresent")
-    void build_withAttachmentAndNonNullLookup_inReplyToHeaderPresent()
-            throws Exception {
+    void build_withAttachmentAndNonNullLookup_inReplyToHeaderPresent() throws Exception {
 
         // Arrange: DTO with attachment + threading lookup
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Re: Your resume",
                 "Attached is my updated resume.",
                 "text",
                 "thread-abc123",
                 "1a2b3c4d5e6f7a8b",
-                List.of(AttachmentFixtures.validSinglePdf())
-        );
-        OriginalMessageLookup lookup = new OriginalMessageLookup(
-                "1a2b3c4d5e6f7a8b",
-                "thread-abc123",
-                "<CABc123xyz@mail.gmail.com>"
-        );
+                List.of(AttachmentFixtures.validSinglePdf()));
+        OriginalMessageLookup lookup =
+                new OriginalMessageLookup("1a2b3c4d5e6f7a8b", "thread-abc123", "<CABc123xyz@mail.gmail.com>");
 
         // Act
         MimeMessage message = builder.build(dto, lookup);
@@ -988,25 +930,21 @@ class MimeMessageBuilderTest {
 
     @Test
     @DisplayName("build_withAttachmentAndNonNullLookup_contentIsStillMultipartMixed")
-    void build_withAttachmentAndNonNullLookup_contentIsStillMultipartMixed()
-            throws Exception {
+    void build_withAttachmentAndNonNullLookup_contentIsStillMultipartMixed() throws Exception {
 
         // Arrange
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Re: Attachment + threading",
                 "Please see attached.",
                 "text",
                 "thread-abc123",
                 "1a2b3c4d5e6f7a8b",
-                List.of(AttachmentFixtures.validSinglePdf())
-        );
-        OriginalMessageLookup lookup = new OriginalMessageLookup(
-                "1a2b3c4d5e6f7a8b",
-                "thread-abc123",
-                "<CABc123xyz@mail.gmail.com>"
-        );
+                List.of(AttachmentFixtures.validSinglePdf()));
+        OriginalMessageLookup lookup =
+                new OriginalMessageLookup("1a2b3c4d5e6f7a8b", "thread-abc123", "<CABc123xyz@mail.gmail.com>");
 
         // Act
         MimeMessage message = builder.build(dto, lookup);
@@ -1015,7 +953,7 @@ class MimeMessageBuilderTest {
         Object content = message.getContent();
         assertThat(content).isInstanceOf(MimeMultipart.class);
         MimeMultipart multipart = (MimeMultipart) content;
-        assertThat(multipart.getCount()).isEqualTo(2);  // body + 1 attachment
+        assertThat(multipart.getCount()).isEqualTo(2); // body + 1 attachment
     }
 
     // -------------------------------------------------------------------------
@@ -1030,12 +968,19 @@ class MimeMessageBuilderTest {
     void build_withTextPlainAttachment_writeToSucceeds() throws Exception {
         // Arrange — text/plain attachment is the case that broke at writeTo() time
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("recipient@example.com"), List.of(), List.of(),
-                "Subject", "Body", "html", null, null,
+                List.of("recipient@example.com"),
+                List.of(),
+                List.of(),
+                "Subject",
+                "Body",
+                "html",
+                null,
+                null,
                 List.of(new com.aucontraire.gmailbuddy.dto.Attachment(
                         "readme.txt",
                         "text/plain",
-                        java.util.Base64.getEncoder().encodeToString("hello world".getBytes(java.nio.charset.StandardCharsets.UTF_8)))));
+                        java.util.Base64.getEncoder()
+                                .encodeToString("hello world".getBytes(java.nio.charset.StandardCharsets.UTF_8)))));
 
         // Act — build then serialize via writeTo, mirroring GmailService Stage 2
         MimeMessage message = builder.build(dto, null);
@@ -1055,10 +1000,16 @@ class MimeMessageBuilderTest {
     @DisplayName("build_withBinaryAttachment_writeToSucceeds")
     void build_withBinaryAttachment_writeToSucceeds() throws Exception {
         // Arrange — binary application/pdf attachment (the path that worked before)
-        byte[] fakePdfBytes = new byte[]{0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34};  // "%PDF-1.4"
+        byte[] fakePdfBytes = new byte[] {0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34}; // "%PDF-1.4"
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("recipient@example.com"), List.of(), List.of(),
-                "Subject", "Body", "html", null, null,
+                List.of("recipient@example.com"),
+                List.of(),
+                List.of(),
+                "Subject",
+                "Body",
+                "html",
+                null,
+                null,
                 List.of(new com.aucontraire.gmailbuddy.dto.Attachment(
                         "fake.pdf",
                         "application/pdf",
@@ -1107,32 +1058,30 @@ class MimeMessageBuilderTest {
      */
     @Test
     @DisplayName("build_withThreeAttachmentsAndNonNullLookup_bothThreadingHeadersAndCorrectPartCount")
-    void build_withThreeAttachmentsAndNonNullLookup_bothThreadingHeadersAndCorrectPartCount()
-            throws Exception {
+    void build_withThreeAttachmentsAndNonNullLookup_bothThreadingHeadersAndCorrectPartCount() throws Exception {
 
         // Arrange: three attachments covering different MIME types
         List<com.aucontraire.gmailbuddy.dto.Attachment> threeAttachments = List.of(
                 new com.aucontraire.gmailbuddy.dto.Attachment("resume.pdf", "application/pdf", "JVBERi0xLjQK"),
-                new com.aucontraire.gmailbuddy.dto.Attachment("cover.txt", "text/plain",
-                        java.util.Base64.getEncoder().encodeToString(
-                                "Cover letter content".getBytes(java.nio.charset.StandardCharsets.UTF_8))),
-                new com.aucontraire.gmailbuddy.dto.Attachment("photo.png", "image/png", "iVBORw0KGgo=")
-        );
+                new com.aucontraire.gmailbuddy.dto.Attachment(
+                        "cover.txt",
+                        "text/plain",
+                        java.util.Base64.getEncoder()
+                                .encodeToString(
+                                        "Cover letter content".getBytes(java.nio.charset.StandardCharsets.UTF_8))),
+                new com.aucontraire.gmailbuddy.dto.Attachment("photo.png", "image/png", "iVBORw0KGgo="));
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Re: Follow-up with materials",
                 "Please find three files attached.",
                 "text",
                 "thread-xyz99",
                 "1a2b3c4d5e6f7a8b",
-                threeAttachments
-        );
-        OriginalMessageLookup lookup = new OriginalMessageLookup(
-                "1a2b3c4d5e6f7a8b",
-                "thread-xyz99",
-                "<CAMultiple123@mail.gmail.com>"
-        );
+                threeAttachments);
+        OriginalMessageLookup lookup =
+                new OriginalMessageLookup("1a2b3c4d5e6f7a8b", "thread-xyz99", "<CAMultiple123@mail.gmail.com>");
 
         // Act
         MimeMessage message = builder.build(dto, lookup);

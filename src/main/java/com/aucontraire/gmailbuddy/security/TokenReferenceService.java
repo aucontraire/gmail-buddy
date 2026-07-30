@@ -1,16 +1,13 @@
 package com.aucontraire.gmailbuddy.security;
 
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.stereotype.Service;
-
-import java.time.Instant;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Service for managing secure token references and their lifecycle.
@@ -52,8 +49,7 @@ public class TokenReferenceService {
         this.encryptionUtil = encryptionUtil;
         this.defaultTokenLifetimeSeconds = defaultTokenLifetimeSeconds;
         this.activeTokenCount = new AtomicInteger(0);
-        logger.info("TokenReferenceService initialized with {}s default token lifetime",
-                   defaultTokenLifetimeSeconds);
+        logger.info("TokenReferenceService initialized with {}s default token lifetime", defaultTokenLifetimeSeconds);
     }
 
     /**
@@ -144,8 +140,11 @@ public class TokenReferenceService {
             tokenCache.put(tokenReference.getReferenceId(), tokenReference);
             activeTokenCount.incrementAndGet();
 
-            logger.debug("Created token reference {} for user {} with {}s lifetime",
-                        tokenReference.getReferenceId(), userId, lifetimeSeconds);
+            logger.debug(
+                    "Created token reference {} for user {} with {}s lifetime",
+                    tokenReference.getReferenceId(),
+                    userId,
+                    lifetimeSeconds);
             return tokenReference;
 
         } catch (Exception e) {
@@ -316,8 +315,8 @@ public class TokenReferenceService {
         }
 
         if (removedCount > 0) {
-            logger.info("Cleaned up {} expired token references. Active tokens: {}",
-                       removedCount, activeTokenCount.get());
+            logger.info(
+                    "Cleaned up {} expired token references. Active tokens: {}", removedCount, activeTokenCount.get());
         }
     }
 
@@ -335,14 +334,22 @@ public class TokenReferenceService {
             this.expiredTokens = expiredTokens;
         }
 
-        public int getTotalTokens() { return totalTokens; }
-        public int getActiveTokens() { return activeTokens; }
-        public int getExpiredTokens() { return expiredTokens; }
+        public int getTotalTokens() {
+            return totalTokens;
+        }
+
+        public int getActiveTokens() {
+            return activeTokens;
+        }
+
+        public int getExpiredTokens() {
+            return expiredTokens;
+        }
 
         @Override
         public String toString() {
-            return String.format("TokenCacheStats{total=%d, active=%d, expired=%d}",
-                               totalTokens, activeTokens, expiredTokens);
+            return String.format(
+                    "TokenCacheStats{total=%d, active=%d, expired=%d}", totalTokens, activeTokens, expiredTokens);
         }
     }
 }

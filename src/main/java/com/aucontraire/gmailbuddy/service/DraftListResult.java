@@ -19,8 +19,4 @@ import java.util.List;
  * @param nextPageToken token for the next page, or {@code null} when exhausted
  * @param totalCount    {@code resultSizeEstimate} from Gmail API; may be {@code null}
  */
-public record DraftListResult(
-        List<DraftDetailResult> drafts,
-        String nextPageToken,
-        Integer totalCount
-) {}
+public record DraftListResult(List<DraftDetailResult> drafts, String nextPageToken, Integer totalCount) {}

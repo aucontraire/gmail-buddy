@@ -1,7 +1,6 @@
 package com.aucontraire.gmailbuddy.fixture;
 
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
-
 import java.util.List;
 
 /**
@@ -42,14 +41,12 @@ public final class SendMessageRequestFixtures {
     private static final String VALID_SUBJECT = "Software Engineer – Application Follow-up";
     private static final String VALID_TEXT_BODY =
             "Hi there,\n\nI wanted to follow up on my application for the Software Engineer role.\n\nBest regards";
-    private static final String VALID_HTML_BODY =
-            "<p>Hi there,</p><p>I wanted to follow up on my application for the "
+    private static final String VALID_HTML_BODY = "<p>Hi there,</p><p>I wanted to follow up on my application for the "
             + "<strong>Software Engineer</strong> role.</p><p>Best regards</p>";
 
     // Utility class — no instances.
     private SendMessageRequestFixtures() {
-        throw new AssertionError(
-                "SendMessageRequestFixtures is a static factory class and must not be instantiated");
+        throw new AssertionError("SendMessageRequestFixtures is a static factory class and must not be instantiated");
     }
 
     // -------------------------------------------------------------------------
@@ -69,15 +66,15 @@ public final class SendMessageRequestFixtures {
     public static SendMessageDTO validSingleRecipient() {
         return new SendMessageDTO(
                 List.of(VALID_SINGLE_RECIPIENT),
-                null,   // compact constructor normalises to List.of()
-                null,   // compact constructor normalises to List.of()
+                null, // compact constructor normalises to List.of()
+                null, // compact constructor normalises to List.of()
                 VALID_SUBJECT,
                 VALID_TEXT_BODY,
-                null,   // compact constructor defaults to "text"
-                null,   // threadId — optional
-                null,   // inReplyToMessageId — optional
-                null    // attachments — compact constructor normalises to List.of()
-        );
+                null, // compact constructor defaults to "text"
+                null, // threadId — optional
+                null, // inReplyToMessageId — optional
+                null // attachments — compact constructor normalises to List.of()
+                );
     }
 
     /**
@@ -98,10 +95,10 @@ public final class SendMessageRequestFixtures {
                 VALID_SUBJECT,
                 VALID_TEXT_BODY,
                 "text",
-                null,   // threadId — optional
-                null,   // inReplyToMessageId — optional
-                null    // attachments — compact constructor normalises to List.of()
-        );
+                null, // threadId — optional
+                null, // inReplyToMessageId — optional
+                null // attachments — compact constructor normalises to List.of()
+                );
     }
 
     /**
@@ -124,10 +121,10 @@ public final class SendMessageRequestFixtures {
                 VALID_SUBJECT,
                 VALID_HTML_BODY,
                 "html",
-                null,   // threadId — optional
-                null,   // inReplyToMessageId — optional
-                null    // attachments — compact constructor normalises to List.of()
-        );
+                null, // threadId — optional
+                null, // inReplyToMessageId — optional
+                null // attachments — compact constructor normalises to List.of()
+                );
     }
 
     // -------------------------------------------------------------------------
@@ -158,10 +155,10 @@ public final class SendMessageRequestFixtures {
                 "Legitimate Subject\r\nX-Injected-Header: malicious",
                 VALID_TEXT_BODY,
                 "text",
-                null,   // threadId — optional
-                null,   // inReplyToMessageId — optional
-                null    // attachments — compact constructor normalises to List.of()
-        );
+                null, // threadId — optional
+                null, // inReplyToMessageId — optional
+                null // attachments — compact constructor normalises to List.of()
+                );
     }
 
     /**
@@ -177,16 +174,16 @@ public final class SendMessageRequestFixtures {
      */
     public static SendMessageDTO invalidEmptyToList() {
         return new SendMessageDTO(
-                List.of(),   // @NotEmpty should reject this
+                List.of(), // @NotEmpty should reject this
                 null,
                 null,
                 VALID_SUBJECT,
                 VALID_TEXT_BODY,
                 "text",
-                null,   // threadId — optional
-                null,   // inReplyToMessageId — optional
-                null    // attachments — compact constructor normalises to List.of()
-        );
+                null, // threadId — optional
+                null, // inReplyToMessageId — optional
+                null // attachments — compact constructor normalises to List.of()
+                );
     }
 
     /**
@@ -213,9 +210,9 @@ public final class SendMessageRequestFixtures {
                 VALID_SUBJECT,
                 oversizedBody,
                 "text",
-                null,   // threadId — optional
-                null,   // inReplyToMessageId — optional
-                null    // attachments — compact constructor normalises to List.of()
-        );
+                null, // threadId — optional
+                null, // inReplyToMessageId — optional
+                null // attachments — compact constructor normalises to List.of()
+                );
     }
 }

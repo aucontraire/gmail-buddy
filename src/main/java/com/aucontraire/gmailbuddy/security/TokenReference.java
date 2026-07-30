@@ -162,15 +162,14 @@ public class TokenReference {
 
     @Override
     public String toString() {
-        return "TokenReference{" +
-                "referenceId='" + referenceId + '\'' +
-                ", userId='" + userId + '\'' +
-                ", createdAt=" + createdAt +
-                ", expiresAt=" + expiresAt +
-                ", tokenType='" + tokenType + '\'' +
-                ", scope='" + scope + '\'' +
-                ", expired=" + isExpired() +
-                '}';
+        return "TokenReference{" + "referenceId='"
+                + referenceId + '\'' + ", userId='"
+                + userId + '\'' + ", createdAt="
+                + createdAt + ", expiresAt="
+                + expiresAt + ", tokenType='"
+                + tokenType + '\'' + ", scope='"
+                + scope + '\'' + ", expired="
+                + isExpired() + '}';
     }
 
     /**

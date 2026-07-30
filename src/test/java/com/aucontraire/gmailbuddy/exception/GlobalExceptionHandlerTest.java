@@ -1,13 +1,17 @@
 package com.aucontraire.gmailbuddy.exception;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.aucontraire.gmailbuddy.constants.ProblemTypes;
 import com.aucontraire.gmailbuddy.dto.error.ProblemDetail;
-import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
-import java.net.URI;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,13 +23,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-
-import java.util.List;
-import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * Tests for GlobalExceptionHandler with RFC 7807 ProblemDetail responses.
@@ -66,7 +63,8 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<ProblemDetail> response = handler.handleResourceNotFoundException(ex);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.parseMediaType("application/problem+json"));
+        assertThat(response.getHeaders().getContentType())
+                .isEqualTo(MediaType.parseMediaType("application/problem+json"));
 
         ProblemDetail problem = response.getBody();
         assertThat(problem).isNotNull();
@@ -103,7 +101,7 @@ class GlobalExceptionHandlerTest {
     @DisplayName("AuthenticationException returns RFC 7807 problem detail with 401")
     void testAuthenticationException() {
         com.aucontraire.gmailbuddy.exception.AuthenticationException ex =
-            new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token");
+                new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token");
 
         ResponseEntity<ProblemDetail> response = handler.handleAuthenticationException(ex);
 
@@ -206,8 +204,8 @@ class GlobalExceptionHandlerTest {
         assertThat(problem.getType().toString()).isEqualTo(ProblemTypes.VALIDATION_ERROR);
         assertThat(problem.getDetail()).contains("2 field(s)");
         assertThat(problem.getExtensions())
-            .containsEntry("field:from", "Must be valid email")
-            .containsEntry("field:subject", "Too long");
+                .containsEntry("field:from", "Must be valid email")
+                .containsEntry("field:subject", "Too long");
     }
 
     @Test
@@ -237,8 +235,8 @@ class GlobalExceptionHandlerTest {
         assertThat(problem.getType().toString()).isEqualTo(ProblemTypes.CONSTRAINT_VIOLATION);
         assertThat(problem.getDetail()).contains("2 parameter(s)");
         assertThat(problem.getExtensions())
-            .containsEntry("constraint:email", "Invalid format")
-            .containsEntry("constraint:password", "Too short");
+                .containsEntry("constraint:email", "Invalid format")
+                .containsEntry("constraint:password", "Too short");
     }
 
     @Test
@@ -270,7 +268,7 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getHeaders().getFirst("X-Request-ID")).isNotNull();
         assertThat(response.getBody().getRequestId()).isNotNull();
         assertThat(response.getHeaders().getFirst("X-Request-ID"))
-            .isEqualTo(response.getBody().getRequestId());
+                .isEqualTo(response.getBody().getRequestId());
     }
 
     @Test
@@ -281,7 +279,7 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<ProblemDetail> response = handler.handleValidationException(ex);
 
         assertThat(response.getHeaders().getContentType())
-            .isEqualTo(MediaType.parseMediaType("application/problem+json"));
+                .isEqualTo(MediaType.parseMediaType("application/problem+json"));
     }
 
     // -------------------------------------------------------------------------
@@ -305,7 +303,8 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("handleOriginalMessageNotFoundException returns 422 with ORIGINAL_MESSAGE_NOT_FOUND type (new handler, line 547)")
+    @DisplayName(
+            "handleOriginalMessageNotFoundException returns 422 with ORIGINAL_MESSAGE_NOT_FOUND type (new handler, line 547)")
     void testHandleOriginalMessageNotFoundException_returns422WithCorrectProblemType() {
         // Arrange
         OriginalMessageNotFoundException ex = new OriginalMessageNotFoundException(
@@ -341,8 +340,7 @@ class GlobalExceptionHandlerTest {
     @DisplayName("determineProblemType maps ORIGINAL_MESSAGE_NOT_FOUND error code to correct URI (line 547)")
     void testHandleGmailBuddyException_originalMessageNotFoundErrorCode_mapsToCorrectProblemTypeUri() {
         // Arrange: OriginalMessageNotFoundException has ERROR_CODE = "ORIGINAL_MESSAGE_NOT_FOUND"
-        OriginalMessageNotFoundException ex = new OriginalMessageNotFoundException(
-                "Threading prerequisite not found");
+        OriginalMessageNotFoundException ex = new OriginalMessageNotFoundException("Threading prerequisite not found");
 
         // Act: route through handleGmailBuddyException (catches GmailBuddyException supertype)
         // OriginalMessageNotFoundException extends GmailBuddyClientException extends GmailBuddyException

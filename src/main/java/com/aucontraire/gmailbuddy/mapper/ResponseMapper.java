@@ -5,11 +5,10 @@ import com.aucontraire.gmailbuddy.dto.response.BatchOperationResponse;
 import com.aucontraire.gmailbuddy.dto.response.BulkDeleteResponse;
 import com.aucontraire.gmailbuddy.dto.response.LabelModificationResponse;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 /**
  * Maps service layer results to response DTOs.
@@ -44,19 +43,19 @@ public class ResponseMapper {
      */
     public BulkDeleteResponse toBulkDeleteResponse(BulkOperationResult serviceResult) {
         ResponseMetadata metadata = ResponseMetadata.builder()
-            .durationMs(serviceResult.getDurationMs())
-            .quotaUsed(estimateQuotaUsed(serviceResult))
-            .build();
+                .durationMs(serviceResult.getDurationMs())
+                .quotaUsed(estimateQuotaUsed(serviceResult))
+                .build();
 
         return BulkDeleteResponse.builder()
-            .status(serviceResult.getStatus())
-            .totalOperations(serviceResult.getTotalOperations())
-            .successCount(serviceResult.getSuccessCount())
-            .failureCount(serviceResult.getFailureCount())
-            .successfulOperations(new ArrayList<>(serviceResult.getSuccessfulOperations()))
-            .failedOperations(new HashMap<>(serviceResult.getFailedOperations()))
-            .metadata(metadata)
-            .build();
+                .status(serviceResult.getStatus())
+                .totalOperations(serviceResult.getTotalOperations())
+                .successCount(serviceResult.getSuccessCount())
+                .failureCount(serviceResult.getFailureCount())
+                .successfulOperations(new ArrayList<>(serviceResult.getSuccessfulOperations()))
+                .failedOperations(new HashMap<>(serviceResult.getFailedOperations()))
+                .metadata(metadata)
+                .build();
     }
 
     /**
@@ -70,23 +69,21 @@ public class ResponseMapper {
      * @return LabelModificationResponse DTO with status, modification details, and metadata
      */
     public LabelModificationResponse toLabelModificationResponse(
-            BulkOperationResult serviceResult,
-            List<String> labelsAdded,
-            List<String> labelsRemoved) {
+            BulkOperationResult serviceResult, List<String> labelsAdded, List<String> labelsRemoved) {
 
         ResponseMetadata metadata = ResponseMetadata.builder()
-            .durationMs(serviceResult.getDurationMs())
-            .quotaUsed(estimateQuotaUsed(serviceResult))
-            .build();
+                .durationMs(serviceResult.getDurationMs())
+                .quotaUsed(estimateQuotaUsed(serviceResult))
+                .build();
 
         return LabelModificationResponse.builder()
-            .status(serviceResult.getStatus())
-            .messagesModified(serviceResult.getSuccessCount())
-            .labelsAdded(labelsAdded)
-            .labelsRemoved(labelsRemoved)
-            .affectedMessageIds(new ArrayList<>(serviceResult.getSuccessfulOperations()))
-            .metadata(metadata)
-            .build();
+                .status(serviceResult.getStatus())
+                .messagesModified(serviceResult.getSuccessCount())
+                .labelsAdded(labelsAdded)
+                .labelsRemoved(labelsRemoved)
+                .affectedMessageIds(new ArrayList<>(serviceResult.getSuccessfulOperations()))
+                .metadata(metadata)
+                .build();
     }
 
     /**
@@ -104,19 +101,19 @@ public class ResponseMapper {
      */
     public BatchOperationResponse toBatchOperationResponse(BulkOperationResult serviceResult) {
         ResponseMetadata metadata = ResponseMetadata.builder()
-            .durationMs(serviceResult.getDurationMs())
-            .quotaUsed(serviceResult.getTotalOperations() * MODIFY_QUOTA_PER_MESSAGE)
-            .build();
+                .durationMs(serviceResult.getDurationMs())
+                .quotaUsed(serviceResult.getTotalOperations() * MODIFY_QUOTA_PER_MESSAGE)
+                .build();
 
         return BatchOperationResponse.builder()
-            .status(serviceResult.getStatus())
-            .totalOperations(serviceResult.getTotalOperations())
-            .successCount(serviceResult.getSuccessCount())
-            .failureCount(serviceResult.getFailureCount())
-            .successfulOperations(new ArrayList<>(serviceResult.getSuccessfulOperations()))
-            .failedOperations(new HashMap<>(serviceResult.getFailedOperations()))
-            .metadata(metadata)
-            .build();
+                .status(serviceResult.getStatus())
+                .totalOperations(serviceResult.getTotalOperations())
+                .successCount(serviceResult.getSuccessCount())
+                .failureCount(serviceResult.getFailureCount())
+                .successfulOperations(new ArrayList<>(serviceResult.getSuccessfulOperations()))
+                .failedOperations(new HashMap<>(serviceResult.getFailedOperations()))
+                .metadata(metadata)
+                .build();
     }
 
     /**

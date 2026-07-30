@@ -5,7 +5,7 @@ import org.springframework.http.HttpStatus;
 /**
  * Exception thrown when a service is temporarily unavailable.
  * This includes Gmail API downtime, maintenance windows, or circuit breaker scenarios.
- * 
+ *
  * @author Gmail Buddy Team
  * @since 1.0
  */
@@ -17,7 +17,7 @@ public class ServiceUnavailableException extends GmailBuddyServerException {
 
     /**
      * Constructs a new service unavailable exception with the specified message.
-     * 
+     *
      * @param message the detail message explaining why the service is unavailable
      */
     public ServiceUnavailableException(String message) {
@@ -27,7 +27,7 @@ public class ServiceUnavailableException extends GmailBuddyServerException {
 
     /**
      * Constructs a new service unavailable exception with the specified message and retry delay.
-     * 
+     *
      * @param message the detail message explaining why the service is unavailable
      * @param retryAfterSeconds the number of seconds to wait before retrying
      */
@@ -38,7 +38,7 @@ public class ServiceUnavailableException extends GmailBuddyServerException {
 
     /**
      * Constructs a new service unavailable exception with the specified message and cause.
-     * 
+     *
      * @param message the detail message explaining why the service is unavailable
      * @param cause the underlying cause
      */
@@ -49,7 +49,7 @@ public class ServiceUnavailableException extends GmailBuddyServerException {
 
     /**
      * Constructs a new service unavailable exception with the specified message, cause and retry delay.
-     * 
+     *
      * @param message the detail message explaining why the service is unavailable
      * @param cause the underlying cause
      * @param retryAfterSeconds the number of seconds to wait before retrying
@@ -61,7 +61,7 @@ public class ServiceUnavailableException extends GmailBuddyServerException {
 
     /**
      * Gets the number of seconds to wait before retrying the request.
-     * 
+     *
      * @return the retry delay in seconds
      */
     public long getRetryAfterSeconds() {

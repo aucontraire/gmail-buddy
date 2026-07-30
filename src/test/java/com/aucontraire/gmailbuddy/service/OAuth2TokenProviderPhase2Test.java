@@ -1,9 +1,16 @@
 package com.aucontraire.gmailbuddy.service;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
+
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.security.TokenReferenceService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,7 +22,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
@@ -25,15 +31,6 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.lenient;
 
 /**
  * Comprehensive test suite for OAuth2TokenProvider Phase 2 integration.
@@ -98,7 +95,8 @@ class OAuth2TokenProviderPhase2Test {
 
     @BeforeEach
     void setUp() {
-        tokenProvider = new OAuth2TokenProvider(authorizedClientService, properties, tokenValidator, tokenReferenceService);
+        tokenProvider =
+                new OAuth2TokenProvider(authorizedClientService, properties, tokenValidator, tokenReferenceService);
 
         // Setup static mocks
         mockedRequestContextHolder = mockStatic(RequestContextHolder.class);
@@ -134,7 +132,9 @@ class OAuth2TokenProviderPhase2Test {
         void shouldExtractAndValidateBearerTokenFromHttpRequest() {
             // Given
             mockHttpRequestContext(VALID_BEARER_TOKEN);
-            lenient().when(tokenValidator.isValidGoogleToken(VALID_BEARER_TOKEN)).thenReturn(true);
+            lenient()
+                    .when(tokenValidator.isValidGoogleToken(VALID_BEARER_TOKEN))
+                    .thenReturn(true);
 
             // When
             String result = tokenProvider.getBearerToken();
@@ -180,8 +180,8 @@ class OAuth2TokenProviderPhase2Test {
 
             // When & Then
             assertThatThrownBy(() -> tokenProvider.getBearerToken())
-                .isInstanceOf(AuthenticationException.class)
-                .hasMessage("No Bearer token found in Authorization header");
+                    .isInstanceOf(AuthenticationException.class)
+                    .hasMessage("No Bearer token found in Authorization header");
         }
 
         @Test
@@ -192,8 +192,8 @@ class OAuth2TokenProviderPhase2Test {
 
             // When & Then
             assertThatThrownBy(() -> tokenProvider.getBearerToken())
-                .isInstanceOf(AuthenticationException.class)
-                .hasMessage("No Bearer token found in Authorization header");
+                    .isInstanceOf(AuthenticationException.class)
+                    .hasMessage("No Bearer token found in Authorization header");
         }
 
         @Test
@@ -204,20 +204,22 @@ class OAuth2TokenProviderPhase2Test {
 
             // When & Then
             assertThatThrownBy(() -> tokenProvider.getBearerToken())
-                .isInstanceOf(AuthenticationException.class)
-                .hasMessage("Bearer token is empty");
+                    .isInstanceOf(AuthenticationException.class)
+                    .hasMessage("Bearer token is empty");
         }
 
         @Test
         @DisplayName("Should throw exception when no HTTP request context available")
         void shouldThrowExceptionWhenNoHttpRequestContextAvailable() {
             // Given
-            mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes).thenReturn(null);
+            mockedRequestContextHolder
+                    .when(RequestContextHolder::getRequestAttributes)
+                    .thenReturn(null);
 
             // When & Then
             assertThatThrownBy(() -> tokenProvider.getBearerToken())
-                .isInstanceOf(AuthenticationException.class)
-                .hasMessage("No HTTP request context available");
+                    .isInstanceOf(AuthenticationException.class)
+                    .hasMessage("No HTTP request context available");
         }
     }
 
@@ -282,7 +284,8 @@ class OAuth2TokenProviderPhase2Test {
             mockHttpRequestContext(null);
             when(securityContext.getAuthentication()).thenReturn(authentication);
             when(authentication.isAuthenticated()).thenReturn(true);
-            when(authentication.getAuthorities()).thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_API_USER")));
+            when(authentication.getAuthorities())
+                    .thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_API_USER")));
             when(authentication.getCredentials()).thenReturn(123); // Non-string credentials
             mockOAuth2Fallback();
 
@@ -307,7 +310,8 @@ class OAuth2TokenProviderPhase2Test {
             mockHttpRequestContext(null);
             when(securityContext.getAuthentication()).thenReturn(authentication);
             when(authentication.isAuthenticated()).thenReturn(true);
-            when(authentication.getAuthorities()).thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
+            when(authentication.getAuthorities())
+                    .thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
             mockOAuth2Fallback();
 
             // When
@@ -326,7 +330,8 @@ class OAuth2TokenProviderPhase2Test {
             when(tokenValidator.isValidGoogleToken(INVALID_BEARER_TOKEN)).thenReturn(false);
             when(securityContext.getAuthentication()).thenReturn(authentication);
             when(authentication.isAuthenticated()).thenReturn(true);
-            when(authentication.getAuthorities()).thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
+            when(authentication.getAuthorities())
+                    .thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
             mockOAuth2Fallback();
 
             // When
@@ -347,8 +352,8 @@ class OAuth2TokenProviderPhase2Test {
 
             // When & Then
             assertThatThrownBy(() -> tokenProvider.getTokenFromContext())
-                .isInstanceOf(AuthenticationException.class)
-                .hasMessageContaining("Authentication failed: No valid authentication method found");
+                    .isInstanceOf(AuthenticationException.class)
+                    .hasMessageContaining("Authentication failed: No valid authentication method found");
         }
     }
 
@@ -372,7 +377,8 @@ class OAuth2TokenProviderPhase2Test {
             assertThat(result).isEqualTo(VALID_BEARER_TOKEN);
             verify(tokenValidator).isValidGoogleToken(VALID_BEARER_TOKEN);
             verify(authentication, never()).getCredentials(); // Should not check API client
-            verify(authorizedClientService, never()).loadAuthorizedClient(any(), any()); // Should not fallback to OAuth2
+            verify(authorizedClientService, never())
+                    .loadAuthorizedClient(any(), any()); // Should not fallback to OAuth2
         }
 
         @Test
@@ -402,7 +408,8 @@ class OAuth2TokenProviderPhase2Test {
             when(tokenValidator.isValidGoogleToken(INVALID_BEARER_TOKEN)).thenReturn(false);
             when(securityContext.getAuthentication()).thenReturn(authentication);
             when(authentication.isAuthenticated()).thenReturn(true);
-            when(authentication.getAuthorities()).thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
+            when(authentication.getAuthorities())
+                    .thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
             mockOAuth2Fallback();
 
             // When
@@ -425,7 +432,7 @@ class OAuth2TokenProviderPhase2Test {
             // Given
             mockHttpRequestContext(VALID_BEARER_TOKEN);
             when(tokenValidator.isValidGoogleToken(VALID_BEARER_TOKEN))
-                .thenThrow(new RuntimeException("Token validation service unavailable"));
+                    .thenThrow(new RuntimeException("Token validation service unavailable"));
             mockApiClientAuthentication();
 
             // When
@@ -441,8 +448,9 @@ class OAuth2TokenProviderPhase2Test {
         @DisplayName("Should handle HTTP request context exceptions gracefully")
         void shouldHandleHttpRequestContextExceptionsGracefully() {
             // Given
-            mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes)
-                .thenThrow(new RuntimeException("Request context error"));
+            mockedRequestContextHolder
+                    .when(RequestContextHolder::getRequestAttributes)
+                    .thenThrow(new RuntimeException("Request context error"));
             mockApiClientAuthentication();
 
             // When
@@ -462,8 +470,8 @@ class OAuth2TokenProviderPhase2Test {
 
             // When & Then
             assertThatThrownBy(() -> tokenProvider.getTokenFromContext())
-                .isInstanceOf(AuthenticationException.class)
-                .hasMessageContaining("Authentication failed: No valid authentication method found");
+                    .isInstanceOf(AuthenticationException.class)
+                    .hasMessageContaining("Authentication failed: No valid authentication method found");
         }
 
         @ParameterizedTest
@@ -475,8 +483,8 @@ class OAuth2TokenProviderPhase2Test {
 
             // When & Then
             assertThatThrownBy(() -> tokenProvider.getBearerToken())
-                .isInstanceOf(AuthenticationException.class)
-                .hasMessage("Bearer token is empty");
+                    .isInstanceOf(AuthenticationException.class)
+                    .hasMessage("Bearer token is empty");
         }
 
         @Test
@@ -488,8 +496,8 @@ class OAuth2TokenProviderPhase2Test {
 
             // When & Then
             assertThatThrownBy(() -> tokenProvider.getTokenFromContext())
-                .isInstanceOf(AuthenticationException.class)
-                .hasMessageContaining("Authentication failed: No valid authentication method found");
+                    .isInstanceOf(AuthenticationException.class)
+                    .hasMessageContaining("Authentication failed: No valid authentication method found");
         }
 
         @Test
@@ -502,8 +510,8 @@ class OAuth2TokenProviderPhase2Test {
 
             // When & Then
             assertThatThrownBy(() -> tokenProvider.getTokenFromContext())
-                .isInstanceOf(AuthenticationException.class)
-                .hasMessageContaining("Authentication failed: No valid authentication method found");
+                    .isInstanceOf(AuthenticationException.class)
+                    .hasMessageContaining("Authentication failed: No valid authentication method found");
         }
     }
 
@@ -529,7 +537,9 @@ class OAuth2TokenProviderPhase2Test {
         @DisplayName("Should use OAuth2 methods when no HTTP context is available")
         void shouldUseOAuth2MethodsWhenNoHttpContextIsAvailable() {
             // Given
-            mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes).thenReturn(null);
+            mockedRequestContextHolder
+                    .when(RequestContextHolder::getRequestAttributes)
+                    .thenReturn(null);
             mockOAuth2Fallback();
 
             // When
@@ -546,7 +556,7 @@ class OAuth2TokenProviderPhase2Test {
             // Given - API client authenticated but wants to use OAuth2 method
             mockApiClientAuthentication();
             when(authorizedClientService.loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL))
-                .thenReturn(authorizedClient);
+                    .thenReturn(authorizedClient);
             when(authorizedClient.getAccessToken()).thenReturn(accessToken);
             when(accessToken.getTokenValue()).thenReturn(OAUTH2_TOKEN);
             when(accessToken.getExpiresAt()).thenReturn(Instant.now().plusSeconds(3600));
@@ -569,7 +579,9 @@ class OAuth2TokenProviderPhase2Test {
     }
 
     private void mockHttpRequestContextWithHeader(String authHeader) {
-        mockedRequestContextHolder.when(RequestContextHolder::getRequestAttributes).thenReturn(requestAttributes);
+        mockedRequestContextHolder
+                .when(RequestContextHolder::getRequestAttributes)
+                .thenReturn(requestAttributes);
         lenient().when(requestAttributes.getRequest()).thenReturn(httpRequest);
         lenient().when(httpRequest.getHeader("Authorization")).thenReturn(authHeader);
     }
@@ -579,7 +591,9 @@ class OAuth2TokenProviderPhase2Test {
 
         lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
         lenient().when(authentication.isAuthenticated()).thenReturn(true);
-        lenient().when(authentication.getAuthorities()).thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_API_USER")));
+        lenient()
+                .when(authentication.getAuthorities())
+                .thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_API_USER")));
         lenient().when(authentication.getCredentials()).thenReturn(tokenReferenceId);
 
         // Mock the token reference service to return the actual token
@@ -592,8 +606,9 @@ class OAuth2TokenProviderPhase2Test {
         lenient().when(authentication.getName()).thenReturn(USER_EMAIL);
         lenient().when(authentication.isAuthenticated()).thenReturn(true);
 
-        lenient().when(authorizedClientService.loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL))
-            .thenReturn(authorizedClient);
+        lenient()
+                .when(authorizedClientService.loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL))
+                .thenReturn(authorizedClient);
         lenient().when(authorizedClient.getAccessToken()).thenReturn(accessToken);
         lenient().when(accessToken.getTokenValue()).thenReturn(OAUTH2_TOKEN);
         lenient().when(accessToken.getExpiresAt()).thenReturn(Instant.now().plusSeconds(3600));

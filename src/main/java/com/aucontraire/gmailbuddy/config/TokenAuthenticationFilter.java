@@ -7,6 +7,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -15,9 +17,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.util.List;
 
 /**
  * Custom authentication filter for handling Bearer tokens from API clients.
@@ -45,16 +44,14 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
     private final GoogleTokenValidator tokenValidator;
     private final TokenReferenceService tokenReferenceService;
 
-    public TokenAuthenticationFilter(GoogleTokenValidator tokenValidator,
-                                   TokenReferenceService tokenReferenceService) {
+    public TokenAuthenticationFilter(GoogleTokenValidator tokenValidator, TokenReferenceService tokenReferenceService) {
         this.tokenValidator = tokenValidator;
         this.tokenReferenceService = tokenReferenceService;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
 
         // Only process API endpoints
         if (!isApiEndpoint(request)) {
@@ -63,8 +60,8 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
         }
 
         // Skip if authentication already exists (OAuth2 flow)
-        if (SecurityContextHolder.getContext().getAuthentication() != null &&
-            SecurityContextHolder.getContext().getAuthentication().isAuthenticated()) {
+        if (SecurityContextHolder.getContext().getAuthentication() != null
+                && SecurityContextHolder.getContext().getAuthentication().isAuthenticated()) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -79,8 +76,8 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
                 // Validate Gmail scopes separately (no additional Google API call)
                 if (!tokenValidator.hasValidGmailScopes(tokenInfo.getScope())) {
-                    logger.debug("Token validation failed: missing required Gmail scopes. Scopes: {}",
-                        tokenInfo.getScope());
+                    logger.debug(
+                            "Token validation failed: missing required Gmail scopes. Scopes: {}", tokenInfo.getScope());
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     return;
                 }
@@ -95,22 +92,20 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
                 }
 
                 // SECURITY FIX: Create encrypted token reference instead of storing raw token
-                TokenReference tokenReference = tokenReferenceService.createTokenReference(
-                    bearerToken,
-                    userEmail,
-                    tokenInfo.getScope()
-                );
+                TokenReference tokenReference =
+                        tokenReferenceService.createTokenReference(bearerToken, userEmail, tokenInfo.getScope());
 
                 // Store only the secure reference ID, not the raw token
                 Authentication authentication = new UsernamePasswordAuthenticationToken(
-                    userEmail,
-                    tokenReference.getReferenceId(), // SECURE: Store reference ID, not raw token
-                    List.of(new SimpleGrantedAuthority("ROLE_API_USER"))
-                );
+                        userEmail,
+                        tokenReference.getReferenceId(), // SECURE: Store reference ID, not raw token
+                        List.of(new SimpleGrantedAuthority("ROLE_API_USER")));
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-                logger.debug("Successfully authenticated API request with secure token reference {} for user: {}",
-                           tokenReference.getReferenceId(), userEmail);
+                logger.debug(
+                        "Successfully authenticated API request with secure token reference {} for user: {}",
+                        tokenReference.getReferenceId(),
+                        userEmail);
 
             } catch (com.aucontraire.gmailbuddy.exception.AuthenticationException e) {
                 // Token validation failed (invalid, expired, or Google API error)

@@ -1,5 +1,12 @@
 package com.aucontraire.gmailbuddy.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.aucontraire.gmailbuddy.client.GmailBatchClient;
 import com.aucontraire.gmailbuddy.client.GmailClient;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
@@ -11,19 +18,11 @@ import com.aucontraire.gmailbuddy.service.GmailQueryBuilder;
 import com.aucontraire.gmailbuddy.service.TokenProvider;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.ModifyMessageRequest;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * Mockito-based proof of the Gmail API request shape produced by
@@ -64,8 +63,7 @@ class BatchModifyLabelsIntegrationTest {
         when(gmailClient.createGmailService(anyString())).thenReturn(gmailServiceStub);
 
         gmailRepository = new GmailRepositoryImpl(
-                gmailClient, gmailBatchClient, tokenProvider, properties,
-                gmailMessageMapper, gmailQueryBuilder);
+                gmailClient, gmailBatchClient, tokenProvider, properties, gmailMessageMapper, gmailQueryBuilder);
     }
 
     // -------------------------------------------------------------------------
@@ -156,7 +154,8 @@ class BatchModifyLabelsIntegrationTest {
         List<String> messageIds = BatchOperationFixtures.validMessageIds(3);
         List<String> labelIdsToAdd = List.of("Label_A");
         BulkOperationResult stubResult = BatchOperationFixtures.buildPartialResult(messageIds, 2);
-        when(gmailBatchClient.batchModifyLabels(eq(gmailServiceStub), eq(USER_ID), eq(messageIds), any(ModifyMessageRequest.class)))
+        when(gmailBatchClient.batchModifyLabels(
+                        eq(gmailServiceStub), eq(USER_ID), eq(messageIds), any(ModifyMessageRequest.class)))
                 .thenReturn(stubResult);
 
         // Act

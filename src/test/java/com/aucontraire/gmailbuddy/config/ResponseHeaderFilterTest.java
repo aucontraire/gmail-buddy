@@ -1,19 +1,18 @@
 package com.aucontraire.gmailbuddy.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-
-import java.io.IOException;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for ResponseHeaderFilter.
@@ -44,11 +43,13 @@ class ResponseHeaderFilterTest {
     void doFilter_shouldGenerateRequestIdWhenNotProvided() throws ServletException, IOException {
         // Arrange - configure filterChain to capture MDC during execution
         doAnswer(invocation -> {
-            String requestId = MDC.get("requestId");
-            assertThat(requestId).isNotNull();
-            assertThat(requestId).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    String requestId = MDC.get("requestId");
+                    assertThat(requestId).isNotNull();
+                    assertThat(requestId).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -64,10 +65,12 @@ class ResponseHeaderFilterTest {
         request.addHeader("X-Request-ID", existingRequestId);
 
         doAnswer(invocation -> {
-            String requestId = MDC.get("requestId");
-            assertThat(requestId).isEqualTo(existingRequestId);
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    String requestId = MDC.get("requestId");
+                    assertThat(requestId).isEqualTo(existingRequestId);
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -82,12 +85,14 @@ class ResponseHeaderFilterTest {
         request.addHeader("X-Request-ID", "");
 
         doAnswer(invocation -> {
-            String requestId = MDC.get("requestId");
-            assertThat(requestId).isNotNull();
-            assertThat(requestId).isNotEmpty();
-            assertThat(requestId).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    String requestId = MDC.get("requestId");
+                    assertThat(requestId).isNotNull();
+                    assertThat(requestId).isNotEmpty();
+                    assertThat(requestId).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -104,10 +109,12 @@ class ResponseHeaderFilterTest {
 
         // Simulate response writing to trigger header addition
         doAnswer(invocation -> {
-            HttpServletResponse wrappedResponse = invocation.getArgument(1);
-            wrappedResponse.getWriter().write("test response");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    HttpServletResponse wrappedResponse = invocation.getArgument(1);
+                    wrappedResponse.getWriter().write("test response");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -121,11 +128,13 @@ class ResponseHeaderFilterTest {
     void doFilter_shouldAddResponseTimeHeaderToResponse() throws ServletException, IOException {
         // Arrange - simulate some processing time
         doAnswer(invocation -> {
-            Thread.sleep(10);
-            HttpServletResponse wrappedResponse = invocation.getArgument(1);
-            wrappedResponse.getWriter().write("test response");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    Thread.sleep(10);
+                    HttpServletResponse wrappedResponse = invocation.getArgument(1);
+                    wrappedResponse.getWriter().write("test response");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -142,9 +151,11 @@ class ResponseHeaderFilterTest {
     void doFilter_shouldClearMDCAfterCompletion() throws ServletException, IOException {
         // Arrange
         doAnswer(invocation -> {
-            assertThat(MDC.get("requestId")).isNotNull();
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    assertThat(MDC.get("requestId")).isNotNull();
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -176,10 +187,12 @@ class ResponseHeaderFilterTest {
         request.addHeader("X-Request-ID", requestId);
 
         doAnswer(invocation -> {
-            HttpServletResponse wrappedResponse = invocation.getArgument(1);
-            wrappedResponse.sendError(500, "Internal Server Error");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    HttpServletResponse wrappedResponse = invocation.getArgument(1);
+                    wrappedResponse.sendError(500, "Internal Server Error");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -196,10 +209,12 @@ class ResponseHeaderFilterTest {
         request.addHeader("X-Request-ID", requestId);
 
         doAnswer(invocation -> {
-            HttpServletResponse wrappedResponse = invocation.getArgument(1);
-            wrappedResponse.sendRedirect("/new-location");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    HttpServletResponse wrappedResponse = invocation.getArgument(1);
+                    wrappedResponse.sendRedirect("/new-location");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -216,10 +231,12 @@ class ResponseHeaderFilterTest {
         request.addHeader("X-Request-ID", providedRequestId);
 
         doAnswer(invocation -> {
-            HttpServletResponse wrappedResponse = invocation.getArgument(1);
-            wrappedResponse.getWriter().write("response body");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    HttpServletResponse wrappedResponse = invocation.getArgument(1);
+                    wrappedResponse.getWriter().write("response body");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -239,10 +256,12 @@ class ResponseHeaderFilterTest {
         MockHttpServletResponse response2 = new MockHttpServletResponse();
 
         doAnswer(invocation -> {
-            HttpServletResponse wrappedResponse = invocation.getArgument(1);
-            wrappedResponse.getWriter().write("response");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    HttpServletResponse wrappedResponse = invocation.getArgument(1);
+                    wrappedResponse.getWriter().write("response");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act - process first request
         filter.doFilter(request1, response1, filterChain);
@@ -265,10 +284,12 @@ class ResponseHeaderFilterTest {
         request.addHeader("X-Request-ID", requestId);
 
         doAnswer(invocation -> {
-            HttpServletResponse wrappedResponse = invocation.getArgument(1);
-            wrappedResponse.flushBuffer();
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    HttpServletResponse wrappedResponse = invocation.getArgument(1);
+                    wrappedResponse.flushBuffer();
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);

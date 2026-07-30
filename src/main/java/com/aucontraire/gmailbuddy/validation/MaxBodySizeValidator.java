@@ -3,9 +3,8 @@ package com.aucontraire.gmailbuddy.validation;
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import java.nio.charset.StandardCharsets;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Validator for the {@link MaxBodySize} constraint.

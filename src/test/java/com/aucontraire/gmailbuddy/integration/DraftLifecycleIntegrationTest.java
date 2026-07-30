@@ -1,26 +1,5 @@
 package com.aucontraire.gmailbuddy.integration;
 
-import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
-import com.aucontraire.gmailbuddy.repository.GmailRepository;
-import com.aucontraire.gmailbuddy.service.DraftDetailResult;
-import com.aucontraire.gmailbuddy.service.DraftListResult;
-import com.aucontraire.gmailbuddy.service.GmailService;
-import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
-import com.aucontraire.gmailbuddy.service.SentMessageResult;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.List;
-
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -33,6 +12,26 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.aucontraire.gmailbuddy.exception.ResourceNotFoundException;
+import com.aucontraire.gmailbuddy.repository.GmailRepository;
+import com.aucontraire.gmailbuddy.service.DraftDetailResult;
+import com.aucontraire.gmailbuddy.service.DraftListResult;
+import com.aucontraire.gmailbuddy.service.GmailService;
+import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
+import com.aucontraire.gmailbuddy.service.SentMessageResult;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * Integration tests verifying FR-001a (sent draft absent from list) and the
@@ -77,12 +76,12 @@ class DraftLifecycleIntegrationTest {
     // Constants
     // ---------------------------------------------------------------------------
 
-    private static final String DRAFTS_BASE       = "/api/v1/gmail/drafts";
+    private static final String DRAFTS_BASE = "/api/v1/gmail/drafts";
     // IDs matching @Pattern(regexp = "[A-Za-z0-9_-]{1,128}") — Gmail's opaque draft format
-    private static final String DRAFT_ID          = "abc123def456";
-    private static final String DRAFT_MESSAGE_ID  = "19a2b3c4d5e60001";
-    private static final String SENT_MESSAGE_ID   = "19a2b3c4d5e60002";
-    private static final String THREAD_ID         = "19a2b3c4d5e60001";
+    private static final String DRAFT_ID = "abc123def456";
+    private static final String DRAFT_MESSAGE_ID = "19a2b3c4d5e60001";
+    private static final String SENT_MESSAGE_ID = "19a2b3c4d5e60002";
+    private static final String THREAD_ID = "19a2b3c4d5e60001";
 
     // ---------------------------------------------------------------------------
     // Spring-managed beans
@@ -126,8 +125,7 @@ class DraftLifecycleIntegrationTest {
                 "Hi there, following up on my application for the role.",
                 "text",
                 null,
-                List.of()
-        );
+                List.of());
     }
 
     /**
@@ -181,8 +179,7 @@ class DraftLifecycleIntegrationTest {
             // Arrange — sequential stub: first getDraft returns the draft, second throws 404.
             when(gmailService.getDraft(anyString(), anyString()))
                     .thenReturn(existingDraft())
-                    .thenThrow(new ResourceNotFoundException(
-                            "Draft not found: " + DRAFT_ID, "DRAFT_NOT_FOUND"));
+                    .thenThrow(new ResourceNotFoundException("Draft not found: " + DRAFT_ID, "DRAFT_NOT_FOUND"));
 
             // Arrange — sendDraft stub.
             when(gmailService.sendDraft(anyString(), anyString()))
@@ -226,8 +223,7 @@ class DraftLifecycleIntegrationTest {
         void sendDraft_thenGetById_returns404WithCorrectProblemType() throws Exception {
             // Arrange: getDraft is already absent (draft was sent before this request)
             when(gmailService.getDraft(anyString(), anyString()))
-                    .thenThrow(new ResourceNotFoundException(
-                            "Draft not found: " + DRAFT_ID, "DRAFT_NOT_FOUND"));
+                    .thenThrow(new ResourceNotFoundException("Draft not found: " + DRAFT_ID, "DRAFT_NOT_FOUND"));
 
             // Act & Assert: 404 response carries the RFC 7807 problem type
             mockMvc.perform(get(DRAFTS_BASE + "/{draftId}", DRAFT_ID))
@@ -242,8 +238,7 @@ class DraftLifecycleIntegrationTest {
         void listDrafts_afterSend_returnsEmptyResultsNotA404() throws Exception {
             // Arrange: after send, list returns empty — NOT a 404. An empty queue is
             // represented as 200 OK with results=[] per spec (FR-001a note).
-            when(gmailService.listDrafts(anyString(), isNull(), anyInt()))
-                    .thenReturn(emptyList());
+            when(gmailService.listDrafts(anyString(), isNull(), anyInt())).thenReturn(emptyList());
 
             // Act & Assert
             mockMvc.perform(get(DRAFTS_BASE))
@@ -288,8 +283,7 @@ class DraftLifecycleIntegrationTest {
 
             // Arrange — getDraft after delete throws 404.
             when(gmailService.getDraft(anyString(), anyString()))
-                    .thenThrow(new ResourceNotFoundException(
-                            "Draft not found: " + DRAFT_ID, "DRAFT_NOT_FOUND"));
+                    .thenThrow(new ResourceNotFoundException("Draft not found: " + DRAFT_ID, "DRAFT_NOT_FOUND"));
 
             // Step 1: GET /drafts → 200, draft present
             mockMvc.perform(get(DRAFTS_BASE))
@@ -298,8 +292,7 @@ class DraftLifecycleIntegrationTest {
                     .andExpect(jsonPath("$.results[0].id").value(DRAFT_ID));
 
             // Step 2: DELETE /drafts/{id} → 204 No Content, empty response body
-            mockMvc.perform(delete(DRAFTS_BASE + "/{draftId}", DRAFT_ID))
-                    .andExpect(status().isNoContent());
+            mockMvc.perform(delete(DRAFTS_BASE + "/{draftId}", DRAFT_ID)).andExpect(status().isNoContent());
 
             // Step 3: GET /drafts → 200, draft absent
             mockMvc.perform(get(DRAFTS_BASE))
@@ -321,8 +314,7 @@ class DraftLifecycleIntegrationTest {
             doNothing().when(gmailService).deleteDraft(anyString(), anyString());
 
             // Act & Assert: 204 No Content — no body
-            mockMvc.perform(delete(DRAFTS_BASE + "/{draftId}", DRAFT_ID))
-                    .andExpect(status().isNoContent());
+            mockMvc.perform(delete(DRAFTS_BASE + "/{draftId}", DRAFT_ID)).andExpect(status().isNoContent());
         }
 
         @Test
@@ -331,9 +323,9 @@ class DraftLifecycleIntegrationTest {
         void deleteDraft_alreadyDeleted_returns404WithCorrectProblemType() throws Exception {
             // Arrange: deleteDraft throws ResourceNotFoundException (idempotent per FR-011 —
             // same 404 response whether never-existed or already-deleted).
-            doThrow(new ResourceNotFoundException(
-                    "Draft not found: " + DRAFT_ID, "DRAFT_NOT_FOUND"))
-                    .when(gmailService).deleteDraft(anyString(), anyString());
+            doThrow(new ResourceNotFoundException("Draft not found: " + DRAFT_ID, "DRAFT_NOT_FOUND"))
+                    .when(gmailService)
+                    .deleteDraft(anyString(), anyString());
 
             // Act & Assert
             mockMvc.perform(delete(DRAFTS_BASE + "/{draftId}", DRAFT_ID))
@@ -347,8 +339,7 @@ class DraftLifecycleIntegrationTest {
         @DisplayName("listDrafts_afterDelete_returnsEmptyResultsNotA404")
         void listDrafts_afterDelete_returnsEmptyResultsNotA404() throws Exception {
             // Arrange: empty queue after delete is 200 OK with results=[], not 404
-            when(gmailService.listDrafts(anyString(), isNull(), anyInt()))
-                    .thenReturn(emptyList());
+            when(gmailService.listDrafts(anyString(), isNull(), anyInt())).thenReturn(emptyList());
 
             // Act & Assert
             mockMvc.perform(get(DRAFTS_BASE))
@@ -372,19 +363,35 @@ class DraftLifecycleIntegrationTest {
         void listDrafts_multipleItems_thenDeleteOne_listShrinks() throws Exception {
             // Arrange: initial list has two drafts; after delete one remains.
             DraftDetailResult draft1 = new DraftDetailResult(
-                    DRAFT_ID, DRAFT_MESSAGE_ID, THREAD_ID,
-                    List.of("alice@example.com"), List.of(), List.of(),
-                    "Draft 1", "snippet 1", "body 1", "text", null, List.of()
-            );
+                    DRAFT_ID,
+                    DRAFT_MESSAGE_ID,
+                    THREAD_ID,
+                    List.of("alice@example.com"),
+                    List.of(),
+                    List.of(),
+                    "Draft 1",
+                    "snippet 1",
+                    "body 1",
+                    "text",
+                    null,
+                    List.of());
             String secondDraftId = "cafe0000beef0001";
             DraftDetailResult draft2 = new DraftDetailResult(
-                    secondDraftId, "cafe0000beef0002", "cafe0000beef0001",
-                    List.of("bob@example.com"), List.of(), List.of(),
-                    "Draft 2", "snippet 2", "body 2", "text", null, List.of()
-            );
+                    secondDraftId,
+                    "cafe0000beef0002",
+                    "cafe0000beef0001",
+                    List.of("bob@example.com"),
+                    List.of(),
+                    List.of(),
+                    "Draft 2",
+                    "snippet 2",
+                    "body 2",
+                    "text",
+                    null,
+                    List.of());
 
-            DraftListResult twoItems  = new DraftListResult(List.of(draft1, draft2), null, 2);
-            DraftListResult oneItem   = new DraftListResult(List.of(draft2), null, 1);
+            DraftListResult twoItems = new DraftListResult(List.of(draft1, draft2), null, 2);
+            DraftListResult oneItem = new DraftListResult(List.of(draft2), null, 1);
 
             when(gmailService.listDrafts(anyString(), isNull(), anyInt()))
                     .thenReturn(twoItems)
@@ -397,8 +404,7 @@ class DraftLifecycleIntegrationTest {
                     .andExpect(jsonPath("$.results.length()").value(2));
 
             // Step 2: delete the first draft
-            mockMvc.perform(delete(DRAFTS_BASE + "/{draftId}", DRAFT_ID))
-                    .andExpect(status().isNoContent());
+            mockMvc.perform(delete(DRAFTS_BASE + "/{draftId}", DRAFT_ID)).andExpect(status().isNoContent());
 
             // Step 3: list → 1 item (the second draft remains)
             mockMvc.perform(get(DRAFTS_BASE))
@@ -414,8 +420,7 @@ class DraftLifecycleIntegrationTest {
             // Arrange: first getDraft succeeds; second (post-send) throws 404.
             when(gmailService.getDraft(anyString(), anyString()))
                     .thenReturn(existingDraft())
-                    .thenThrow(new ResourceNotFoundException(
-                            "Draft not found: " + DRAFT_ID, "DRAFT_NOT_FOUND"));
+                    .thenThrow(new ResourceNotFoundException("Draft not found: " + DRAFT_ID, "DRAFT_NOT_FOUND"));
             when(gmailService.sendDraft(anyString(), anyString()))
                     .thenReturn(new SentMessageResult(SENT_MESSAGE_ID, THREAD_ID));
 
@@ -425,8 +430,7 @@ class DraftLifecycleIntegrationTest {
                     .andExpect(jsonPath("$.id").value(DRAFT_ID));
 
             // Step 2: POST /drafts/{id}/send → 200
-            mockMvc.perform(post(DRAFTS_BASE + "/{draftId}/send", DRAFT_ID))
-                    .andExpect(status().isOk());
+            mockMvc.perform(post(DRAFTS_BASE + "/{draftId}/send", DRAFT_ID)).andExpect(status().isOk());
 
             // Step 3: GET /drafts/{id} → 404 with /problems/resource-not-found
             mockMvc.perform(get(DRAFTS_BASE + "/{draftId}", DRAFT_ID))

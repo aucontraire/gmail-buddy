@@ -15,9 +15,5 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Schema(description = "Color settings for a Gmail label")
 public record LabelColor(
-        @Schema(description = "Hex color code for the label text", example = "#222222")
-        String textColor,
-
-        @Schema(description = "Hex color code for the label background", example = "#16a766")
-        String backgroundColor
-) {}
+        @Schema(description = "Hex color code for the label text", example = "#222222") String textColor,
+        @Schema(description = "Hex color code for the label background", example = "#16a766") String backgroundColor) {}

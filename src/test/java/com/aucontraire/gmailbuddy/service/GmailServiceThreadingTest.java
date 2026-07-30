@@ -1,24 +1,5 @@
 package com.aucontraire.gmailbuddy.service;
 
-import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
-import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
-import com.aucontraire.gmailbuddy.exception.GmailApiException;
-import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
-import com.aucontraire.gmailbuddy.fixture.SendMessageRequestFixtures;
-import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
-import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
-import com.aucontraire.gmailbuddy.repository.GmailRepository;
-import jakarta.mail.Session;
-import jakarta.mail.internet.MimeMessage;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.util.unit.DataSize;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Properties;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,6 +9,22 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
+import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
+import com.aucontraire.gmailbuddy.exception.OriginalMessageNotFoundException;
+import com.aucontraire.gmailbuddy.fixture.SendMessageRequestFixtures;
+import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
+import com.aucontraire.gmailbuddy.repository.GmailRepository;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
+import java.util.List;
+import java.util.Properties;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.util.unit.DataSize;
 
 /**
  * Unit tests for the threading orchestration in {@link GmailService#sendMessage} and
@@ -48,10 +45,10 @@ class GmailServiceThreadingTest {
     // Constants
     // -------------------------------------------------------------------------
 
-    private static final String USER_ID         = "me";
+    private static final String USER_ID = "me";
     private static final String ORIGINAL_MSG_ID = "1a2b3c4d5e6f7a8b";
-    private static final String THREAD_ID       = "thread-1a2b3c4d5e6f7a8b";
-    private static final String RFC_MSG_ID      = "<CABc123xyz@mail.gmail.com>";
+    private static final String THREAD_ID = "thread-1a2b3c4d5e6f7a8b";
+    private static final String RFC_MSG_ID = "<CABc123xyz@mail.gmail.com>";
     private static final String RETURNED_MSG_ID = "returned-msg-id-xyz";
 
     // -------------------------------------------------------------------------
@@ -68,17 +65,21 @@ class GmailServiceThreadingTest {
 
     @BeforeEach
     void setUp() {
-        gmailRepository      = mock(GmailRepository.class);
-        gmailQueryBuilder    = mock(GmailQueryBuilder.class);
+        gmailRepository = mock(GmailRepository.class);
+        gmailQueryBuilder = mock(GmailQueryBuilder.class);
         filterCriteriaMapper = mock(FilterCriteriaMapper.class);
-        mimeMessageBuilder   = mock(MimeMessageBuilder.class);
-        properties           = mock(GmailBuddyProperties.class);
-        send                 = mock(GmailBuddyProperties.Send.class);
+        mimeMessageBuilder = mock(MimeMessageBuilder.class);
+        properties = mock(GmailBuddyProperties.class);
+        send = mock(GmailBuddyProperties.Send.class);
         when(properties.send()).thenReturn(send);
         when(send.maxTotalPayloadSize()).thenReturn(DataSize.ofMegabytes(25));
         gmailService = new GmailService(
-                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder,
-                mock(GmailMessageMapper.class), properties);
+                gmailRepository,
+                gmailQueryBuilder,
+                filterCriteriaMapper,
+                mimeMessageBuilder,
+                mock(GmailMessageMapper.class),
+                properties);
     }
 
     // -------------------------------------------------------------------------
@@ -110,8 +111,7 @@ class GmailServiceThreadingTest {
                 "text",
                 THREAD_ID,
                 inReplyToMessageId,
-                null
-        );
+                null);
     }
 
     // -------------------------------------------------------------------------
@@ -127,9 +127,8 @@ class GmailServiceThreadingTest {
                 "Following up on my application.",
                 "text",
                 threadId,
-                null,   // no inReplyToMessageId
-                null
-        );
+                null, // no inReplyToMessageId
+                null);
     }
 
     // =========================================================================
@@ -145,16 +144,14 @@ class GmailServiceThreadingTest {
     void sendMessage_withInReplyToMessageId_callsGetMessageHeadersOnce() throws Exception {
         // Arrange
         SendMessageDTO dto = dtoWithInReplyTo(ORIGINAL_MSG_ID);
-        OriginalMessageLookup lookup =
-                new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MSG_ID);
+        OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MSG_ID);
         MimeMessage mime = emptyMimeMessage();
         SentMessageResult result = new SentMessageResult(RETURNED_MSG_ID, THREAD_ID);
 
         when(gmailRepository.getMessageHeaders(USER_ID, ORIGINAL_MSG_ID)).thenReturn(lookup);
         when(mimeMessageBuilder.build(eq(dto), eq(lookup))).thenReturn(mime);
         when(mimeMessageBuilder.resolveThreadId(dto, lookup)).thenReturn(THREAD_ID);
-        when(gmailRepository.sendMessage(eq(USER_ID), eq(mime), eq(THREAD_ID)))
-                .thenReturn(result);
+        when(gmailRepository.sendMessage(eq(USER_ID), eq(mime), eq(THREAD_ID))).thenReturn(result);
 
         // Act
         gmailService.sendMessage(USER_ID, dto);
@@ -165,20 +162,17 @@ class GmailServiceThreadingTest {
 
     @Test
     @DisplayName("sendMessage_withInReplyToMessageId_passesFetchedLookupToMimeMessageBuilder")
-    void sendMessage_withInReplyToMessageId_passesFetchedLookupToMimeMessageBuilder()
-            throws Exception {
+    void sendMessage_withInReplyToMessageId_passesFetchedLookupToMimeMessageBuilder() throws Exception {
         // Arrange
         SendMessageDTO dto = dtoWithInReplyTo(ORIGINAL_MSG_ID);
-        OriginalMessageLookup lookup =
-                new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MSG_ID);
+        OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MSG_ID);
         MimeMessage mime = emptyMimeMessage();
         SentMessageResult result = new SentMessageResult(RETURNED_MSG_ID, THREAD_ID);
 
         when(gmailRepository.getMessageHeaders(USER_ID, ORIGINAL_MSG_ID)).thenReturn(lookup);
         when(mimeMessageBuilder.build(eq(dto), eq(lookup))).thenReturn(mime);
         when(mimeMessageBuilder.resolveThreadId(dto, lookup)).thenReturn(THREAD_ID);
-        when(gmailRepository.sendMessage(eq(USER_ID), eq(mime), eq(THREAD_ID)))
-                .thenReturn(result);
+        when(gmailRepository.sendMessage(eq(USER_ID), eq(mime), eq(THREAD_ID))).thenReturn(result);
 
         // Act
         gmailService.sendMessage(USER_ID, dto);
@@ -196,22 +190,22 @@ class GmailServiceThreadingTest {
     void sendMessage_threadIdConflictWithFetchedOriginal_fetchedThreadIdWins() throws Exception {
         // Arrange: caller supplies threadId="caller-thread" but original's actual
         // threadId from Gmail is "canonical-thread". The fetched value must win (FR-006).
-        String callerThreadId    = "caller-supplied-thread-id";
+        String callerThreadId = "caller-supplied-thread-id";
         String canonicalThreadId = "canonical-thread-from-gmail";
 
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("recruiter@example.com"),
-                null, null,
+                null,
+                null,
                 "Re: Follow-up",
-                "Body text", "text",
-                callerThreadId,    // caller-supplied threadId
-                ORIGINAL_MSG_ID,   // inReplyToMessageId present → triggers lookup
-                null
-        );
+                "Body text",
+                "text",
+                callerThreadId, // caller-supplied threadId
+                ORIGINAL_MSG_ID, // inReplyToMessageId present → triggers lookup
+                null);
 
         // Lookup returns the canonical threadId from Gmail (different from caller's)
-        OriginalMessageLookup lookup =
-                new OriginalMessageLookup(ORIGINAL_MSG_ID, canonicalThreadId, RFC_MSG_ID);
+        OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, canonicalThreadId, RFC_MSG_ID);
 
         MimeMessage mime = emptyMimeMessage();
         SentMessageResult result = new SentMessageResult(RETURNED_MSG_ID, canonicalThreadId);
@@ -237,8 +231,7 @@ class GmailServiceThreadingTest {
 
     @Test
     @DisplayName("sendMessage_withThreadIdOnlyAndNoInReplyTo_getMessageHeadersIsNeverCalled")
-    void sendMessage_withThreadIdOnlyAndNoInReplyTo_getMessageHeadersIsNeverCalled()
-            throws Exception {
+    void sendMessage_withThreadIdOnlyAndNoInReplyTo_getMessageHeadersIsNeverCalled() throws Exception {
         // Arrange: FR-007 — only threadId is provided; no lookup should be performed.
         // The message lands in the thread but without RFC 5322 threading headers.
         SendMessageDTO dto = dtoWithThreadIdOnly(THREAD_ID);
@@ -248,8 +241,7 @@ class GmailServiceThreadingTest {
         // When lookup is null, build(dto, null) is called
         when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mime);
         when(mimeMessageBuilder.resolveThreadId(dto, null)).thenReturn(THREAD_ID);
-        when(gmailRepository.sendMessage(eq(USER_ID), eq(mime), eq(THREAD_ID)))
-                .thenReturn(result);
+        when(gmailRepository.sendMessage(eq(USER_ID), eq(mime), eq(THREAD_ID))).thenReturn(result);
 
         // Act
         gmailService.sendMessage(USER_ID, dto);
@@ -291,17 +283,14 @@ class GmailServiceThreadingTest {
     void createDraft_withInReplyToMessageId_callsGetMessageHeadersOnce() throws Exception {
         // Arrange
         SendMessageDTO dto = dtoWithInReplyTo(ORIGINAL_MSG_ID);
-        OriginalMessageLookup lookup =
-                new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MSG_ID);
+        OriginalMessageLookup lookup = new OriginalMessageLookup(ORIGINAL_MSG_ID, THREAD_ID, RFC_MSG_ID);
         MimeMessage mime = emptyMimeMessage();
-        DraftCreationResult draftResult =
-                new DraftCreationResult("r-draft-id", RETURNED_MSG_ID, THREAD_ID);
+        DraftCreationResult draftResult = new DraftCreationResult("r-draft-id", RETURNED_MSG_ID, THREAD_ID);
 
         when(gmailRepository.getMessageHeaders(USER_ID, ORIGINAL_MSG_ID)).thenReturn(lookup);
         when(mimeMessageBuilder.build(eq(dto), eq(lookup))).thenReturn(mime);
         when(mimeMessageBuilder.resolveThreadId(dto, lookup)).thenReturn(THREAD_ID);
-        when(gmailRepository.createDraft(eq(USER_ID), eq(mime), eq(THREAD_ID)))
-                .thenReturn(draftResult);
+        when(gmailRepository.createDraft(eq(USER_ID), eq(mime), eq(THREAD_ID))).thenReturn(draftResult);
 
         // Act
         gmailService.createDraft(USER_ID, dto);
@@ -312,18 +301,15 @@ class GmailServiceThreadingTest {
 
     @Test
     @DisplayName("createDraft_withThreadIdOnlyAndNoInReplyTo_getMessageHeadersIsNeverCalled")
-    void createDraft_withThreadIdOnlyAndNoInReplyTo_getMessageHeadersIsNeverCalled()
-            throws Exception {
+    void createDraft_withThreadIdOnlyAndNoInReplyTo_getMessageHeadersIsNeverCalled() throws Exception {
         // Arrange: FR-007 path for createDraft — only threadId, no lookup
         SendMessageDTO dto = dtoWithThreadIdOnly(THREAD_ID);
         MimeMessage mime = emptyMimeMessage();
-        DraftCreationResult draftResult =
-                new DraftCreationResult("r-draft-id", RETURNED_MSG_ID, THREAD_ID);
+        DraftCreationResult draftResult = new DraftCreationResult("r-draft-id", RETURNED_MSG_ID, THREAD_ID);
 
         when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mime);
         when(mimeMessageBuilder.resolveThreadId(dto, null)).thenReturn(THREAD_ID);
-        when(gmailRepository.createDraft(eq(USER_ID), eq(mime), eq(THREAD_ID)))
-                .thenReturn(draftResult);
+        when(gmailRepository.createDraft(eq(USER_ID), eq(mime), eq(THREAD_ID))).thenReturn(draftResult);
 
         // Act
         gmailService.createDraft(USER_ID, dto);
@@ -357,8 +343,7 @@ class GmailServiceThreadingTest {
 
     @Test
     @DisplayName("sendMessage_noThreadingFields_getMessageHeadersNotCalledAndNullThreadIdPassedToRepository")
-    void sendMessage_noThreadingFields_getMessageHeadersNotCalledAndNullThreadIdPassedToRepository()
-            throws Exception {
+    void sendMessage_noThreadingFields_getMessageHeadersNotCalledAndNullThreadIdPassedToRepository() throws Exception {
         // Arrange: standard non-threaded send — verifies FR-021 backward compatibility
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         MimeMessage mime = emptyMimeMessage();
@@ -366,8 +351,7 @@ class GmailServiceThreadingTest {
 
         when(mimeMessageBuilder.build(eq(dto), isNull())).thenReturn(mime);
         when(mimeMessageBuilder.resolveThreadId(dto, null)).thenReturn(null);
-        when(gmailRepository.sendMessage(eq(USER_ID), eq(mime), isNull()))
-                .thenReturn(result);
+        when(gmailRepository.sendMessage(eq(USER_ID), eq(mime), isNull())).thenReturn(result);
 
         // Act
         SentMessageResult actual = gmailService.sendMessage(USER_ID, dto);

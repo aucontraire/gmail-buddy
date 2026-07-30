@@ -1,19 +1,18 @@
 package com.aucontraire.gmailbuddy.security;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
+import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.Base64;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.util.Base64;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 /**
  * AES-256-GCM encryption utility for secure token storage.
@@ -164,8 +163,8 @@ public class AESEncryptionUtil {
                 return new SecretKeySpec(keyBytes, ALGORITHM);
             } else {
                 // Generate new key for development
-                logger.warn("No encryption key configured. Generating temporary key for session. " +
-                           "Configure 'app.security.token.encryption-key' for production use.");
+                logger.warn("No encryption key configured. Generating temporary key for session. "
+                        + "Configure 'app.security.token.encryption-key' for production use.");
                 KeyGenerator keyGenerator = KeyGenerator.getInstance(ALGORITHM);
                 keyGenerator.init(256);
                 return keyGenerator.generateKey();

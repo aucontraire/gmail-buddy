@@ -1,9 +1,9 @@
 package com.aucontraire.gmailbuddy.constants;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for ProblemTypes RFC 7807 constants.
@@ -36,10 +36,13 @@ class ProblemTypesTest {
         assertThat(ProblemTypes.isClientError(ProblemTypes.VALIDATION_ERROR)).isTrue();
         assertThat(ProblemTypes.isClientError(ProblemTypes.MESSAGE_NOT_FOUND)).isTrue();
         assertThat(ProblemTypes.isClientError(ProblemTypes.RESOURCE_NOT_FOUND)).isTrue();
-        assertThat(ProblemTypes.isClientError(ProblemTypes.AUTHENTICATION_FAILED)).isTrue();
-        assertThat(ProblemTypes.isClientError(ProblemTypes.AUTHORIZATION_FAILED)).isTrue();
+        assertThat(ProblemTypes.isClientError(ProblemTypes.AUTHENTICATION_FAILED))
+                .isTrue();
+        assertThat(ProblemTypes.isClientError(ProblemTypes.AUTHORIZATION_FAILED))
+                .isTrue();
         assertThat(ProblemTypes.isClientError(ProblemTypes.RATE_LIMIT_EXCEEDED)).isTrue();
-        assertThat(ProblemTypes.isClientError(ProblemTypes.CONSTRAINT_VIOLATION)).isTrue();
+        assertThat(ProblemTypes.isClientError(ProblemTypes.CONSTRAINT_VIOLATION))
+                .isTrue();
 
         // Server errors should return false
         assertThat(ProblemTypes.isClientError(ProblemTypes.GMAIL_API_ERROR)).isFalse();
@@ -54,31 +57,33 @@ class ProblemTypesTest {
         assertThat(ProblemTypes.isServerError(ProblemTypes.SERVICE_UNAVAILABLE)).isTrue();
         assertThat(ProblemTypes.isServerError(ProblemTypes.INTERNAL_ERROR)).isTrue();
         assertThat(ProblemTypes.isServerError(ProblemTypes.QUOTA_EXCEEDED)).isTrue();
-        assertThat(ProblemTypes.isServerError(ProblemTypes.BATCH_OPERATION_ERROR)).isTrue();
+        assertThat(ProblemTypes.isServerError(ProblemTypes.BATCH_OPERATION_ERROR))
+                .isTrue();
 
         // Client errors should return false
         assertThat(ProblemTypes.isServerError(ProblemTypes.VALIDATION_ERROR)).isFalse();
         assertThat(ProblemTypes.isServerError(ProblemTypes.MESSAGE_NOT_FOUND)).isFalse();
-        assertThat(ProblemTypes.isServerError(ProblemTypes.AUTHENTICATION_FAILED)).isFalse();
+        assertThat(ProblemTypes.isServerError(ProblemTypes.AUTHENTICATION_FAILED))
+                .isFalse();
     }
 
     @Test
     @DisplayName("getDescription returns correct descriptions for all problem types")
     void testGetDescription() {
         assertThat(ProblemTypes.getDescription(ProblemTypes.VALIDATION_ERROR))
-            .isEqualTo("Input data failed validation rules");
+                .isEqualTo("Input data failed validation rules");
         assertThat(ProblemTypes.getDescription(ProblemTypes.MESSAGE_NOT_FOUND))
-            .isEqualTo("The requested Gmail message does not exist");
+                .isEqualTo("The requested Gmail message does not exist");
         assertThat(ProblemTypes.getDescription(ProblemTypes.RESOURCE_NOT_FOUND))
-            .isEqualTo("The requested resource does not exist");
+                .isEqualTo("The requested resource does not exist");
         assertThat(ProblemTypes.getDescription(ProblemTypes.AUTHENTICATION_FAILED))
-            .isEqualTo("User authentication failed or token is invalid");
+                .isEqualTo("User authentication failed or token is invalid");
         assertThat(ProblemTypes.getDescription(ProblemTypes.AUTHORIZATION_FAILED))
-            .isEqualTo("User lacks permission to perform this action");
+                .isEqualTo("User lacks permission to perform this action");
         assertThat(ProblemTypes.getDescription(ProblemTypes.RATE_LIMIT_EXCEEDED))
-            .isEqualTo("Too many requests in a given time window");
+                .isEqualTo("Too many requests in a given time window");
         assertThat(ProblemTypes.getDescription(ProblemTypes.INTERNAL_ERROR))
-            .isEqualTo("Unexpected error occurred on the server");
+                .isEqualTo("Unexpected error occurred on the server");
     }
 
     @Test
@@ -105,8 +110,7 @@ class ProblemTypesTest {
     void testOriginalMessageNotFoundUri() {
         // Assert: the URI must match exactly so the GlobalExceptionHandler and clients
         // can rely on a stable, documented constant.
-        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND)
-                .isEqualTo("/problems/original-message-not-found");
+        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND).isEqualTo("/problems/original-message-not-found");
     }
 
     @Test
@@ -118,8 +122,7 @@ class ProblemTypesTest {
     @Test
     @DisplayName("ORIGINAL_MESSAGE_NOT_FOUND is distinct from VALIDATION_ERROR")
     void testOriginalMessageNotFoundDistinctFromValidationError() {
-        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND)
-                .isNotEqualTo(ProblemTypes.VALIDATION_ERROR);
+        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND).isNotEqualTo(ProblemTypes.VALIDATION_ERROR);
     }
 
     @Test
@@ -127,22 +130,19 @@ class ProblemTypesTest {
     void testOriginalMessageNotFoundDistinctFromMessageNotFound() {
         // MESSAGE_NOT_FOUND is for the primary resource (the email being operated on),
         // while ORIGINAL_MESSAGE_NOT_FOUND is for the threading prerequisite resource.
-        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND)
-                .isNotEqualTo(ProblemTypes.MESSAGE_NOT_FOUND);
+        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND).isNotEqualTo(ProblemTypes.MESSAGE_NOT_FOUND);
     }
 
     @Test
     @DisplayName("ORIGINAL_MESSAGE_NOT_FOUND is distinct from INVALID_RECIPIENT")
     void testOriginalMessageNotFoundDistinctFromInvalidRecipient() {
-        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND)
-                .isNotEqualTo(ProblemTypes.INVALID_RECIPIENT);
+        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND).isNotEqualTo(ProblemTypes.INVALID_RECIPIENT);
     }
 
     @Test
     @DisplayName("ORIGINAL_MESSAGE_NOT_FOUND is distinct from MESSAGE_TOO_LARGE")
     void testOriginalMessageNotFoundDistinctFromMessageTooLarge() {
-        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND)
-                .isNotEqualTo(ProblemTypes.MESSAGE_TOO_LARGE);
+        assertThat(ProblemTypes.ORIGINAL_MESSAGE_NOT_FOUND).isNotEqualTo(ProblemTypes.MESSAGE_TOO_LARGE);
     }
 
     // -------------------------------------------------------------------------

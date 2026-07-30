@@ -1,14 +1,26 @@
 package com.aucontraire.gmailbuddy.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.fixture.SendMessageRequestFixtures;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
-import com.aucontraire.gmailbuddy.service.DraftCreationResult;
 import com.aucontraire.gmailbuddy.service.DraftDetailResult;
 import com.aucontraire.gmailbuddy.service.DraftListResult;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -22,20 +34,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Integration tests verifying FR-019 ({@code X-Gmail-Quota-Used}) and FR-019a
@@ -74,12 +72,12 @@ class DraftsRateLimitHeadersIntegrationTest {
     // Constants
     // ---------------------------------------------------------------------------
 
-    private static final String DRAFTS_BASE     = "/api/v1/gmail/drafts";
+    private static final String DRAFTS_BASE = "/api/v1/gmail/drafts";
     // Draft ID matching @Pattern(regexp = "[A-Za-z0-9_-]{1,128}") on the path variable.
     // Gmail draft IDs use letter-prefixed alphanumeric format (e.g., "r9068706262700056809").
-    private static final String VALID_DRAFT_ID  = "abc123def456";
+    private static final String VALID_DRAFT_ID = "abc123def456";
     private static final String DRAFT_MESSAGE_ID = "19a2b3c4d5e6f700";
-    private static final String THREAD_ID        = "19a2b3c4d5e6f700";
+    private static final String THREAD_ID = "19a2b3c4d5e6f700";
 
     // ---------------------------------------------------------------------------
     // Spring-managed beans
@@ -127,8 +125,7 @@ class DraftsRateLimitHeadersIntegrationTest {
                 "Hi there, following up on my application for the role.",
                 "text",
                 null,
-                List.of()
-        );
+                List.of());
     }
 
     // ===========================================================================
@@ -168,9 +165,8 @@ class DraftsRateLimitHeadersIntegrationTest {
             when(gmailService.listDrafts(anyString(), any(), anyInt())).thenReturn(listResult);
 
             // Act
-            MvcResult result = mockMvc.perform(get(DRAFTS_BASE))
-                    .andExpect(status().isOk())
-                    .andReturn();
+            MvcResult result =
+                    mockMvc.perform(get(DRAFTS_BASE)).andExpect(status().isOk()).andReturn();
 
             // Assert: controller updates ATTR_GMAIL_QUOTA_USED post-execution to 1 + N*5
             String quotaUsed = result.getResponse().getHeader("X-Gmail-Quota-Used");
@@ -187,9 +183,8 @@ class DraftsRateLimitHeadersIntegrationTest {
             when(gmailService.listDrafts(anyString(), any(), anyInt())).thenReturn(emptyResult);
 
             // Act
-            MvcResult result = mockMvc.perform(get(DRAFTS_BASE))
-                    .andExpect(status().isOk())
-                    .andReturn();
+            MvcResult result =
+                    mockMvc.perform(get(DRAFTS_BASE)).andExpect(status().isOk()).andReturn();
 
             // Assert
             String quotaUsed = result.getResponse().getHeader("X-Gmail-Quota-Used");
@@ -207,9 +202,8 @@ class DraftsRateLimitHeadersIntegrationTest {
             when(gmailService.listDrafts(anyString(), any(), anyInt())).thenReturn(listResult);
 
             // Act
-            MvcResult result = mockMvc.perform(get(DRAFTS_BASE))
-                    .andExpect(status().isOk())
-                    .andReturn();
+            MvcResult result =
+                    mockMvc.perform(get(DRAFTS_BASE)).andExpect(status().isOk()).andReturn();
 
             // Assert
             String quotaUsed = result.getResponse().getHeader("X-Gmail-Quota-Used");
@@ -413,9 +407,8 @@ class DraftsRateLimitHeadersIntegrationTest {
                     "Following up on your message.",
                     "text",
                     THREAD_ID,
-                    DRAFT_MESSAGE_ID,   // inReplyToMessageId — non-null triggers +5 quota
-                    null
-            );
+                    DRAFT_MESSAGE_ID, // inReplyToMessageId — non-null triggers +5 quota
+                    null);
             String body = objectMapper.writeValueAsString(threadedDto);
 
             // Act
@@ -468,14 +461,13 @@ class DraftsRateLimitHeadersIntegrationTest {
             when(gmailService.listDrafts(anyString(), any(), anyInt())).thenReturn(emptyResult);
 
             // Act
-            MvcResult result = mockMvc.perform(get(DRAFTS_BASE))
-                    .andExpect(status().isOk())
-                    .andReturn();
+            MvcResult result =
+                    mockMvc.perform(get(DRAFTS_BASE)).andExpect(status().isOk()).andReturn();
 
             // Assert: header values are parseable integers and non-negative
-            String limit     = result.getResponse().getHeader("X-RateLimit-Limit");
+            String limit = result.getResponse().getHeader("X-RateLimit-Limit");
             String remaining = result.getResponse().getHeader("X-RateLimit-Remaining");
-            String reset     = result.getResponse().getHeader("X-RateLimit-Reset");
+            String reset = result.getResponse().getHeader("X-RateLimit-Reset");
 
             assertThat(limit).isNotNull();
             assertThat(remaining).isNotNull();
@@ -495,17 +487,15 @@ class DraftsRateLimitHeadersIntegrationTest {
             when(gmailService.listDrafts(anyString(), any(), anyInt())).thenReturn(emptyResult);
 
             // Act: first request
-            MvcResult first = mockMvc.perform(get(DRAFTS_BASE))
-                    .andExpect(status().isOk())
-                    .andReturn();
+            MvcResult first =
+                    mockMvc.perform(get(DRAFTS_BASE)).andExpect(status().isOk()).andReturn();
 
             // Act: second request
-            MvcResult second = mockMvc.perform(get(DRAFTS_BASE))
-                    .andExpect(status().isOk())
-                    .andReturn();
+            MvcResult second =
+                    mockMvc.perform(get(DRAFTS_BASE)).andExpect(status().isOk()).andReturn();
 
             // Assert: remaining on second request should be <= remaining on first request
-            int remainingFirst  = Integer.parseInt(first.getResponse().getHeader("X-RateLimit-Remaining"));
+            int remainingFirst = Integer.parseInt(first.getResponse().getHeader("X-RateLimit-Remaining"));
             int remainingSecond = Integer.parseInt(second.getResponse().getHeader("X-RateLimit-Remaining"));
 
             assertThat(remainingSecond).isLessThanOrEqualTo(remainingFirst);

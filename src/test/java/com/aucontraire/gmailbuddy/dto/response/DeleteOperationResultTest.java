@@ -1,11 +1,11 @@
 package com.aucontraire.gmailbuddy.dto.response;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
 import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for DeleteOperationResult DTO.
@@ -87,10 +87,8 @@ class DeleteOperationResultTest {
     void withMetadata_AddsMetadataToSuccessResult() {
         // Given
         DeleteOperationResult result = DeleteOperationResult.success("msg-meta-123");
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(100L)
-                .quotaUsed(5)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(100L).quotaUsed(5).build();
 
         // When
         DeleteOperationResult resultWithMetadata = result.withMetadata(metadata);
@@ -108,10 +106,8 @@ class DeleteOperationResultTest {
     void withMetadata_AddsMetadataToNotFoundResult() {
         // Given
         DeleteOperationResult result = DeleteOperationResult.notFound("msg-not-found");
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(50L)
-                .quotaUsed(2)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(50L).quotaUsed(2).build();
 
         // When
         DeleteOperationResult resultWithMetadata = result.withMetadata(metadata);
@@ -127,10 +123,8 @@ class DeleteOperationResultTest {
     void withMetadata_AddsMetadataToFailureResult() {
         // Given
         DeleteOperationResult result = DeleteOperationResult.failure("msg-fail", "API error");
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(200L)
-                .quotaUsed(3)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(200L).quotaUsed(3).build();
 
         // When
         DeleteOperationResult resultWithMetadata = result.withMetadata(metadata);
@@ -145,14 +139,12 @@ class DeleteOperationResultTest {
     @DisplayName("withMetadata() allows method chaining")
     void withMetadata_AllowsMethodChaining() {
         // Given
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(150L)
-                .quotaUsed(4)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(150L).quotaUsed(4).build();
 
         // When
-        DeleteOperationResult result = DeleteOperationResult.success("msg-chain")
-                .withMetadata(metadata);
+        DeleteOperationResult result =
+                DeleteOperationResult.success("msg-chain").withMetadata(metadata);
 
         // Then
         assertThat(result.getStatus()).isEqualTo(OperationStatus.SUCCESS);

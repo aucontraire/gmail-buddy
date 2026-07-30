@@ -90,8 +90,11 @@ public class GmailQuotaEstimator {
         int numBatches = (int) Math.ceil((double) messageCount / batchSize);
         int quota = numBatches * MESSAGES_BATCH_DELETE_QUOTA;
 
-        logger.debug("Estimated quota for batch deleting {} messages in {} batches: {} units",
-                    messageCount, numBatches, quota);
+        logger.debug(
+                "Estimated quota for batch deleting {} messages in {} batches: {} units",
+                messageCount,
+                numBatches,
+                quota);
         return quota;
     }
 
@@ -111,8 +114,11 @@ public class GmailQuotaEstimator {
         int numBatches = (int) Math.ceil((double) messageCount / batchSize);
         int quota = numBatches * MESSAGES_BATCH_MODIFY_QUOTA;
 
-        logger.debug("Estimated quota for batch modifying {} messages in {} batches: {} units",
-                    messageCount, numBatches, quota);
+        logger.debug(
+                "Estimated quota for batch modifying {} messages in {} batches: {} units",
+                messageCount,
+                numBatches,
+                quota);
         return quota;
     }
 

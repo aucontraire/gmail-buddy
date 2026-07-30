@@ -8,7 +8,7 @@ import java.util.Map;
  * Standardized error response DTO for API error handling.
  * Provides a consistent structure for all error responses across the application
  * with support for correlation IDs, retry information, and error categorization.
- * 
+ *
  * @author Gmail Buddy Team
  * @since 1.0
  */
@@ -23,8 +23,7 @@ public class ErrorResponse {
     private Long retryAfterSeconds;
     private String category;
 
-    public ErrorResponse() {
-    }
+    public ErrorResponse() {}
 
     public ErrorResponse(String code, String message, Map<String, String> details, LocalDateTime timestamp) {
         this.code = code;
@@ -166,7 +165,7 @@ public class ErrorResponse {
 
     /**
      * Creates a new builder for ErrorResponse.
-     * 
+     *
      * @return a new builder instance
      */
     public static Builder builder() {

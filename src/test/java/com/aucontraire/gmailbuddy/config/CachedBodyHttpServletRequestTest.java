@@ -1,16 +1,15 @@
 package com.aucontraire.gmailbuddy.config;
 
-import jakarta.servlet.ServletInputStream;
-import jakarta.servlet.http.HttpServletRequest;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link CachedBodyHttpServletRequest}.
@@ -37,10 +36,23 @@ class CachedBodyHttpServletRequestTest {
         jakarta.servlet.ServletInputStream servletInputStream = new jakarta.servlet.ServletInputStream() {
             private final java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(bodyBytes);
 
-            @Override public int read() { return bais.read(); }
-            @Override public boolean isFinished() { return bais.available() == 0; }
-            @Override public boolean isReady() { return true; }
-            @Override public void setReadListener(jakarta.servlet.ReadListener listener) {}
+            @Override
+            public int read() {
+                return bais.read();
+            }
+
+            @Override
+            public boolean isFinished() {
+                return bais.available() == 0;
+            }
+
+            @Override
+            public boolean isReady() {
+                return true;
+            }
+
+            @Override
+            public void setReadListener(jakarta.servlet.ReadListener listener) {}
         };
         when(mockRequest.getInputStream()).thenReturn(servletInputStream);
         return mockRequest;
@@ -144,8 +156,8 @@ class CachedBodyHttpServletRequestTest {
     @DisplayName("setReadListener is a no-op and does not throw")
     void servletInputStream_setReadListener_noOp() throws IOException {
         // Arrange
-        CachedBodyHttpServletRequest wrapper = new CachedBodyHttpServletRequest(
-                mockRequestWithBody(BODY_JSON.getBytes(StandardCharsets.UTF_8)));
+        CachedBodyHttpServletRequest wrapper =
+                new CachedBodyHttpServletRequest(mockRequestWithBody(BODY_JSON.getBytes(StandardCharsets.UTF_8)));
         ServletInputStream stream = wrapper.getInputStream();
 
         // Act & Assert: setReadListener must not throw
@@ -161,8 +173,8 @@ class CachedBodyHttpServletRequestTest {
     void getReader_returnsCachedBodyViaReader() throws IOException {
         // Arrange
         String line = "test line content";
-        CachedBodyHttpServletRequest wrapper = new CachedBodyHttpServletRequest(
-                mockRequestWithBody(line.getBytes(StandardCharsets.UTF_8)));
+        CachedBodyHttpServletRequest wrapper =
+                new CachedBodyHttpServletRequest(mockRequestWithBody(line.getBytes(StandardCharsets.UTF_8)));
 
         // Act
         String readLine = wrapper.getReader().readLine();

@@ -1,5 +1,12 @@
 package com.aucontraire.gmailbuddy.client;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
+
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.exception.BatchOperationException;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
@@ -7,10 +14,16 @@ import com.google.api.client.googleapis.batch.BatchRequest;
 import com.google.api.client.googleapis.batch.json.JsonBatchCallback;
 import com.google.api.client.googleapis.json.GoogleJsonError;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
-import com.google.api.client.http.HttpHeaders;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.BatchDeleteMessagesRequest;
 import com.google.api.services.gmail.model.ModifyMessageRequest;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,22 +36,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.lenient;
 
 /**
  * Comprehensive test suite for GmailBatchClient.
@@ -181,7 +178,7 @@ class GmailBatchClientTest {
             List<String> messageIds = List.of(messageId);
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute(); // batchDelete returns void
 
             // Act
@@ -196,7 +193,8 @@ class GmailBatchClientTest {
             assertThat(result.getTotalBatchesProcessed()).isEqualTo(1);
 
             // Verify batchDelete was called once with correct parameters
-            ArgumentCaptor<BatchDeleteMessagesRequest> captor = ArgumentCaptor.forClass(BatchDeleteMessagesRequest.class);
+            ArgumentCaptor<BatchDeleteMessagesRequest> captor =
+                    ArgumentCaptor.forClass(BatchDeleteMessagesRequest.class);
             verify(messages).batchDelete(eq(userId), captor.capture());
             assertThat(captor.getValue().getIds()).containsExactly(messageId);
         }
@@ -206,12 +204,11 @@ class GmailBatchClientTest {
         void batchDeleteMessages_SmallBatch_ShouldSucceed() throws IOException {
             // Arrange
             String userId = "me";
-            List<String> messageIds = IntStream.range(1, 501)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+            List<String> messageIds =
+                    IntStream.range(1, 501).mapToObj(i -> "msg" + i).toList();
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Act
@@ -235,11 +232,11 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             List<String> messageIds = IntStream.range(1, 1001) // Exactly 1000 messages
-                .mapToObj(i -> "msg" + i)
-                .toList();
+                    .mapToObj(i -> "msg" + i)
+                    .toList();
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Act
@@ -254,7 +251,8 @@ class GmailBatchClientTest {
             assertThat(result.getTotalBatchesProcessed()).isEqualTo(1);
 
             // Verify batchDelete was called once with exactly 1000 message IDs
-            ArgumentCaptor<BatchDeleteMessagesRequest> captor = ArgumentCaptor.forClass(BatchDeleteMessagesRequest.class);
+            ArgumentCaptor<BatchDeleteMessagesRequest> captor =
+                    ArgumentCaptor.forClass(BatchDeleteMessagesRequest.class);
             verify(messages, times(1)).batchDelete(eq(userId), captor.capture());
             assertThat(captor.getValue().getIds()).hasSize(1000);
         }
@@ -265,11 +263,11 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             List<String> messageIds = IntStream.range(1, 2501) // 2500 messages = 3 chunks
-                .mapToObj(i -> "msg" + i)
-                .toList();
+                    .mapToObj(i -> "msg" + i)
+                    .toList();
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Act
@@ -284,7 +282,8 @@ class GmailBatchClientTest {
             assertThat(result.getTotalBatchesProcessed()).isEqualTo(3); // 1000 + 1000 + 500
 
             // Verify batchDelete was called 3 times
-            ArgumentCaptor<BatchDeleteMessagesRequest> captor = ArgumentCaptor.forClass(BatchDeleteMessagesRequest.class);
+            ArgumentCaptor<BatchDeleteMessagesRequest> captor =
+                    ArgumentCaptor.forClass(BatchDeleteMessagesRequest.class);
             verify(messages, times(3)).batchDelete(eq(userId), captor.capture());
 
             // Verify chunk sizes
@@ -301,11 +300,11 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             List<String> messageIds = IntStream.range(1, messageCount + 1)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+                    .mapToObj(i -> "msg" + i)
+                    .toList();
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Act
@@ -337,11 +336,12 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(429, "Rate limit exceeded");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doThrow(exception)
-                .doThrow(exception)
-                .doNothing() // Succeeds on 3rd attempt
-                .when(batchDeleteRequest).execute();
+                    .doThrow(exception)
+                    .doNothing() // Succeeds on 3rd attempt
+                    .when(batchDeleteRequest)
+                    .execute();
 
             // Act
             BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
@@ -364,13 +364,15 @@ class GmailBatchClientTest {
             String userId = "me";
             List<String> messageIds = List.of("msg1", "msg2");
 
-            GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(403, "Quota exceeded for today");
+            GoogleJsonResponseException exception =
+                    createMockedGoogleJsonResponseException(403, "Quota exceeded for today");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doThrow(exception)
-                .doNothing() // Succeeds on 2nd attempt
-                .when(batchDeleteRequest).execute();
+                    .doNothing() // Succeeds on 2nd attempt
+                    .when(batchDeleteRequest)
+                    .execute();
 
             // Act
             BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
@@ -395,7 +397,7 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(404, "Message not found");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Act
@@ -417,10 +419,11 @@ class GmailBatchClientTest {
             String userId = "me";
             List<String> messageIds = List.of("msg1");
 
-            GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(401, "Authentication required");
+            GoogleJsonResponseException exception =
+                    createMockedGoogleJsonResponseException(401, "Authentication required");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Act
@@ -444,10 +447,11 @@ class GmailBatchClientTest {
             IOException ioException = new IOException("Connection timeout");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doThrow(ioException)
-                .doNothing() // Succeeds on 2nd attempt
-                .when(batchDeleteRequest).execute();
+                    .doNothing() // Succeeds on 2nd attempt
+                    .when(batchDeleteRequest)
+                    .execute();
 
             // Act
             BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
@@ -469,10 +473,11 @@ class GmailBatchClientTest {
             String userId = "me";
             List<String> messageIds = List.of("msg1", "msg2", "msg3", "msg4", "msg5");
 
-            GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(500, "Internal server error");
+            GoogleJsonResponseException exception =
+                    createMockedGoogleJsonResponseException(500, "Internal server error");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             // Fail on all retry attempts
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
@@ -484,7 +489,7 @@ class GmailBatchClientTest {
             assertThat(result.getFailureCount()).isEqualTo(5);
             assertThat(result.getFailedOperations()).hasSize(5);
             assertThat(result.getFailedOperations().keySet())
-                .containsExactlyInAnyOrder("msg1", "msg2", "msg3", "msg4", "msg5");
+                    .containsExactlyInAnyOrder("msg1", "msg2", "msg3", "msg4", "msg5");
 
             // Verify batchDelete was called once (retry logic is internal to executeBatchDeleteWithRetry)
             verify(messages, times(1)).batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class));
@@ -496,18 +501,18 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             // 2500 messages = 3 chunks
-            List<String> messageIds = IntStream.range(1, 2501)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+            List<String> messageIds =
+                    IntStream.range(1, 2501).mapToObj(i -> "msg" + i).toList();
 
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(404, "Not found");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
-            doNothing()                  // Chunk 1 succeeds (1000 messages)
-                .doThrow(exception)      // Chunk 2 fails (1000 messages)
-                .doNothing()             // Chunk 3 succeeds (500 messages)
-                .when(batchDeleteRequest).execute();
+                    .thenReturn(batchDeleteRequest);
+            doNothing() // Chunk 1 succeeds (1000 messages)
+                    .doThrow(exception) // Chunk 2 fails (1000 messages)
+                    .doNothing() // Chunk 3 succeeds (500 messages)
+                    .when(batchDeleteRequest)
+                    .execute();
 
             // Act
             BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
@@ -544,12 +549,13 @@ class GmailBatchClientTest {
             IOException exception = new IOException("Temporary failure");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doThrow(exception)
-                .doThrow(exception)
-                .doThrow(exception)
-                .doNothing() // Succeeds on 4th attempt
-                .when(batchDeleteRequest).execute();
+                    .doThrow(exception)
+                    .doThrow(exception)
+                    .doNothing() // Succeeds on 4th attempt
+                    .when(batchDeleteRequest)
+                    .execute();
 
             long startTime = System.currentTimeMillis();
 
@@ -581,7 +587,7 @@ class GmailBatchClientTest {
             IOException exception = new IOException("Persistent failure");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception); // Always fails
 
             // Act
@@ -605,7 +611,7 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(400, "Invalid request");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Act
@@ -625,17 +631,20 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             // Create 2 chunks
-            List<String> messageIds = IntStream.range(1, 1501)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+            List<String> messageIds =
+                    IntStream.range(1, 1501).mapToObj(i -> "msg" + i).toList();
 
             IOException exception = new IOException("Rate limit exceeded");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
-            doThrow(exception).doNothing()  // Chunk 1: fails once, then succeeds
-                .doThrow(exception).doThrow(exception).doNothing() // Chunk 2: fails twice, then succeeds
-                .when(batchDeleteRequest).execute();
+                    .thenReturn(batchDeleteRequest);
+            doThrow(exception)
+                    .doNothing() // Chunk 1: fails once, then succeeds
+                    .doThrow(exception)
+                    .doThrow(exception)
+                    .doNothing() // Chunk 2: fails twice, then succeeds
+                    .when(batchDeleteRequest)
+                    .execute();
 
             // Act
             BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
@@ -665,7 +674,7 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(404, "Not found");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Act - Execute multiple times to trigger circuit breaker
@@ -690,10 +699,11 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(500, "Internal error");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doThrow(exception) // Fail first time
-                .doNothing()   // Succeed second time (after retry)
-                .when(batchDeleteRequest).execute();
+                    .doNothing() // Succeed second time (after retry)
+                    .when(batchDeleteRequest)
+                    .execute();
 
             // Act
             gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
@@ -714,7 +724,7 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(404, "Not found");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Act - Trigger circuit breaker (3 failures)
@@ -747,14 +757,13 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             // Create 3 chunks
-            List<String> messageIds = IntStream.range(1, 2001)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+            List<String> messageIds =
+                    IntStream.range(1, 2001).mapToObj(i -> "msg" + i).toList();
 
             when(batchOperations.delayBetweenBatchesMs()).thenReturn(200L); // 200ms delay
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             long startTime = System.currentTimeMillis();
@@ -778,12 +787,11 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             // Create 10,000 messages (10 chunks)
-            List<String> messageIds = IntStream.range(1, 10001)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+            List<String> messageIds =
+                    IntStream.range(1, 10001).mapToObj(i -> "msg" + i).toList();
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             long startTime = System.currentTimeMillis();
@@ -812,18 +820,18 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             // Create 3 chunks
-            List<String> messageIds = IntStream.range(1, 2501)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+            List<String> messageIds =
+                    IntStream.range(1, 2501).mapToObj(i -> "msg" + i).toList();
 
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(404, "Not found");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
-            doNothing()                  // Chunk 1: 1000 messages succeed
-                .doNothing()             // Chunk 2: 1000 messages succeed
-                .doThrow(exception)      // Chunk 3: 500 messages fail
-                .when(batchDeleteRequest).execute();
+                    .thenReturn(batchDeleteRequest);
+            doNothing() // Chunk 1: 1000 messages succeed
+                    .doNothing() // Chunk 2: 1000 messages succeed
+                    .doThrow(exception) // Chunk 3: 500 messages fail
+                    .when(batchDeleteRequest)
+                    .execute();
 
             // Act
             BulkOperationResult result = gmailBatchClient.batchDeleteMessages(gmail, userId, messageIds);
@@ -843,7 +851,7 @@ class GmailBatchClientTest {
             List<String> messageIds = List.of("msg1", "msg2", "msg3");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Act
@@ -865,9 +873,8 @@ class GmailBatchClientTest {
             String userId = "me";
             String messageId = "msg123";
             List<String> messageIds = List.of(messageId);
-            ModifyMessageRequest modifyRequest = new ModifyMessageRequest()
-                .setAddLabelIds(List.of("INBOX"))
-                .setRemoveLabelIds(List.of("UNREAD"));
+            ModifyMessageRequest modifyRequest =
+                    new ModifyMessageRequest().setAddLabelIds(List.of("INBOX")).setRemoveLabelIds(List.of("UNREAD"));
 
             Gmail.Users.Messages.Modify mockModifyRequest = mock(Gmail.Users.Messages.Modify.class);
             when(messages.modify(userId, messageId, modifyRequest)).thenReturn(mockModifyRequest);
@@ -892,20 +899,21 @@ class GmailBatchClientTest {
             // never throws) must hold even when 100% of items fail.
             String userId = "me";
             List<String> messageIds = List.of("msg-fail-1", "msg-fail-2");
-            ModifyMessageRequest modifyMessageRequest = new ModifyMessageRequest()
-                    .setAddLabelIds(List.of("TRASH"));
+            ModifyMessageRequest modifyMessageRequest = new ModifyMessageRequest().setAddLabelIds(List.of("TRASH"));
 
             for (String messageId : messageIds) {
                 Gmail.Users.Messages.Modify mockModify = mock(Gmail.Users.Messages.Modify.class);
                 when(messages.modify(userId, messageId, modifyMessageRequest)).thenReturn(mockModify);
                 doAnswer(invocation -> {
-                    JsonBatchCallback<com.google.api.services.gmail.model.Message> callback =
-                            invocation.getArgument(1);
-                    GoogleJsonError error = new GoogleJsonError();
-                    error.setMessage("Gmail rejected " + messageId);
-                    callback.onFailure(error, null);
-                    return null;
-                }).when(mockModify).queue(eq(batchRequest), any());
+                            JsonBatchCallback<com.google.api.services.gmail.model.Message> callback =
+                                    invocation.getArgument(1);
+                            GoogleJsonError error = new GoogleJsonError();
+                            error.setMessage("Gmail rejected " + messageId);
+                            callback.onFailure(error, null);
+                            return null;
+                        })
+                        .when(mockModify)
+                        .queue(eq(batchRequest), any());
             }
 
             // Act: must complete normally, not throw, even though every message failed.
@@ -934,10 +942,8 @@ class GmailBatchClientTest {
             result.markCompleted();
 
             // Act & Assert
-            assertThatNoException().isThrownBy(() ->
-                gmailBatchClient.validateBatchResult(result, true));
-            assertThatNoException().isThrownBy(() ->
-                gmailBatchClient.validateBatchResult(result, false));
+            assertThatNoException().isThrownBy(() -> gmailBatchClient.validateBatchResult(result, true));
+            assertThatNoException().isThrownBy(() -> gmailBatchClient.validateBatchResult(result, false));
         }
 
         @Test
@@ -948,10 +954,8 @@ class GmailBatchClientTest {
             result.markCompleted();
 
             // Act & Assert
-            assertThatNoException().isThrownBy(() ->
-                gmailBatchClient.validateBatchResult(result, true));
-            assertThatNoException().isThrownBy(() ->
-                gmailBatchClient.validateBatchResult(result, false));
+            assertThatNoException().isThrownBy(() -> gmailBatchClient.validateBatchResult(result, true));
+            assertThatNoException().isThrownBy(() -> gmailBatchClient.validateBatchResult(result, false));
         }
 
         @Test
@@ -965,12 +969,12 @@ class GmailBatchClientTest {
 
             // Act & Assert
             assertThatThrownBy(() -> gmailBatchClient.validateBatchResult(result, true))
-                .isInstanceOf(BatchOperationException.class)
-                .hasMessageContaining("completely failed");
+                    .isInstanceOf(BatchOperationException.class)
+                    .hasMessageContaining("completely failed");
 
             assertThatThrownBy(() -> gmailBatchClient.validateBatchResult(result, false))
-                .isInstanceOf(BatchOperationException.class)
-                .hasMessageContaining("completely failed");
+                    .isInstanceOf(BatchOperationException.class)
+                    .hasMessageContaining("completely failed");
         }
 
         @Test
@@ -984,8 +988,8 @@ class GmailBatchClientTest {
 
             // Act & Assert
             assertThatThrownBy(() -> gmailBatchClient.validateBatchResult(result, true))
-                .isInstanceOf(BatchOperationException.class)
-                .hasMessageContaining("partially failed");
+                    .isInstanceOf(BatchOperationException.class)
+                    .hasMessageContaining("partially failed");
         }
 
         @Test
@@ -998,8 +1002,7 @@ class GmailBatchClientTest {
             result.markCompleted();
 
             // Act & Assert
-            assertThatNoException().isThrownBy(() ->
-                gmailBatchClient.validateBatchResult(result, false));
+            assertThatNoException().isThrownBy(() -> gmailBatchClient.validateBatchResult(result, false));
         }
     }
 
@@ -1022,17 +1025,16 @@ class GmailBatchClientTest {
 
         static Stream<Arguments> retryableErrorMessages() {
             return Stream.of(
-                Arguments.of("Connection timeout occurred"),
-                Arguments.of("Service unavailable right now"),
-                Arguments.of("Rate limit has been exceeded"),
-                Arguments.of("Quota exceeded for today"),
-                Arguments.of("Internal error occurred"),
-                Arguments.of("Backend error during processing"),
-                Arguments.of("timeout during connection"),
-                Arguments.of("Service unavailable"),
-                Arguments.of("Too many concurrent requests detected"),
-                Arguments.of("User rate limit exceeded")
-            );
+                    Arguments.of("Connection timeout occurred"),
+                    Arguments.of("Service unavailable right now"),
+                    Arguments.of("Rate limit has been exceeded"),
+                    Arguments.of("Quota exceeded for today"),
+                    Arguments.of("Internal error occurred"),
+                    Arguments.of("Backend error during processing"),
+                    Arguments.of("timeout during connection"),
+                    Arguments.of("Service unavailable"),
+                    Arguments.of("Too many concurrent requests detected"),
+                    Arguments.of("User rate limit exceeded"));
         }
 
         @ParameterizedTest
@@ -1050,13 +1052,13 @@ class GmailBatchClientTest {
 
         static Stream<Arguments> nonRetryableErrorMessages() {
             return Stream.of(
-                Arguments.of("Message not found"),
-                Arguments.of("Invalid message ID"),
-                Arguments.of("Permission denied"),
-                Arguments.of("Invalid label"),
-                Arguments.of("Authentication failed"),
-                Arguments.of("Unknown error") // Changed from null as ConcurrentHashMap doesn't allow null values
-            );
+                    Arguments.of("Message not found"),
+                    Arguments.of("Invalid message ID"),
+                    Arguments.of("Permission denied"),
+                    Arguments.of("Invalid label"),
+                    Arguments.of("Authentication failed"),
+                    Arguments.of("Unknown error") // Changed from null as ConcurrentHashMap doesn't allow null values
+                    );
         }
 
         @Test
@@ -1089,9 +1091,7 @@ class GmailBatchClientTest {
             List<String> retryableFailures = gmailBatchClient.getRetryableFailures(result);
 
             // Assert
-            assertThat(retryableFailures)
-                .hasSize(2)
-                .containsExactlyInAnyOrder("msg1", "msg3");
+            assertThat(retryableFailures).hasSize(2).containsExactlyInAnyOrder("msg1", "msg3");
         }
 
         @Test
@@ -1136,7 +1136,7 @@ class GmailBatchClientTest {
             IOException exception = new IOException("Timeout");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception); // Always fails
 
             // Act
@@ -1168,8 +1168,8 @@ class GmailBatchClientTest {
 
             // Assert
             assertThat(delay)
-                .as("getDelayBetweenBatchesMs should return configured value of 500ms")
-                .isEqualTo(500L);
+                    .as("getDelayBetweenBatchesMs should return configured value of 500ms")
+                    .isEqualTo(500L);
         }
 
         @Test
@@ -1178,14 +1178,13 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             // Create 3 chunks (3000 messages = 3 batches with 1000 each)
-            List<String> messageIds = IntStream.range(1, 3001)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+            List<String> messageIds =
+                    IntStream.range(1, 3001).mapToObj(i -> "msg" + i).toList();
 
             when(batchOperations.delayBetweenBatchesMs()).thenReturn(500L);
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             long startTime = System.currentTimeMillis();
@@ -1208,14 +1207,13 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             // Create 10,000 messages (10 batches)
-            List<String> messageIds = IntStream.range(1, 10001)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+            List<String> messageIds =
+                    IntStream.range(1, 10001).mapToObj(i -> "msg" + i).toList();
 
             when(batchOperations.delayBetweenBatchesMs()).thenReturn(500L);
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             long startTime = System.currentTimeMillis();
@@ -1242,9 +1240,9 @@ class GmailBatchClientTest {
 
             long oldOverhead = (batchCount - 1) * oldDelay; // 9 × 2000ms = 18000ms
             long newOverhead = (batchCount - 1) * newDelay; // 9 × 500ms = 4500ms
-            long savings = oldOverhead - newOverhead;       // 13500ms saved
+            long savings = oldOverhead - newOverhead; // 13500ms saved
 
-            double reductionPercent = ((double)savings / oldOverhead) * 100;
+            double reductionPercent = ((double) savings / oldOverhead) * 100;
 
             assertThat(oldOverhead).isEqualTo(18000L);
             assertThat(newOverhead).isEqualTo(4500L);
@@ -1263,7 +1261,7 @@ class GmailBatchClientTest {
             int batchCount = 2; // With batchDelete endpoint (1000 max per batch)
 
             // Old approach (individual delete, 15 batch size, 2000ms delay)
-            int oldBatchCount = (int) Math.ceil((double)messageCount / 15); // 34 batches
+            int oldBatchCount = (int) Math.ceil((double) messageCount / 15); // 34 batches
             long oldQuota = messageCount * 10; // 5100 units (10 per message)
             long oldTimeDelays = (oldBatchCount - 1) * 2000L; // 66000ms delays
 
@@ -1273,18 +1271,18 @@ class GmailBatchClientTest {
             long newTimeDelays = (newBatchCount - 1) * 500L; // 500ms delays
 
             // Quota improvement
-            double quotaReduction = ((double)(oldQuota - newQuota) / oldQuota) * 100;
+            double quotaReduction = ((double) (oldQuota - newQuota) / oldQuota) * 100;
 
             // Time improvement (delay overhead only)
-            double timeReduction = ((double)(oldTimeDelays - newTimeDelays) / oldTimeDelays) * 100;
+            double timeReduction = ((double) (oldTimeDelays - newTimeDelays) / oldTimeDelays) * 100;
 
             assertThat(quotaReduction)
-                .as("P0-1: Quota reduction should be ~98%%")
-                .isGreaterThan(98.0);
+                    .as("P0-1: Quota reduction should be ~98%%")
+                    .isGreaterThan(98.0);
 
             assertThat(timeReduction)
-                .as("P0-4: Delay time reduction should be ~99%%")
-                .isGreaterThan(99.0);
+                    .as("P0-4: Delay time reduction should be ~99%%")
+                    .isGreaterThan(99.0);
         }
 
         @Test
@@ -1294,17 +1292,17 @@ class GmailBatchClientTest {
 
             // Test cases: batch count -> expected delay overhead
             Map<Integer, Long> testCases = Map.of(
-                5, 2000L,   // (5-1) × 500ms = 2000ms
-                10, 4500L,  // (10-1) × 500ms = 4500ms
-                20, 9500L   // (20-1) × 500ms = 9500ms
-            );
+                    5, 2000L, // (5-1) × 500ms = 2000ms
+                    10, 4500L, // (10-1) × 500ms = 4500ms
+                    20, 9500L // (20-1) × 500ms = 9500ms
+                    );
 
             testCases.forEach((batchCount, expectedOverhead) -> {
                 long overhead = (batchCount - 1) * delay;
 
                 assertThat(overhead)
-                    .as("With %d batches and 500ms delay: overhead should be %dms", batchCount, expectedOverhead)
-                    .isEqualTo(expectedOverhead);
+                        .as("With %d batches and 500ms delay: overhead should be %dms", batchCount, expectedOverhead)
+                        .isEqualTo(expectedOverhead);
             });
         }
 
@@ -1313,14 +1311,13 @@ class GmailBatchClientTest {
         void batchDeleteMessages_SingleBatch_ShouldNotApplyDelay() throws IOException {
             // Arrange
             String userId = "me";
-            List<String> messageIds = IntStream.range(1, 101)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+            List<String> messageIds =
+                    IntStream.range(1, 101).mapToObj(i -> "msg" + i).toList();
 
             // Note: No need to stub delayBetweenBatchesMs for single batch (delay only applied between batches)
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             long startTime = System.currentTimeMillis();
@@ -1342,14 +1339,13 @@ class GmailBatchClientTest {
         void batchDeleteMessages_ZeroDelay_ShouldNotWaitBetweenBatches() throws IOException {
             // Arrange
             String userId = "me";
-            List<String> messageIds = IntStream.range(1, 2001)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+            List<String> messageIds =
+                    IntStream.range(1, 2001).mapToObj(i -> "msg" + i).toList();
 
             when(batchOperations.delayBetweenBatchesMs()).thenReturn(0L); // No delay
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             long startTime = System.currentTimeMillis();
@@ -1378,7 +1374,7 @@ class GmailBatchClientTest {
             long newDelayOverhead = (newBatchCount - 1) * 500L; // 0ms (single batch)
 
             // Old approach with individual batches
-            int oldBatchCount = (int) Math.ceil((double)messageCount / batchSize); // 10 batches
+            int oldBatchCount = (int) Math.ceil((double) messageCount / batchSize); // 10 batches
             long oldDelayOverhead = (oldBatchCount - 1) * 2000L; // 18000ms
 
             long savings = oldDelayOverhead - newDelayOverhead;
@@ -1386,8 +1382,8 @@ class GmailBatchClientTest {
             assertThat(newDelayOverhead).isEqualTo(0L);
             assertThat(oldDelayOverhead).isEqualTo(18000L);
             assertThat(savings)
-                .as("For 500 messages: native batchDelete eliminates all delay overhead")
-                .isEqualTo(18000L);
+                    .as("For 500 messages: native batchDelete eliminates all delay overhead")
+                    .isEqualTo(18000L);
         }
 
         @Test
@@ -1399,8 +1395,8 @@ class GmailBatchClientTest {
             long maxDelay = 5000L;
 
             assertThat(delay)
-                .as("Delay 500ms should be within valid range [100, 5000]")
-                .isBetween(minDelay, maxDelay);
+                    .as("Delay 500ms should be within valid range [100, 5000]")
+                    .isBetween(minDelay, maxDelay);
         }
     }
 
@@ -1428,8 +1424,8 @@ class GmailBatchClientTest {
 
             // Assert
             assertThat(adaptiveSize.get())
-                .as("Initial adaptive batch size should be 15 (from AtomicInteger initialization)")
-                .isEqualTo(15);
+                    .as("Initial adaptive batch size should be 15 (from AtomicInteger initialization)")
+                    .isEqualTo(15);
         }
 
         @Test
@@ -1438,10 +1434,9 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             List<String> messageIds = IntStream.range(1, 31) // 30 messages
-                .mapToObj(i -> "msg" + i)
-                .toList();
-            ModifyMessageRequest modifyRequest = new ModifyMessageRequest()
-                .setAddLabelIds(List.of("LABEL_1"));
+                    .mapToObj(i -> "msg" + i)
+                    .toList();
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest().setAddLabelIds(List.of("LABEL_1"));
 
             // Get current adaptive size via reflection
             java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
@@ -1451,15 +1446,15 @@ class GmailBatchClientTest {
 
             Gmail.Users.Messages.Modify mockModifyRequest = mock(Gmail.Users.Messages.Modify.class);
             when(messages.modify(anyString(), anyString(), any(ModifyMessageRequest.class)))
-                .thenReturn(mockModifyRequest);
+                    .thenReturn(mockModifyRequest);
 
             // Act
             BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
 
             // Assert - With 30 messages and adaptive size 15, should create 2 batches
             assertThat(result.getTotalBatchesProcessed())
-                .as("With 30 messages and adaptive size 15, should create 2 batches")
-                .isEqualTo(2);
+                    .as("With 30 messages and adaptive size 15, should create 2 batches")
+                    .isEqualTo(2);
         }
 
         @Test
@@ -1470,7 +1465,7 @@ class GmailBatchClientTest {
             List<String> messageIds = List.of("msg1", "msg2", "msg3");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Get initial adaptive size
@@ -1484,8 +1479,8 @@ class GmailBatchClientTest {
 
             // Assert - Adaptive size should have increased by 1 after successful chunk
             assertThat(adaptiveSize.get())
-                .as("After successful chunk, adaptive size should increase by 1")
-                .isEqualTo(initialSize + 1);
+                    .as("After successful chunk, adaptive size should increase by 1")
+                    .isEqualTo(initialSize + 1);
         }
 
         @Test
@@ -1498,7 +1493,7 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(404, "Message not found");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Get initial adaptive size
@@ -1514,8 +1509,8 @@ class GmailBatchClientTest {
             // Reduction = max(2, 15 / 4) = max(2, 3) = 3
             // New size = max(5, 15 - 3) = 12
             assertThat(adaptiveSize.get())
-                .as("After failed chunk, adaptive size should decrease")
-                .isLessThan(initialSize);
+                    .as("After failed chunk, adaptive size should decrease")
+                    .isLessThan(initialSize);
         }
 
         @Test
@@ -1526,7 +1521,7 @@ class GmailBatchClientTest {
             List<String> messageIds = List.of("msg1", "msg2", "msg3");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Get adaptive size field via reflection
@@ -1540,8 +1535,10 @@ class GmailBatchClientTest {
 
             // Assert
             assertThat(adaptiveSize.get())
-                .as("Adaptive size should increase by 1 after successful batch (from %d to %d)", initialSize, initialSize + 1)
-                .isEqualTo(initialSize + 1);
+                    .as(
+                            "Adaptive size should increase by 1 after successful batch (from %d to %d)",
+                            initialSize, initialSize + 1)
+                    .isEqualTo(initialSize + 1);
         }
 
         @Test
@@ -1552,7 +1549,7 @@ class GmailBatchClientTest {
             List<String> messageIds = List.of("msg1", "msg2", "msg3");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Get adaptive size field via reflection
@@ -1568,8 +1565,8 @@ class GmailBatchClientTest {
 
             // Assert - Size should have increased by 5 (15 → 20)
             assertThat(adaptiveSize.get())
-                .as("After 5 successful batches, adaptive size should increase by 5")
-                .isEqualTo(initialSize + 5);
+                    .as("After 5 successful batches, adaptive size should increase by 5")
+                    .isEqualTo(initialSize + 5);
         }
 
         @Test
@@ -1581,7 +1578,7 @@ class GmailBatchClientTest {
 
             when(batchOperations.maxBatchSize()).thenReturn(50);
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Get adaptive size field via reflection and set to 49 (just below max)
@@ -1597,8 +1594,8 @@ class GmailBatchClientTest {
 
             // Assert - Size should cap at configured max of 50
             assertThat(adaptiveSize.get())
-                .as("Adaptive size should cap at configured max of 50")
-                .isEqualTo(50);
+                    .as("Adaptive size should cap at configured max of 50")
+                    .isEqualTo(50);
         }
 
         @Test
@@ -1610,7 +1607,7 @@ class GmailBatchClientTest {
 
             when(batchOperations.maxBatchSize()).thenReturn(50);
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Get adaptive size field via reflection and set to max (50)
@@ -1626,8 +1623,8 @@ class GmailBatchClientTest {
 
             // Assert - Size should remain at 50
             assertThat(adaptiveSize.get())
-                .as("Adaptive size should remain at max of 50")
-                .isEqualTo(50);
+                    .as("Adaptive size should remain at max of 50")
+                    .isEqualTo(50);
         }
 
         @Test
@@ -1640,7 +1637,7 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(404, "Not found");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Set adaptive size to 20
@@ -1655,8 +1652,8 @@ class GmailBatchClientTest {
             // Assert - Reduction = max(2, 20 / 4) = 5
             // New size = max(5, 20 - 5) = 15
             assertThat(adaptiveSize.get())
-                .as("Adaptive size should reduce from 20 to 15 (25%% reduction)")
-                .isEqualTo(15);
+                    .as("Adaptive size should reduce from 20 to 15 (25%% reduction)")
+                    .isEqualTo(15);
         }
 
         @Test
@@ -1669,7 +1666,7 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(500, "Internal error");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Set adaptive size to 6
@@ -1684,8 +1681,8 @@ class GmailBatchClientTest {
             // Assert - Reduction = max(2, 6 / 4) = max(2, 1) = 2
             // New size = max(5, 6 - 2) = max(5, 4) = 5 (floors at 5)
             assertThat(adaptiveSize.get())
-                .as("Adaptive size should reduce from 6 to 5 (floors at minimum)")
-                .isEqualTo(5);
+                    .as("Adaptive size should reduce from 6 to 5 (floors at minimum)")
+                    .isEqualTo(5);
         }
 
         @Test
@@ -1698,7 +1695,7 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(429, "Rate limit");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Set adaptive size to 5 (minimum)
@@ -1714,8 +1711,8 @@ class GmailBatchClientTest {
 
             // Assert - Size should remain at 5 (minimum floor)
             assertThat(adaptiveSize.get())
-                .as("Adaptive size should floor at minimum of 5")
-                .isEqualTo(5);
+                    .as("Adaptive size should floor at minimum of 5")
+                    .isEqualTo(5);
         }
 
         @Test
@@ -1728,7 +1725,7 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(403, "Quota exceeded");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Set adaptive size to minimum (5)
@@ -1744,8 +1741,8 @@ class GmailBatchClientTest {
 
             // Assert - Size should remain at 5
             assertThat(adaptiveSize.get())
-                .as("Adaptive size should remain at minimum of 5")
-                .isEqualTo(5);
+                    .as("Adaptive size should remain at minimum of 5")
+                    .isEqualTo(5);
         }
 
         @Test
@@ -1753,20 +1750,20 @@ class GmailBatchClientTest {
         void adaptiveSize_25PercentReduction_ShouldCalculateCorrectly() {
             // Test the reduction formula: max(2, currentSize / 4)
             Map<Integer, Integer> sizeToReduction = Map.of(
-                40, 10,  // 40 / 4 = 10
-                30, 7,   // 30 / 4 = 7
-                20, 5,   // 20 / 4 = 5
-                10, 2,   // 10 / 4 = 2
-                8, 2,    // 8 / 4 = 2
-                6, 2,    // 6 / 4 = 1, but max(2, 1) = 2
-                4, 2     // 4 / 4 = 1, but max(2, 1) = 2
-            );
+                    40, 10, // 40 / 4 = 10
+                    30, 7, // 30 / 4 = 7
+                    20, 5, // 20 / 4 = 5
+                    10, 2, // 10 / 4 = 2
+                    8, 2, // 8 / 4 = 2
+                    6, 2, // 6 / 4 = 1, but max(2, 1) = 2
+                    4, 2 // 4 / 4 = 1, but max(2, 1) = 2
+                    );
 
             sizeToReduction.forEach((size, expectedReduction) -> {
                 int actualReduction = Math.max(2, size / 4);
                 assertThat(actualReduction)
-                    .as("For size %d, reduction should be %d", size, expectedReduction)
-                    .isEqualTo(expectedReduction);
+                        .as("For size %d, reduction should be %d", size, expectedReduction)
+                        .isEqualTo(expectedReduction);
             });
         }
 
@@ -1778,7 +1775,7 @@ class GmailBatchClientTest {
             List<String> messageIds = List.of("msg1", "msg2", "msg3");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Set adaptive size to 10
@@ -1794,8 +1791,8 @@ class GmailBatchClientTest {
 
             // Assert - Should increase to 15 (10 + 5)
             assertThat(adaptiveSize.get())
-                .as("After 5 successes from size 10, should be 15")
-                .isEqualTo(15);
+                    .as("After 5 successes from size 10, should be 15")
+                    .isEqualTo(15);
         }
 
         @Test
@@ -1808,7 +1805,7 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(500, "Error");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Set adaptive size to 30
@@ -1823,8 +1820,8 @@ class GmailBatchClientTest {
             // Assert - Reduction = max(2, 30 / 4) = 7
             // New size = max(5, 30 - 7) = 23
             assertThat(adaptiveSize.get())
-                .as("After 1 failure from size 30, should reduce to 23")
-                .isEqualTo(23);
+                    .as("After 1 failure from size 30, should reduce to 23")
+                    .isEqualTo(23);
         }
 
         @Test
@@ -1837,7 +1834,7 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(429, "Rate limit");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Set adaptive size to 40
@@ -1852,8 +1849,8 @@ class GmailBatchClientTest {
             // Assert - Reduction = max(2, 40 / 4) = 10
             // New size = max(5, 40 - 10) = 30
             assertThat(adaptiveSize.get())
-                .as("After 1 failure from size 40, should reduce to 30")
-                .isEqualTo(30);
+                    .as("After 1 failure from size 40, should reduce to 30")
+                    .isEqualTo(30);
         }
 
         @Test
@@ -1866,7 +1863,7 @@ class GmailBatchClientTest {
             GoogleJsonResponseException exception = createMockedGoogleJsonResponseException(404, "Not found");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             when(batchDeleteRequest.execute()).thenThrow(exception);
 
             // Get adaptive size field
@@ -1884,12 +1881,12 @@ class GmailBatchClientTest {
 
             // Assert - Circuit breaker should be open AND adaptive size should have decreased
             assertThat(stats.get("isOpen"))
-                .as("Circuit breaker should be open after 3 failures")
-                .isEqualTo(true);
+                    .as("Circuit breaker should be open after 3 failures")
+                    .isEqualTo(true);
 
             assertThat(adaptiveSize.get())
-                .as("Adaptive size should have decreased with failures")
-                .isLessThan(initialSize);
+                    .as("Adaptive size should have decreased with failures")
+                    .isLessThan(initialSize);
         }
 
         @Test
@@ -1900,7 +1897,7 @@ class GmailBatchClientTest {
             List<String> messageIds = List.of("msg1", "msg2", "msg3");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Get adaptive size field
@@ -1921,16 +1918,16 @@ class GmailBatchClientTest {
 
             // Assert - Size should increase progressively
             assertThat(sizeAfterFirst)
-                .as("Size should increase after first operation")
-                .isEqualTo(initialSize + 1);
+                    .as("Size should increase after first operation")
+                    .isEqualTo(initialSize + 1);
 
             assertThat(sizeAfterSecond)
-                .as("Size should increase after second operation")
-                .isEqualTo(initialSize + 2);
+                    .as("Size should increase after second operation")
+                    .isEqualTo(initialSize + 2);
 
             assertThat(sizeAfterThird)
-                .as("Size should increase after third operation")
-                .isEqualTo(initialSize + 3);
+                    .as("Size should increase after third operation")
+                    .isEqualTo(initialSize + 3);
         }
 
         @Test
@@ -1941,7 +1938,7 @@ class GmailBatchClientTest {
             List<String> messageIds = List.of("msg1", "msg2", "msg3");
 
             when(messages.batchDelete(eq(userId), any(BatchDeleteMessagesRequest.class)))
-                .thenReturn(batchDeleteRequest);
+                    .thenReturn(batchDeleteRequest);
             doNothing().when(batchDeleteRequest).execute();
 
             // Get adaptive size field
@@ -1955,8 +1952,8 @@ class GmailBatchClientTest {
 
             // Assert - Adaptive size should have changed (increased by 1 for success)
             assertThat(adaptiveSize.get())
-                .as("updateAdaptiveRateLimit should be called, changing the adaptive size")
-                .isNotEqualTo(initialSize);
+                    .as("updateAdaptiveRateLimit should be called, changing the adaptive size")
+                    .isNotEqualTo(initialSize);
         }
 
         @Test
@@ -1965,12 +1962,11 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             List<String> messageIds = List.of("msg1", "msg2", "msg3");
-            ModifyMessageRequest modifyRequest = new ModifyMessageRequest()
-                .setAddLabelIds(List.of("LABEL_1"));
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest().setAddLabelIds(List.of("LABEL_1"));
 
             Gmail.Users.Messages.Modify mockModifyRequest = mock(Gmail.Users.Messages.Modify.class);
             when(messages.modify(anyString(), anyString(), any(ModifyMessageRequest.class)))
-                .thenReturn(mockModifyRequest);
+                    .thenReturn(mockModifyRequest);
 
             // Get adaptive size field
             java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
@@ -1984,8 +1980,8 @@ class GmailBatchClientTest {
             // Assert - Adaptive size should have changed after batch execution
             // Note: The actual change depends on batch success/failure, but it should be called
             assertThat(adaptiveSize.get())
-                .as("updateAdaptiveRateLimit should be called in batchModifyLabels")
-                .isGreaterThanOrEqualTo(5); // At minimum it should be 5
+                    .as("updateAdaptiveRateLimit should be called in batchModifyLabels")
+                    .isGreaterThanOrEqualTo(5); // At minimum it should be 5
         }
 
         @Test
@@ -1994,15 +1990,13 @@ class GmailBatchClientTest {
             // Arrange
             String userId = "me";
             // Create 45 messages
-            List<String> messageIds = IntStream.range(1, 46)
-                .mapToObj(i -> "msg" + i)
-                .toList();
-            ModifyMessageRequest modifyRequest = new ModifyMessageRequest()
-                .setAddLabelIds(List.of("LABEL_1"));
+            List<String> messageIds =
+                    IntStream.range(1, 46).mapToObj(i -> "msg" + i).toList();
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest().setAddLabelIds(List.of("LABEL_1"));
 
             Gmail.Users.Messages.Modify mockModifyRequest = mock(Gmail.Users.Messages.Modify.class);
             when(messages.modify(anyString(), anyString(), any(ModifyMessageRequest.class)))
-                .thenReturn(mockModifyRequest);
+                    .thenReturn(mockModifyRequest);
 
             // Set adaptive size to 10
             java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
@@ -2015,8 +2009,8 @@ class GmailBatchClientTest {
 
             // Assert - With 45 messages and adaptive size 10, should create ceil(45/10) = 5 batches
             assertThat(result.getTotalBatchesProcessed())
-                .as("With 45 messages and adaptive size 10, should create 5 batches")
-                .isEqualTo(5);
+                    .as("With 45 messages and adaptive size 10, should create 5 batches")
+                    .isEqualTo(5);
         }
     }
 
@@ -2035,8 +2029,8 @@ class GmailBatchClientTest {
 
             // Assert
             assertThat(maxBatchSize)
-                .as("getMaxBatchSize should return configured value of 50")
-                .isEqualTo(50);
+                    .as("getMaxBatchSize should return configured value of 50")
+                    .isEqualTo(50);
         }
 
         @Test
@@ -2050,8 +2044,8 @@ class GmailBatchClientTest {
 
             // Assert - Should cap at DEFAULT_MAX_BATCH_SIZE (100)
             assertThat(maxBatchSize)
-                .as("getMaxBatchSize should cap at Gmail API limit of 100")
-                .isEqualTo(100);
+                    .as("getMaxBatchSize should cap at Gmail API limit of 100")
+                    .isEqualTo(100);
         }
 
         @Test
@@ -2078,22 +2072,22 @@ class GmailBatchClientTest {
 
             // Test with batch size 50
             Map<Integer, Integer> testCasesBatch50 = Map.of(
-                1, 1,       // 1 message -> 1 batch
-                25, 1,      // 25 messages -> 1 batch
-                49, 1,      // 49 messages -> 1 batch
-                50, 1,      // 50 messages -> 1 batch
-                51, 2,      // 51 messages -> 2 batches
-                100, 2,     // 100 messages -> 2 batches
-                500, 10,    // 500 messages -> 10 batches
-                999, 20,    // 999 messages -> 20 batches
-                1000, 20    // 1000 messages -> 20 batches
-            );
+                    1, 1, // 1 message -> 1 batch
+                    25, 1, // 25 messages -> 1 batch
+                    49, 1, // 49 messages -> 1 batch
+                    50, 1, // 50 messages -> 1 batch
+                    51, 2, // 51 messages -> 2 batches
+                    100, 2, // 100 messages -> 2 batches
+                    500, 10, // 500 messages -> 10 batches
+                    999, 20, // 999 messages -> 20 batches
+                    1000, 20 // 1000 messages -> 20 batches
+                    );
 
             testCasesBatch50.forEach((messageCount, expectedBatches) -> {
                 int calculatedBatches = (int) Math.ceil((double) messageCount / 50);
                 assertThat(calculatedBatches)
-                    .as("With batch-size=50: %d messages should create %d batches", messageCount, expectedBatches)
-                    .isEqualTo(expectedBatches);
+                        .as("With batch-size=50: %d messages should create %d batches", messageCount, expectedBatches)
+                        .isEqualTo(expectedBatches);
             });
         }
 
@@ -2111,13 +2105,13 @@ class GmailBatchClientTest {
             int oldBatchCount = (int) Math.ceil((double) messageCount / oldBatchSize); // 34 batches
             int newBatchCount = (int) Math.ceil((double) messageCount / newBatchSize); // 10 batches
 
-            double reduction = ((double)(oldBatchCount - newBatchCount) / oldBatchCount) * 100;
+            double reduction = ((double) (oldBatchCount - newBatchCount) / oldBatchCount) * 100;
 
             assertThat(oldBatchCount).isEqualTo(34);
             assertThat(newBatchCount).isEqualTo(10);
             assertThat(reduction)
-                .as("Changing from batch-size=15 to batch-size=50 should reduce batch count by ~70%%")
-                .isGreaterThan(70.0);
+                    .as("Changing from batch-size=15 to batch-size=50 should reduce batch count by ~70%%")
+                    .isGreaterThan(70.0);
         }
 
         @Test
@@ -2131,13 +2125,13 @@ class GmailBatchClientTest {
             int oldBatchCount = (int) Math.ceil((double) messageCount / oldBatchSize); // 67 batches
             int newBatchCount = (int) Math.ceil((double) messageCount / newBatchSize); // 20 batches
 
-            double reduction = ((double)(oldBatchCount - newBatchCount) / oldBatchCount) * 100;
+            double reduction = ((double) (oldBatchCount - newBatchCount) / oldBatchCount) * 100;
 
             assertThat(oldBatchCount).isEqualTo(67);
             assertThat(newBatchCount).isEqualTo(20);
             assertThat(reduction)
-                .as("For 1000 messages: batch-size=50 reduces batch count by ~70%%")
-                .isGreaterThan(70.0);
+                    .as("For 1000 messages: batch-size=50 reduces batch count by ~70%%")
+                    .isGreaterThan(70.0);
         }
 
         @ParameterizedTest
@@ -2146,8 +2140,8 @@ class GmailBatchClientTest {
         void batchSizeValidation_WithinRange_ShouldBeValid(int batchSize) {
             // Verify that batch sizes within the @Min(10) @Max(100) range work correctly
             assertThat(batchSize)
-                .as("Batch size %d should be within valid range [10, 100]", batchSize)
-                .isBetween(10, 100);
+                    .as("Batch size %d should be within valid range [10, 100]", batchSize)
+                    .isBetween(10, 100);
         }
 
         @Test
@@ -2161,8 +2155,8 @@ class GmailBatchClientTest {
             int maxAllowed = 100;
 
             assertThat(googleRecommendedSize)
-                .as("Google's recommended batch size of 50 should be within valid range")
-                .isBetween(minAllowed, maxAllowed);
+                    .as("Google's recommended batch size of 50 should be within valid range")
+                    .isBetween(minAllowed, maxAllowed);
         }
     }
 }

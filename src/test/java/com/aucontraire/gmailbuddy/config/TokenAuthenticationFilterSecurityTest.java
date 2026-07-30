@@ -1,5 +1,10 @@
 package com.aucontraire.gmailbuddy.config;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+
 import com.aucontraire.gmailbuddy.security.TokenReference;
 import com.aucontraire.gmailbuddy.security.TokenReferenceService;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
@@ -7,17 +12,12 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
 
 /**
  * Critical security tests for TokenAuthenticationFilter.
@@ -206,7 +206,7 @@ class TokenAuthenticationFilterSecurityTest {
         // Arrange
         setupValidTokenRequest();
         when(tokenValidator.getTokenInfo(TEST_TOKEN))
-            .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token"));
+                .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token"));
 
         // Act
         tokenAuthenticationFilter.doFilterInternal(request, response, filterChain);
@@ -225,8 +225,7 @@ class TokenAuthenticationFilterSecurityTest {
     void shouldHandleTokenValidationExceptionsGracefully() throws Exception {
         // Arrange
         setupValidTokenRequest();
-        when(tokenValidator.getTokenInfo(TEST_TOKEN))
-                .thenThrow(new RuntimeException("Token validation failed"));
+        when(tokenValidator.getTokenInfo(TEST_TOKEN)).thenThrow(new RuntimeException("Token validation failed"));
 
         // Act
         tokenAuthenticationFilter.doFilterInternal(request, response, filterChain);
@@ -273,7 +272,8 @@ class TokenAuthenticationFilterSecurityTest {
         when(tokenInfo.getUserId()).thenReturn("user123");
         when(tokenInfo.getScope()).thenReturn("https://www.googleapis.com/auth/gmail.readonly");
         when(tokenValidator.getTokenInfo(TEST_TOKEN)).thenReturn(tokenInfo);
-        when(tokenValidator.hasValidGmailScopes("https://www.googleapis.com/auth/gmail.readonly")).thenReturn(true);
+        when(tokenValidator.hasValidGmailScopes("https://www.googleapis.com/auth/gmail.readonly"))
+                .thenReturn(true);
 
         setupTokenReferenceServiceForUser("user123");
 
@@ -298,7 +298,8 @@ class TokenAuthenticationFilterSecurityTest {
         when(tokenInfo.getUserId()).thenReturn(null);
         when(tokenInfo.getScope()).thenReturn("https://www.googleapis.com/auth/gmail.readonly");
         when(tokenValidator.getTokenInfo(TEST_TOKEN)).thenReturn(tokenInfo);
-        when(tokenValidator.hasValidGmailScopes("https://www.googleapis.com/auth/gmail.readonly")).thenReturn(true);
+        when(tokenValidator.hasValidGmailScopes("https://www.googleapis.com/auth/gmail.readonly"))
+                .thenReturn(true);
 
         setupTokenReferenceServiceForUser("api-user");
 
@@ -330,9 +331,8 @@ class TokenAuthenticationFilterSecurityTest {
                 .thenThrow(new RuntimeException("Simulated failure"));
 
         // Act & Assert - should not throw exception that could expose token
-        assertThatCode(() ->
-            tokenAuthenticationFilter.doFilterInternal(request, response, filterChain)
-        ).doesNotThrowAnyException();
+        assertThatCode(() -> tokenAuthenticationFilter.doFilterInternal(request, response, filterChain))
+                .doesNotThrowAnyException();
 
         // Should fail gracefully without authentication
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -351,7 +351,8 @@ class TokenAuthenticationFilterSecurityTest {
         when(tokenInfo.getEmail()).thenReturn(TEST_USER_EMAIL);
         when(tokenInfo.getScope()).thenReturn("https://www.googleapis.com/auth/gmail.readonly");
         when(tokenValidator.getTokenInfo(TEST_TOKEN)).thenReturn(tokenInfo);
-        when(tokenValidator.hasValidGmailScopes("https://www.googleapis.com/auth/gmail.readonly")).thenReturn(true);
+        when(tokenValidator.hasValidGmailScopes("https://www.googleapis.com/auth/gmail.readonly"))
+                .thenReturn(true);
     }
 
     private void setupTokenReferenceService() {

@@ -1,5 +1,14 @@
 package com.aucontraire.gmailbuddy.integration;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.fixture.SendMessageRequestFixtures;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
@@ -14,20 +23,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Integration tests for {@code POST /api/v1/gmail/messages} (direct send)
@@ -68,8 +68,8 @@ class SendMessageIntegrationTest {
     static final String VALID_GOOGLE_TOKEN = "ya29.a0ARrdaM-valid-google-token-for-send-msg";
 
     private static final String MESSAGES_ENDPOINT = "/api/v1/gmail/messages";
-    private static final String MESSAGE_ID        = "19a2b3c4d5e6f7g8";
-    private static final String THREAD_ID         = "thread-19a2b3c4d5e6f7g8";
+    private static final String MESSAGE_ID = "19a2b3c4d5e6f7g8";
+    private static final String THREAD_ID = "thread-19a2b3c4d5e6f7g8";
 
     // -------------------------------------------------------------------------
     // Spring-managed beans
@@ -106,17 +106,14 @@ class SendMessageIntegrationTest {
         when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
 
         SentMessageResult stubResult = new SentMessageResult(MESSAGE_ID, THREAD_ID);
-        when(gmailService.sendMessage(anyString(), any(SendMessageDTO.class)))
-                .thenReturn(stubResult);
+        when(gmailService.sendMessage(anyString(), any(SendMessageDTO.class))).thenReturn(stubResult);
     }
 
     private GoogleTokenValidator.TokenInfoResponse createValidTokenInfo() {
-        GoogleTokenValidator.TokenInfoResponse tokenInfo =
-                new GoogleTokenValidator.TokenInfoResponse();
+        GoogleTokenValidator.TokenInfoResponse tokenInfo = new GoogleTokenValidator.TokenInfoResponse();
         tokenInfo.setEmail("api-user@example.com");
         tokenInfo.setUserId("123456789");
-        tokenInfo.setScope(
-                "https://www.googleapis.com/auth/gmail.readonly "
+        tokenInfo.setScope("https://www.googleapis.com/auth/gmail.readonly "
                 + "https://www.googleapis.com/auth/gmail.modify "
                 + "https://www.googleapis.com/auth/gmail.send");
         tokenInfo.setAudience("test-client-id");
@@ -135,8 +132,7 @@ class SendMessageIntegrationTest {
 
         @Test
         @DisplayName("postSendMessage_bearerTokenAuth_validRequest_returns201WithSentResponseBody")
-        void postSendMessage_bearerTokenAuth_validRequest_returns201WithSentResponseBody()
-                throws Exception {
+        void postSendMessage_bearerTokenAuth_validRequest_returns201WithSentResponseBody() throws Exception {
             // Arrange
             mockValidTokenResponseForSendMessage();
             SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
@@ -169,8 +165,7 @@ class SendMessageIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestBody))
                     .andExpect(status().isCreated())
-                    .andExpect(header().string("Location",
-                            "/api/v1/gmail/messages/" + MESSAGE_ID + "/body"));
+                    .andExpect(header().string("Location", "/api/v1/gmail/messages/" + MESSAGE_ID + "/body"));
         }
 
         @Test
@@ -192,8 +187,7 @@ class SendMessageIntegrationTest {
 
         @Test
         @DisplayName("postSendMessage_bearerTokenAuth_responseDoesNotIncludeIdempotencyKeyHeader")
-        void postSendMessage_bearerTokenAuth_responseDoesNotIncludeIdempotencyKeyHeader()
-                throws Exception {
+        void postSendMessage_bearerTokenAuth_responseDoesNotIncludeIdempotencyKeyHeader() throws Exception {
             // Arrange: documents the at-least-once contract from Decision 6 / FR-023.
             // The endpoint makes no idempotency guarantee; the response must NOT carry
             // any Idempotency-Key or X-Idempotency-Key header that would imply one.
@@ -223,8 +217,7 @@ class SendMessageIntegrationTest {
         @Test
         @WithMockUser
         @DisplayName("postSendMessage_sessionAuth_validRequest_returns201WithSentResponseBody")
-        void postSendMessage_sessionAuth_validRequest_returns201WithSentResponseBody()
-                throws Exception {
+        void postSendMessage_sessionAuth_validRequest_returns201WithSentResponseBody() throws Exception {
             // Arrange: no Bearer header; @WithMockUser injects a session principal.
             SentMessageResult stubResult = new SentMessageResult(MESSAGE_ID, THREAD_ID);
             when(gmailService.sendMessage(anyString(), any(SendMessageDTO.class)))
@@ -246,8 +239,7 @@ class SendMessageIntegrationTest {
         @Test
         @WithMockUser
         @DisplayName("postSendMessage_sessionAuth_validRequest_returns201WithLocationHeaderEndingWithBody")
-        void postSendMessage_sessionAuth_validRequest_returns201WithLocationHeaderEndingWithBody()
-                throws Exception {
+        void postSendMessage_sessionAuth_validRequest_returns201WithLocationHeaderEndingWithBody() throws Exception {
             // Arrange
             SentMessageResult stubResult = new SentMessageResult(MESSAGE_ID, THREAD_ID);
             when(gmailService.sendMessage(anyString(), any(SendMessageDTO.class)))
@@ -261,8 +253,7 @@ class SendMessageIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestBody))
                     .andExpect(status().isCreated())
-                    .andExpect(header().string("Location",
-                            "/api/v1/gmail/messages/" + MESSAGE_ID + "/body"));
+                    .andExpect(header().string("Location", "/api/v1/gmail/messages/" + MESSAGE_ID + "/body"));
         }
     }
 }

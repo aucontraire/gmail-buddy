@@ -1,36 +1,34 @@
 package com.aucontraire.gmailbuddy.config;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
 import com.aucontraire.gmailbuddy.service.MessageListResult;
+import com.google.api.services.gmail.model.Message;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.ApplicationContext;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
-import com.google.api.services.gmail.model.Message;
-
-import java.util.List;
-import java.util.ArrayList;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
  * Comprehensive test suite for SecurityConfig.
@@ -109,7 +107,7 @@ class SecurityConfigTest {
             assertThat(restTemplate.getRequestFactory()).isInstanceOf(HttpComponentsClientHttpRequestFactory.class);
 
             HttpComponentsClientHttpRequestFactory factory =
-                (HttpComponentsClientHttpRequestFactory) restTemplate.getRequestFactory();
+                    (HttpComponentsClientHttpRequestFactory) restTemplate.getRequestFactory();
 
             // Verify the factory is configured with HttpComponents (which supports timeout configuration)
             // The actual timeout values are set in the SecurityConfig and tested through integration
@@ -124,7 +122,8 @@ class SecurityConfigTest {
         @DisplayName("Should register TokenAuthenticationFilter bean")
         void shouldRegisterTokenAuthenticationFilterBean() {
             // When & Then
-            assertThat(applicationContext.containsBean("tokenAuthenticationFilter")).isTrue();
+            assertThat(applicationContext.containsBean("tokenAuthenticationFilter"))
+                    .isTrue();
 
             TokenAuthenticationFilter filter = applicationContext.getBean(TokenAuthenticationFilter.class);
             assertThat(filter).isNotNull();
@@ -134,9 +133,11 @@ class SecurityConfigTest {
         @DisplayName("Should register OAuth2AuthorizationRequestResolver bean")
         void shouldRegisterOAuth2AuthorizationRequestResolverBean() {
             // When & Then
-            assertThat(applicationContext.containsBean("customAuthorizationRequestResolver")).isTrue();
+            assertThat(applicationContext.containsBean("customAuthorizationRequestResolver"))
+                    .isTrue();
 
-            OAuth2AuthorizationRequestResolver resolver = applicationContext.getBean(OAuth2AuthorizationRequestResolver.class);
+            OAuth2AuthorizationRequestResolver resolver =
+                    applicationContext.getBean(OAuth2AuthorizationRequestResolver.class);
             assertThat(resolver).isNotNull();
         }
 
@@ -159,8 +160,8 @@ class SecurityConfigTest {
         @DisplayName("Should allow access to dashboard endpoint redirect when not authenticated")
         void shouldRedirectUnauthenticatedDashboardAccess() throws Exception {
             mockMvc.perform(get("/dashboard"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
         }
 
         @Test
@@ -168,14 +169,13 @@ class SecurityConfigTest {
         void shouldAllowAccessToOAuth2EndpointsWithoutAuthentication() throws Exception {
             // OAuth2 authorization endpoint should either redirect or return 500 due to test config
             // Both are acceptable for security config testing - the key is no authentication required
-            mockMvc.perform(get("/oauth2/authorization/google"))
-                .andExpect(result -> {
-                    int status = result.getResponse().getStatus();
-                    // Accept either redirect (300s) or server error (500) due to test OAuth2 config
-                    if (status < 300 || (status >= 400 && status != 500)) {
-                        throw new AssertionError("Expected 3xx redirect or 500 server error, but got: " + status);
-                    }
-                });
+            mockMvc.perform(get("/oauth2/authorization/google")).andExpect(result -> {
+                int status = result.getResponse().getStatus();
+                // Accept either redirect (300s) or server error (500) due to test OAuth2 config
+                if (status < 300 || (status >= 400 && status != 500)) {
+                    throw new AssertionError("Expected 3xx redirect or 500 server error, but got: " + status);
+                }
+            });
         }
 
         @Test
@@ -183,54 +183,53 @@ class SecurityConfigTest {
         void shouldAllowAccessToStaticResourcesWithoutAuthentication() throws Exception {
             // Static resources should be allowed without authentication
             // Accept 404 (file not found) or 500 (test config issue) - key is no auth required
-            mockMvc.perform(get("/static/css/app.css"))
-                .andExpect(result -> {
-                    int status = result.getResponse().getStatus();
-                    // Accept 404 (not found) or 500 (test server config) - both mean no auth required
-                    if (status != 404 && status != 500) {
-                        throw new AssertionError("Expected 404 or 500, but got: " + status +
-                            " (key test: no authentication required for static resources)");
-                    }
-                });
+            mockMvc.perform(get("/static/css/app.css")).andExpect(result -> {
+                int status = result.getResponse().getStatus();
+                // Accept 404 (not found) or 500 (test server config) - both mean no auth required
+                if (status != 404 && status != 500) {
+                    throw new AssertionError("Expected 404 or 500, but got: " + status
+                            + " (key test: no authentication required for static resources)");
+                }
+            });
         }
 
         @Test
         @DisplayName("Should allow access to favicon without authentication")
         void shouldAllowAccessToFaviconWithoutAuthentication() throws Exception {
             mockMvc.perform(get("/favicon.ico"))
-                .andExpect(status().isOk()); // 200 is expected as favicon.ico exists in src/main/resources/static/
+                    .andExpect(status().isOk()); // 200 is expected as favicon.ico exists in src/main/resources/static/
         }
 
         @Test
         @DisplayName("Should require authentication for API endpoints")
         void shouldRequireAuthenticationForApiEndpoints() throws Exception {
             mockMvc.perform(get("/api/v1/gmail/messages"))
-                .andExpect(status().is3xxRedirection()) // Redirect to login
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(status().is3xxRedirection()) // Redirect to login
+                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
         }
 
         @Test
         @DisplayName("Should require authentication for API filter endpoints")
         void shouldRequireAuthenticationForApiFilterEndpoints() throws Exception {
             mockMvc.perform(post("/api/v1/gmail/messages/filter"))
-                .andExpect(status().is3xxRedirection()) // Redirect to login
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(status().is3xxRedirection()) // Redirect to login
+                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
         }
 
         @Test
         @DisplayName("Should require authentication for API delete endpoints")
         void shouldRequireAuthenticationForApiDeleteEndpoints() throws Exception {
             mockMvc.perform(delete("/api/v1/gmail/messages/123"))
-                .andExpect(status().is3xxRedirection()) // Redirect to login
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(status().is3xxRedirection()) // Redirect to login
+                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
         }
 
         @Test
         @DisplayName("Should require authentication for dashboard")
         void shouldRequireAuthenticationForDashboard() throws Exception {
             mockMvc.perform(get("/dashboard"))
-                .andExpect(status().is3xxRedirection()) // Redirect to login
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(status().is3xxRedirection()) // Redirect to login
+                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
         }
     }
 
@@ -247,12 +246,12 @@ class SecurityConfigTest {
             when(tokenValidator.getTokenInfo(validToken)).thenReturn(tokenInfo);
             when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
             MessageListResult mockResult = new MessageListResult(new ArrayList<>(), null, 0);
-            when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
+            when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt()))
+                    .thenReturn(mockResult);
 
             // When & Then
-            mockMvc.perform(get("/api/v1/gmail/messages")
-                    .header("Authorization", "Bearer " + validToken))
-                .andExpect(status().isOk()); // Should be allowed with valid token
+            mockMvc.perform(get("/api/v1/gmail/messages").header("Authorization", "Bearer " + validToken))
+                    .andExpect(status().isOk()); // Should be allowed with valid token
 
             verify(tokenValidator).getTokenInfo(validToken);
             verify(tokenValidator).hasValidGmailScopes(anyString());
@@ -264,12 +263,11 @@ class SecurityConfigTest {
             // Given
             String invalidToken = "invalid-token";
             when(tokenValidator.getTokenInfo(invalidToken))
-                .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token"));
+                    .thenThrow(new com.aucontraire.gmailbuddy.exception.AuthenticationException("Invalid token"));
 
             // When & Then
-            mockMvc.perform(get("/api/v1/gmail/messages")
-                    .header("Authorization", "Bearer " + invalidToken))
-                .andExpect(status().isUnauthorized()); // Filter returns 401 for invalid tokens
+            mockMvc.perform(get("/api/v1/gmail/messages").header("Authorization", "Bearer " + invalidToken))
+                    .andExpect(status().isUnauthorized()); // Filter returns 401 for invalid tokens
 
             verify(tokenValidator).getTokenInfo(invalidToken);
         }
@@ -281,10 +279,9 @@ class SecurityConfigTest {
             String validToken = "ya29.a0ARrdaM-valid-token";
 
             // When & Then
-            mockMvc.perform(get("/dashboard")
-                    .header("Authorization", "Bearer " + validToken))
-                .andExpect(status().is3xxRedirection()) // Should still redirect to OAuth2 login
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+            mockMvc.perform(get("/dashboard").header("Authorization", "Bearer " + validToken))
+                    .andExpect(status().is3xxRedirection()) // Should still redirect to OAuth2 login
+                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
 
             verifyNoInteractions(tokenValidator); // Token should not be validated for non-API endpoints
         }
@@ -303,14 +300,15 @@ class SecurityConfigTest {
             when(tokenValidator.getTokenInfo(validToken)).thenReturn(tokenInfo);
             when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
             MessageListResult mockFilterResult = new MessageListResult(new ArrayList<>(), null, 0);
-            when(gmailService.listMessagesByFilterCriteriaWithPagination(anyString(), any(), any(), anyInt())).thenReturn(mockFilterResult);
+            when(gmailService.listMessagesByFilterCriteriaWithPagination(anyString(), any(), any(), anyInt()))
+                    .thenReturn(mockFilterResult);
 
             // When & Then - POST request should work without CSRF token (CSRF disabled for API endpoints)
             mockMvc.perform(post("/api/v1/gmail/messages/filter")
-                    .header("Authorization", "Bearer " + validToken)
-                    .contentType("application/json")
-                    .content("{}"))
-                .andExpect(status().isOk()); // Should work - CSRF is disabled for API endpoints
+                            .header("Authorization", "Bearer " + validToken)
+                            .contentType("application/json")
+                            .content("{}"))
+                    .andExpect(status().isOk()); // Should work - CSRF is disabled for API endpoints
 
             verify(tokenValidator).getTokenInfo(validToken);
         }
@@ -326,13 +324,12 @@ class SecurityConfigTest {
 
             // Mock deleteMessage to return a successful DeleteResult
             com.aucontraire.gmailbuddy.dto.DeleteResult successResult =
-                new com.aucontraire.gmailbuddy.dto.DeleteResult("123", true, null);
+                    new com.aucontraire.gmailbuddy.dto.DeleteResult("123", true, null);
             when(gmailService.deleteMessage(anyString(), anyString())).thenReturn(successResult);
 
             // When & Then - DELETE request should work without CSRF token (CSRF disabled for API endpoints)
-            mockMvc.perform(delete("/api/v1/gmail/messages/123")
-                    .header("Authorization", "Bearer " + validToken))
-                .andExpect(status().isOk()); // Should work with 200 - CSRF is disabled for API endpoints
+            mockMvc.perform(delete("/api/v1/gmail/messages/123").header("Authorization", "Bearer " + validToken))
+                    .andExpect(status().isOk()); // Should work with 200 - CSRF is disabled for API endpoints
 
             verify(tokenValidator).getTokenInfo(validToken);
         }
@@ -358,8 +355,8 @@ class SecurityConfigTest {
 
             // When & Then
             mockMvc.perform(get("/dashboard"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
 
             // Session creation is handled by Spring Security internally for OAuth2 flows
         }
@@ -373,13 +370,13 @@ class SecurityConfigTest {
             when(tokenValidator.getTokenInfo(validToken)).thenReturn(tokenInfo);
             when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
             MessageListResult mockResult = new MessageListResult(new ArrayList<>(), null, 0);
-            when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockResult);
+            when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt()))
+                    .thenReturn(mockResult);
 
             // When & Then - Multiple requests with same token should work (stateless)
             for (int i = 0; i < 3; i++) {
-                mockMvc.perform(get("/api/v1/gmail/messages")
-                        .header("Authorization", "Bearer " + validToken))
-                    .andExpect(status().isOk());
+                mockMvc.perform(get("/api/v1/gmail/messages").header("Authorization", "Bearer " + validToken))
+                        .andExpect(status().isOk());
             }
 
             verify(tokenValidator, times(3)).getTokenInfo(validToken);
@@ -417,12 +414,12 @@ class SecurityConfigTest {
             message.setId("test-message-id");
             mockMessages.add(message);
             MessageListResult mockCustomResult = new MessageListResult(mockMessages, null, mockMessages.size());
-            when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt())).thenReturn(mockCustomResult);
+            when(gmailService.listMessagesWithPagination(anyString(), any(), anyInt()))
+                    .thenReturn(mockCustomResult);
 
             // When & Then
-            mockMvc.perform(get("/api/v1/gmail/messages")
-                    .header("Authorization", "Bearer " + validToken))
-                .andExpect(status().isOk());
+            mockMvc.perform(get("/api/v1/gmail/messages").header("Authorization", "Bearer " + validToken))
+                    .andExpect(status().isOk());
 
             // Verify that our custom filter was invoked
             verify(tokenValidator).getTokenInfo(validToken);
@@ -439,7 +436,8 @@ class SecurityConfigTest {
         @DisplayName("Should configure OAuth2 login with custom authorization request resolver")
         void shouldConfigureOAuth2LoginWithCustomAuthorizationRequestResolver() {
             // When & Then
-            OAuth2AuthorizationRequestResolver resolver = applicationContext.getBean(OAuth2AuthorizationRequestResolver.class);
+            OAuth2AuthorizationRequestResolver resolver =
+                    applicationContext.getBean(OAuth2AuthorizationRequestResolver.class);
             assertThat(resolver).isNotNull();
 
             // The resolver configuration is tested through integration with OAuth2 flow
@@ -465,10 +463,9 @@ class SecurityConfigTest {
         @DisplayName("Should handle malformed Authorization header gracefully")
         void shouldHandleMalformedAuthorizationHeaderGracefully() throws Exception {
             // When & Then
-            mockMvc.perform(get("/api/v1/gmail/messages")
-                    .header("Authorization", "Malformed header"))
-                .andExpect(status().is3xxRedirection()) // Should redirect to login
-                .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+            mockMvc.perform(get("/api/v1/gmail/messages").header("Authorization", "Malformed header"))
+                    .andExpect(status().is3xxRedirection()) // Should redirect to login
+                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
 
             verifyNoInteractions(tokenValidator);
         }
@@ -479,14 +476,13 @@ class SecurityConfigTest {
             // When & Then
             // API endpoints without auth may redirect to OAuth2 login or return 403
             // Both are valid security responses - redirect for browser, 403 for API clients
-            mockMvc.perform(get("/api/v1/gmail/messages"))
-                .andExpect(result -> {
-                    int status = result.getResponse().getStatus();
-                    // Accept either redirect (3xx) or forbidden (403) - both are valid security responses
-                    if (status < 300 && status != 403) {
-                        throw new AssertionError("Expected 3xx redirect or 403 forbidden, but got: " + status);
-                    }
-                });
+            mockMvc.perform(get("/api/v1/gmail/messages")).andExpect(result -> {
+                int status = result.getResponse().getStatus();
+                // Accept either redirect (3xx) or forbidden (403) - both are valid security responses
+                if (status < 300 && status != 403) {
+                    throw new AssertionError("Expected 3xx redirect or 403 forbidden, but got: " + status);
+                }
+            });
 
             verifyNoInteractions(tokenValidator);
         }
@@ -499,9 +495,8 @@ class SecurityConfigTest {
             when(tokenValidator.getTokenInfo(validToken)).thenThrow(new RuntimeException("Token validation failed"));
 
             // When & Then
-            mockMvc.perform(get("/api/v1/gmail/messages")
-                    .header("Authorization", "Bearer " + validToken))
-                .andExpect(status().isUnauthorized()); // Filter returns 401 on validation failure
+            mockMvc.perform(get("/api/v1/gmail/messages").header("Authorization", "Bearer " + validToken))
+                    .andExpect(status().isUnauthorized()); // Filter returns 401 on validation failure
 
             verify(tokenValidator).getTokenInfo(validToken);
         }

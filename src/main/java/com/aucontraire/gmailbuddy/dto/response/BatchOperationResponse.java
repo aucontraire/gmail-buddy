@@ -4,7 +4,6 @@ import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
 import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
-
 import java.util.List;
 import java.util.Map;
 
@@ -169,12 +168,11 @@ public class BatchOperationResponse {
 
     @Override
     public String toString() {
-        return "BatchOperationResponse{" +
-                "status=" + status +
-                ", totalOperations=" + totalOperations +
-                ", successCount=" + successCount +
-                ", failureCount=" + failureCount +
-                ", metadata=" + metadata +
-                '}';
+        return "BatchOperationResponse{" + "status="
+                + status + ", totalOperations="
+                + totalOperations + ", successCount="
+                + successCount + ", failureCount="
+                + failureCount + ", metadata="
+                + metadata + '}';
     }
 }

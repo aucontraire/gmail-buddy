@@ -1,5 +1,14 @@
 package com.aucontraire.gmailbuddy.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -13,25 +22,15 @@ import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
+import java.util.Base64;
+import java.util.List;
+import java.util.Properties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.unit.DataSize;
-
-import java.util.Base64;
-import java.util.List;
-import java.util.Properties;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for the attachment-related behaviour in {@link GmailService} (T038, T041 — Phase 4 US2).
@@ -99,12 +98,12 @@ class GmailServiceAttachmentTest {
 
     @BeforeEach
     void setUp() {
-        gmailRepository      = mock(GmailRepository.class);
-        gmailQueryBuilder    = mock(GmailQueryBuilder.class);
+        gmailRepository = mock(GmailRepository.class);
+        gmailQueryBuilder = mock(GmailQueryBuilder.class);
         filterCriteriaMapper = mock(FilterCriteriaMapper.class);
-        mimeMessageBuilder   = mock(MimeMessageBuilder.class);
-        properties           = mock(GmailBuddyProperties.class);
-        send                 = mock(GmailBuddyProperties.Send.class);
+        mimeMessageBuilder = mock(MimeMessageBuilder.class);
+        properties = mock(GmailBuddyProperties.class);
+        send = mock(GmailBuddyProperties.Send.class);
         when(properties.send()).thenReturn(send);
 
         realMimeMessageBuilder = new MimeMessageBuilder();
@@ -140,15 +139,23 @@ class GmailServiceAttachmentTest {
     /** Builds a GmailService with the mocked MimeMessageBuilder (for size-check tests). */
     private GmailService serviceWithMockedBuilder() {
         return new GmailService(
-                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder,
-                mock(GmailMessageMapper.class), properties);
+                gmailRepository,
+                gmailQueryBuilder,
+                filterCriteriaMapper,
+                mimeMessageBuilder,
+                mock(GmailMessageMapper.class),
+                properties);
     }
 
     /** Builds a GmailService with the REAL MimeMessageBuilder (for log-compliance tests). */
     private GmailService serviceWithRealBuilder() {
         return new GmailService(
-                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, realMimeMessageBuilder,
-                mock(GmailMessageMapper.class), properties);
+                gmailRepository,
+                gmailQueryBuilder,
+                filterCriteriaMapper,
+                realMimeMessageBuilder,
+                mock(GmailMessageMapper.class),
+                properties);
     }
 
     /** Creates a small base64 payload that will exceed the given byte limit. */
@@ -165,8 +172,7 @@ class GmailServiceAttachmentTest {
 
     @Test
     @DisplayName("sendMessage_stage1EstimateExceeds90PercentOfLimit_throwsMessageTooLargeBeforeBuilderCalled")
-    void sendMessage_stage1EstimateExceeds90PercentOfLimit_throwsMessageTooLargeBeforeBuilderCalled()
-            throws Exception {
+    void sendMessage_stage1EstimateExceeds90PercentOfLimit_throwsMessageTooLargeBeforeBuilderCalled() throws Exception {
 
         // Arrange: small limit (1024 bytes); attachment whose decoded size > 90% of 1024
         when(send.maxTotalPayloadSize()).thenReturn(SMALL_LIMIT);
@@ -176,18 +182,12 @@ class GmailServiceAttachmentTest {
         Attachment attachment = new Attachment("test.pdf", "application/pdf", largeBase64);
 
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("r@example.com"),
-                null, null,
-                "Subject", "body", "text",
-                null, null,
-                List.of(attachment)
-        );
+                List.of("r@example.com"), null, null, "Subject", "body", "text", null, null, List.of(attachment));
 
         GmailService service = serviceWithMockedBuilder();
 
         // Act & Assert: MessageTooLargeException must be thrown BEFORE build() is called
-        assertThatThrownBy(() -> service.sendMessage(USER_ID, dto))
-                .isInstanceOf(MessageTooLargeException.class);
+        assertThatThrownBy(() -> service.sendMessage(USER_ID, dto)).isInstanceOf(MessageTooLargeException.class);
 
         // Verify the builder was never called (Stage 1 fast reject)
         verify(mimeMessageBuilder, never()).build(any(), any());
@@ -195,8 +195,7 @@ class GmailServiceAttachmentTest {
 
     @Test
     @DisplayName("createDraft_stage1EstimateExceeds90PercentOfLimit_throwsMessageTooLargeBeforeBuilderCalled")
-    void createDraft_stage1EstimateExceeds90PercentOfLimit_throwsMessageTooLargeBeforeBuilderCalled()
-            throws Exception {
+    void createDraft_stage1EstimateExceeds90PercentOfLimit_throwsMessageTooLargeBeforeBuilderCalled() throws Exception {
 
         // Arrange
         when(send.maxTotalPayloadSize()).thenReturn(SMALL_LIMIT);
@@ -205,18 +204,12 @@ class GmailServiceAttachmentTest {
         Attachment attachment = new Attachment("doc.pdf", "application/pdf", largeBase64);
 
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("r@example.com"),
-                null, null,
-                "Subject", "body", "text",
-                null, null,
-                List.of(attachment)
-        );
+                List.of("r@example.com"), null, null, "Subject", "body", "text", null, null, List.of(attachment));
 
         GmailService service = serviceWithMockedBuilder();
 
         // Act & Assert
-        assertThatThrownBy(() -> service.createDraft(USER_ID, dto))
-                .isInstanceOf(MessageTooLargeException.class);
+        assertThatThrownBy(() -> service.createDraft(USER_ID, dto)).isInstanceOf(MessageTooLargeException.class);
 
         verify(mimeMessageBuilder, never()).build(any(), any());
     }
@@ -227,8 +220,7 @@ class GmailServiceAttachmentTest {
 
     @Test
     @DisplayName("sendMessage_stage2ActualBytesExceedLimit_throwsMessageTooLargeAfterBuilderCalled")
-    void sendMessage_stage2ActualBytesExceedLimit_throwsMessageTooLargeAfterBuilderCalled()
-            throws Exception {
+    void sendMessage_stage2ActualBytesExceedLimit_throwsMessageTooLargeAfterBuilderCalled() throws Exception {
 
         // Arrange: small limit (1024 bytes); estimate is just UNDER 90% (Stage 1 passes)
         // but the serialized MIME exceeds the 100% limit.
@@ -244,31 +236,29 @@ class GmailServiceAttachmentTest {
 
         Attachment attachment = new Attachment("doc.pdf", "application/pdf", safeBase64);
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("r@example.com"),
-                null, null,
-                "Subject", "body", "text",
-                null, null,
-                List.of(attachment)
-        );
+                List.of("r@example.com"), null, null, "Subject", "body", "text", null, null, List.of(attachment));
 
         // The mocked builder returns a MimeMessage that, when serialized, exceeds 1024 bytes.
         // Use a real MimeMessage with a body large enough to push the serialized bytes over 1024.
-        MimeMessage largeMessage = new MimeMessageBuilder().build(new SendMessageDTO(
-                List.of("r@example.com"),
-                null, null,
-                "Subject",
-                "X".repeat(2000),  // large body ensures serialized bytes > 1024
-                "text",
-                null, null,
-                List.of(attachment)
-        ), null);
+        MimeMessage largeMessage = new MimeMessageBuilder()
+                .build(
+                        new SendMessageDTO(
+                                List.of("r@example.com"),
+                                null,
+                                null,
+                                "Subject",
+                                "X".repeat(2000), // large body ensures serialized bytes > 1024
+                                "text",
+                                null,
+                                null,
+                                List.of(attachment)),
+                        null);
         when(mimeMessageBuilder.build(any(SendMessageDTO.class), isNull())).thenReturn(largeMessage);
 
         GmailService service = serviceWithMockedBuilder();
 
         // Act & Assert: Stage 2 throws AFTER builder was called
-        assertThatThrownBy(() -> service.sendMessage(USER_ID, dto))
-                .isInstanceOf(MessageTooLargeException.class);
+        assertThatThrownBy(() -> service.sendMessage(USER_ID, dto)).isInstanceOf(MessageTooLargeException.class);
 
         // Builder WAS called (Stage 1 passed)
         verify(mimeMessageBuilder).build(any(SendMessageDTO.class), isNull());
@@ -276,8 +266,7 @@ class GmailServiceAttachmentTest {
 
     @Test
     @DisplayName("createDraft_stage2ActualBytesExceedLimit_throwsMessageTooLargeAfterBuilderCalled")
-    void createDraft_stage2ActualBytesExceedLimit_throwsMessageTooLargeAfterBuilderCalled()
-            throws Exception {
+    void createDraft_stage2ActualBytesExceedLimit_throwsMessageTooLargeAfterBuilderCalled() throws Exception {
 
         // Arrange: same as above but for createDraft
         when(send.maxTotalPayloadSize()).thenReturn(SMALL_LIMIT);
@@ -287,29 +276,27 @@ class GmailServiceAttachmentTest {
 
         Attachment attachment = new Attachment("doc.pdf", "application/pdf", safeBase64);
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("r@example.com"),
-                null, null,
-                "Subject", "body", "text",
-                null, null,
-                List.of(attachment)
-        );
+                List.of("r@example.com"), null, null, "Subject", "body", "text", null, null, List.of(attachment));
 
-        MimeMessage largeMessage = new MimeMessageBuilder().build(new SendMessageDTO(
-                List.of("r@example.com"),
-                null, null,
-                "Subject",
-                "X".repeat(2000),
-                "text",
-                null, null,
-                List.of(attachment)
-        ), null);
+        MimeMessage largeMessage = new MimeMessageBuilder()
+                .build(
+                        new SendMessageDTO(
+                                List.of("r@example.com"),
+                                null,
+                                null,
+                                "Subject",
+                                "X".repeat(2000),
+                                "text",
+                                null,
+                                null,
+                                List.of(attachment)),
+                        null);
         when(mimeMessageBuilder.build(any(SendMessageDTO.class), isNull())).thenReturn(largeMessage);
 
         GmailService service = serviceWithMockedBuilder();
 
         // Act & Assert
-        assertThatThrownBy(() -> service.createDraft(USER_ID, dto))
-                .isInstanceOf(MessageTooLargeException.class);
+        assertThatThrownBy(() -> service.createDraft(USER_ID, dto)).isInstanceOf(MessageTooLargeException.class);
 
         verify(mimeMessageBuilder).build(any(SendMessageDTO.class), isNull());
     }
@@ -320,19 +307,22 @@ class GmailServiceAttachmentTest {
 
     @Test
     @DisplayName("sendMessage_noAttachments_totalPayloadCheckBypassed_builderCalled")
-    void sendMessage_noAttachments_totalPayloadCheckBypassed_builderCalled()
-            throws Exception {
+    void sendMessage_noAttachments_totalPayloadCheckBypassed_builderCalled() throws Exception {
 
         // Arrange: even with a tiny limit, no attachments → Stage 1 and Stage 2 are skipped.
         when(send.maxTotalPayloadSize()).thenReturn(SMALL_LIMIT);
 
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("r@example.com"),
-                null, null,
-                "Subject", "short body", "text",
-                null, null,
-                null  // null → compact constructor normalises to List.of()
-        );
+                null,
+                null,
+                "Subject",
+                "short body",
+                "text",
+                null,
+                null,
+                null // null → compact constructor normalises to List.of()
+                );
 
         MimeMessage mimeMessage = emptyMimeMessage();
         SentMessageResult expected = new SentMessageResult("msg-id", "thread-id");
@@ -350,19 +340,13 @@ class GmailServiceAttachmentTest {
 
     @Test
     @DisplayName("createDraft_noAttachments_totalPayloadCheckBypassed_builderCalled")
-    void createDraft_noAttachments_totalPayloadCheckBypassed_builderCalled()
-            throws Exception {
+    void createDraft_noAttachments_totalPayloadCheckBypassed_builderCalled() throws Exception {
 
         // Arrange
         when(send.maxTotalPayloadSize()).thenReturn(SMALL_LIMIT);
 
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("r@example.com"),
-                null, null,
-                "Subject", "short body", "text",
-                null, null,
-                null
-        );
+                List.of("r@example.com"), null, null, "Subject", "short body", "text", null, null, null);
 
         MimeMessage mimeMessage = emptyMimeMessage();
         DraftCreationResult expected = new DraftCreationResult("d-id", "msg-id", "thread-id");
@@ -383,8 +367,7 @@ class GmailServiceAttachmentTest {
 
     @Test
     @DisplayName("sendMessage_stage1EstimateBelowThreshold_builderIsCalled")
-    void sendMessage_stage1EstimateBelowThreshold_builderIsCalled()
-            throws Exception {
+    void sendMessage_stage1EstimateBelowThreshold_builderIsCalled() throws Exception {
 
         // Arrange: limit is generous; small attachment estimate is well under 90% threshold
         when(send.maxTotalPayloadSize()).thenReturn(LARGE_LIMIT);
@@ -392,11 +375,14 @@ class GmailServiceAttachmentTest {
         Attachment smallAttachment = new Attachment("tiny.pdf", "application/pdf", "JVBERi0xLjQK");
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("r@example.com"),
-                null, null,
-                "Subject", "small body", "text",
-                null, null,
-                List.of(smallAttachment)
-        );
+                null,
+                null,
+                "Subject",
+                "small body",
+                "text",
+                null,
+                null,
+                List.of(smallAttachment));
 
         MimeMessage mimeMessage = emptyMimeMessage();
         SentMessageResult expected = new SentMessageResult("msg-id", "thread-id");
@@ -419,8 +405,7 @@ class GmailServiceAttachmentTest {
 
     @Test
     @DisplayName("sendMessage_withAttachment_noLogEventContainsFilename")
-    void sendMessage_withAttachment_noLogEventContainsFilename()
-            throws Exception {
+    void sendMessage_withAttachment_noLogEventContainsFilename() throws Exception {
 
         // Arrange: large limit so size checks pass; use real builder to exercise actual logs
         when(send.maxTotalPayloadSize()).thenReturn(LARGE_LIMIT);
@@ -428,11 +413,14 @@ class GmailServiceAttachmentTest {
         Attachment attachment = new Attachment(UNIQUE_FILENAME, "application/pdf", UNIQUE_BASE64_CONTENT);
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("r@example.com"),
-                null, null,
-                "Subject", "Hello world", "text",
-                null, null,
-                List.of(attachment)
-        );
+                null,
+                null,
+                "Subject",
+                "Hello world",
+                "text",
+                null,
+                null,
+                List.of(attachment));
 
         SentMessageResult expected = new SentMessageResult("msg-id", "thread-id");
         when(gmailRepository.sendMessage(any(), any(), isNull())).thenReturn(expected);
@@ -446,16 +434,14 @@ class GmailServiceAttachmentTest {
         List<ILoggingEvent> events = listAppender.list;
         for (ILoggingEvent event : events) {
             assertThat(event.getFormattedMessage())
-                    .as("Log event at level %s must not contain filename '%s'",
-                            event.getLevel(), UNIQUE_FILENAME)
+                    .as("Log event at level %s must not contain filename '%s'", event.getLevel(), UNIQUE_FILENAME)
                     .doesNotContain(UNIQUE_FILENAME);
         }
     }
 
     @Test
     @DisplayName("sendMessage_withAttachment_noLogEventContainsBase64Substring")
-    void sendMessage_withAttachment_noLogEventContainsBase64Substring()
-            throws Exception {
+    void sendMessage_withAttachment_noLogEventContainsBase64Substring() throws Exception {
 
         // Arrange
         when(send.maxTotalPayloadSize()).thenReturn(LARGE_LIMIT);
@@ -463,11 +449,14 @@ class GmailServiceAttachmentTest {
         Attachment attachment = new Attachment(UNIQUE_FILENAME, "application/pdf", UNIQUE_BASE64_CONTENT);
         SendMessageDTO dto = new SendMessageDTO(
                 List.of("r@example.com"),
-                null, null,
-                "Subject", "Hello world", "text",
-                null, null,
-                List.of(attachment)
-        );
+                null,
+                null,
+                "Subject",
+                "Hello world",
+                "text",
+                null,
+                null,
+                List.of(attachment));
 
         SentMessageResult expected = new SentMessageResult("msg-id", "thread-id");
         when(gmailRepository.sendMessage(any(), any(), isNull())).thenReturn(expected);
@@ -483,7 +472,8 @@ class GmailServiceAttachmentTest {
         List<ILoggingEvent> events = listAppender.list;
         for (ILoggingEvent event : events) {
             assertThat(event.getFormattedMessage())
-                    .as("Log event at level %s must not contain base64 data substring '%s'",
+                    .as(
+                            "Log event at level %s must not contain base64 data substring '%s'",
                             event.getLevel(), base64Prefix)
                     .doesNotContain(base64Prefix);
         }
@@ -491,20 +481,14 @@ class GmailServiceAttachmentTest {
 
     @Test
     @DisplayName("sendMessage_withAttachment_attachmentCountAppearsInLogs")
-    void sendMessage_withAttachment_attachmentCountAppearsInLogs()
-            throws Exception {
+    void sendMessage_withAttachment_attachmentCountAppearsInLogs() throws Exception {
 
         // Arrange
         when(send.maxTotalPayloadSize()).thenReturn(LARGE_LIMIT);
 
         Attachment attachment = new Attachment(UNIQUE_FILENAME, "application/pdf", UNIQUE_BASE64_CONTENT);
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("r@example.com"),
-                null, null,
-                "Subject", "body", "text",
-                null, null,
-                List.of(attachment)
-        );
+                List.of("r@example.com"), null, null, "Subject", "body", "text", null, null, List.of(attachment));
 
         SentMessageResult expected = new SentMessageResult("msg-id", "thread-id");
         when(gmailRepository.sendMessage(any(), any(), isNull())).thenReturn(expected);
@@ -516,8 +500,8 @@ class GmailServiceAttachmentTest {
 
         // Assert: at least one log event mentions "attachmentCount" (FR-020, SC-004)
         List<ILoggingEvent> events = listAppender.list;
-        boolean foundAttachmentCount = events.stream()
-                .anyMatch(e -> e.getFormattedMessage().contains("attachmentCount="));
+        boolean foundAttachmentCount =
+                events.stream().anyMatch(e -> e.getFormattedMessage().contains("attachmentCount="));
         assertThat(foundAttachmentCount)
                 .as("Expected at least one log event containing 'attachmentCount=' (FR-020)")
                 .isTrue();
@@ -525,20 +509,14 @@ class GmailServiceAttachmentTest {
 
     @Test
     @DisplayName("sendMessage_withAttachment_estimatedPayloadBytesAppearsInLogs")
-    void sendMessage_withAttachment_estimatedPayloadBytesAppearsInLogs()
-            throws Exception {
+    void sendMessage_withAttachment_estimatedPayloadBytesAppearsInLogs() throws Exception {
 
         // Arrange
         when(send.maxTotalPayloadSize()).thenReturn(LARGE_LIMIT);
 
         Attachment attachment = new Attachment(UNIQUE_FILENAME, "application/pdf", UNIQUE_BASE64_CONTENT);
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("r@example.com"),
-                null, null,
-                "Subject", "body", "text",
-                null, null,
-                List.of(attachment)
-        );
+                List.of("r@example.com"), null, null, "Subject", "body", "text", null, null, List.of(attachment));
 
         SentMessageResult expected = new SentMessageResult("msg-id", "thread-id");
         when(gmailRepository.sendMessage(any(), any(), isNull())).thenReturn(expected);
@@ -550,8 +528,8 @@ class GmailServiceAttachmentTest {
 
         // Assert: at least one log event mentions "estimatedPayloadBytes" (FR-020, SC-004)
         List<ILoggingEvent> events = listAppender.list;
-        boolean foundEstimate = events.stream()
-                .anyMatch(e -> e.getFormattedMessage().contains("estimatedPayloadBytes="));
+        boolean foundEstimate =
+                events.stream().anyMatch(e -> e.getFormattedMessage().contains("estimatedPayloadBytes="));
         assertThat(foundEstimate)
                 .as("Expected at least one log event containing 'estimatedPayloadBytes=' (FR-020)")
                 .isTrue();
@@ -559,8 +537,7 @@ class GmailServiceAttachmentTest {
 
     @Test
     @DisplayName("sendMessage_withAttachment_noLogEventAtAnyLevelContainsFilename")
-    void sendMessage_withAttachment_noLogEventAtAnyLevelContainsFilename_allLevelsChecked()
-            throws Exception {
+    void sendMessage_withAttachment_noLogEventAtAnyLevelContainsFilename_allLevelsChecked() throws Exception {
 
         // Arrange: verify across ALL log levels (DEBUG, INFO, WARN, ERROR, TRACE)
         when(send.maxTotalPayloadSize()).thenReturn(LARGE_LIMIT);
@@ -570,12 +547,7 @@ class GmailServiceAttachmentTest {
 
         Attachment attachment = new Attachment(UNIQUE_FILENAME, "application/pdf", UNIQUE_BASE64_CONTENT);
         SendMessageDTO dto = new SendMessageDTO(
-                List.of("r@example.com"),
-                null, null,
-                "Subject", "body", "text",
-                null, null,
-                List.of(attachment)
-        );
+                List.of("r@example.com"), null, null, "Subject", "body", "text", null, null, List.of(attachment));
 
         SentMessageResult expected = new SentMessageResult("msg-id", "thread-id");
         when(gmailRepository.sendMessage(any(), any(), isNull())).thenReturn(expected);
@@ -591,7 +563,8 @@ class GmailServiceAttachmentTest {
                 .filter(e -> e.getFormattedMessage().contains(UNIQUE_FILENAME))
                 .count();
         assertThat(violatingCount)
-                .as("Expected 0 log events containing filename '%s' but found %d (Constitution VII, FR-019)",
+                .as(
+                        "Expected 0 log events containing filename '%s' but found %d (Constitution VII, FR-019)",
                         UNIQUE_FILENAME, violatingCount)
                 .isZero();
     }

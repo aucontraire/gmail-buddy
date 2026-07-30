@@ -1,7 +1,6 @@
 package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -277,10 +276,16 @@ public class BulkOperationResult {
         String durationStr = duration >= 0 ? duration + "ms" : "in progress";
 
         return String.format(
-            "BulkOperationResult{type='%s', total=%d, success=%d, failed=%d, successRate=%.1f%%, " +
-            "batches=%d, retriedBatches=%d, totalRetries=%d, duration=%s}",
-            operationType, total, getSuccessCount(), getFailureCount(), getSuccessRate(),
-            totalBatchesProcessed, totalBatchesRetried, getTotalRetryAttempts(), durationStr
-        );
+                "BulkOperationResult{type='%s', total=%d, success=%d, failed=%d, successRate=%.1f%%, "
+                        + "batches=%d, retriedBatches=%d, totalRetries=%d, duration=%s}",
+                operationType,
+                total,
+                getSuccessCount(),
+                getFailureCount(),
+                getSuccessRate(),
+                totalBatchesProcessed,
+                totalBatchesRetried,
+                getTotalRetryAttempts(),
+                durationStr);
     }
 }

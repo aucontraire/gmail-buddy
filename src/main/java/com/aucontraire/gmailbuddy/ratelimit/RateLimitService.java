@@ -1,12 +1,11 @@
 package com.aucontraire.gmailbuddy.ratelimit;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 /**
  * Service for tracking and managing application-level rate limits.
@@ -55,8 +54,12 @@ public class RateLimitService {
 
         RateLimitInfo info = new RateLimitInfo(DEFAULT_LIMIT, remaining, windowData.getResetTime());
 
-        logger.debug("Rate limit for user {}: limit={}, remaining={}, reset={}",
-                    userId, info.getLimit(), info.getRemaining(), info.getResetTimestamp());
+        logger.debug(
+                "Rate limit for user {}: limit={}, remaining={}, reset={}",
+                userId,
+                info.getLimit(),
+                info.getRemaining(),
+                info.getResetTimestamp());
 
         return info;
     }

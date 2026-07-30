@@ -5,23 +5,18 @@ import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import com.aucontraire.gmailbuddy.security.TokenReferenceService;
 import com.aucontraire.gmailbuddy.util.SecurityLogUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Instant;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-
-import java.time.Instant;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * OAuth2 implementation of TokenProvider supporting dual authentication modes.
@@ -46,47 +41,49 @@ public class OAuth2TokenProvider implements TokenProvider {
     private final GoogleTokenValidator tokenValidator;
     private final TokenReferenceService tokenReferenceService;
 
-    public OAuth2TokenProvider(OAuth2AuthorizedClientService authorizedClientService,
-                              GmailBuddyProperties properties,
-                              GoogleTokenValidator tokenValidator,
-                              TokenReferenceService tokenReferenceService) {
+    public OAuth2TokenProvider(
+            OAuth2AuthorizedClientService authorizedClientService,
+            GmailBuddyProperties properties,
+            GoogleTokenValidator tokenValidator,
+            TokenReferenceService tokenReferenceService) {
         this.authorizedClientService = authorizedClientService;
         this.properties = properties;
         this.tokenValidator = tokenValidator;
         this.tokenReferenceService = tokenReferenceService;
     }
-    
+
     @Override
     public String getAccessToken() throws AuthenticationException {
         return getTokenFromContext();
     }
-    
+
     @Override
     public String getAccessToken(String userId) throws AuthenticationException {
         logger.debug("Retrieving access token for user: {}", userId);
-        
+
         try {
             OAuth2AuthorizedClient client = getAuthorizedClient(userId);
             OAuth2AccessToken accessToken = client.getAccessToken();
-            
+
             // Check if token is expired
-            if (accessToken.getExpiresAt() != null && 
-                accessToken.getExpiresAt().isBefore(Instant.now())) {
+            if (accessToken.getExpiresAt() != null && accessToken.getExpiresAt().isBefore(Instant.now())) {
                 logger.warn("Access token is expired for user: {}", userId);
                 throw new AuthenticationException("Access token is expired. Please re-authenticate.");
             }
-            
+
             String tokenValue = accessToken.getTokenValue();
-            logger.debug("Successfully retrieved access token for user: {} - token: {}",
-                        userId, SecurityLogUtil.maskToken(tokenValue));
+            logger.debug(
+                    "Successfully retrieved access token for user: {} - token: {}",
+                    userId,
+                    SecurityLogUtil.maskToken(tokenValue));
             return tokenValue;
-            
+
         } catch (Exception e) {
             logger.error("Failed to retrieve access token for user: {}", userId, e);
             throw new AuthenticationException("Failed to retrieve access token: " + e.getMessage(), e);
         }
     }
-    
+
     @Override
     public boolean isTokenValid() {
         try {
@@ -97,40 +94,40 @@ public class OAuth2TokenProvider implements TokenProvider {
             return false;
         }
     }
-    
+
     @Override
     public boolean isTokenValid(String userId) {
         try {
             OAuth2AuthorizedClient client = getAuthorizedClient(userId);
             OAuth2AccessToken accessToken = client.getAccessToken();
-            
+
             // Check if token exists and is not expired
-            return accessToken != null && 
-                   (accessToken.getExpiresAt() == null || 
-                    accessToken.getExpiresAt().isAfter(Instant.now()));
-                    
+            return accessToken != null
+                    && (accessToken.getExpiresAt() == null
+                            || accessToken.getExpiresAt().isAfter(Instant.now()));
+
         } catch (Exception e) {
             logger.debug("Token validation failed for user {}: {}", userId, e.getMessage());
             return false;
         }
     }
-    
+
     @Override
     public void refreshTokenIfNeeded() throws AuthenticationException {
         String principalName = getCurrentPrincipalName();
         refreshTokenIfNeeded(principalName);
     }
-    
+
     @Override
     public void refreshTokenIfNeeded(String userId) throws AuthenticationException {
         // Note: In current Spring Security OAuth2 Client implementation,
         // token refresh is handled automatically by the OAuth2AuthorizedClientService
         // when loadAuthorizedClient is called and the token is expired.
         // This method is a placeholder for explicit refresh logic if needed in the future.
-        
+
         if (!isTokenValid(userId)) {
             logger.info("Token is invalid for user: {}, attempting refresh", userId);
-            
+
             // The refresh will happen automatically on next getAuthorizedClient call
             // due to Spring Security OAuth2 Client's built-in refresh mechanism
             try {
@@ -142,24 +139,24 @@ public class OAuth2TokenProvider implements TokenProvider {
             }
         }
     }
-    
+
     @Override
     public String getCurrentPrincipalName() throws AuthenticationException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        
+
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new AuthenticationException("No authenticated user found in security context");
         }
-        
+
         String principalName = authentication.getName();
         if (principalName == null || principalName.trim().isEmpty()) {
             throw new AuthenticationException("Principal name is null or empty");
         }
-        
+
         logger.debug("Current principal name: {}", principalName);
         return principalName;
     }
-    
+
     @Override
     public String getBearerToken() throws AuthenticationException {
         HttpServletRequest request = getCurrentHttpRequest();
@@ -174,8 +171,9 @@ public class OAuth2TokenProvider implements TokenProvider {
             throw new AuthenticationException("Bearer token is empty");
         }
 
-        logger.debug("Successfully extracted Bearer token from Authorization header: {}",
-                    SecurityLogUtil.maskBearerToken(token));
+        logger.debug(
+                "Successfully extracted Bearer token from Authorization header: {}",
+                SecurityLogUtil.maskBearerToken(token));
         return token;
     }
 
@@ -192,8 +190,9 @@ public class OAuth2TokenProvider implements TokenProvider {
         try {
             String bearerToken = getBearerToken();
             if (isValidBearerToken(bearerToken)) {
-                logger.debug("Successfully authenticated using Bearer token: {}",
-                            SecurityLogUtil.maskBearerToken(bearerToken));
+                logger.debug(
+                        "Successfully authenticated using Bearer token: {}",
+                        SecurityLogUtil.maskBearerToken(bearerToken));
                 return bearerToken;
             } else {
                 logger.debug("Bearer token validation failed");
@@ -206,8 +205,10 @@ public class OAuth2TokenProvider implements TokenProvider {
         // Second, check if we have API client authentication from our custom filter
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated() &&
-                authentication.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_API_USER"))) {
+            if (authentication != null
+                    && authentication.isAuthenticated()
+                    && authentication.getAuthorities().stream()
+                            .anyMatch(auth -> auth.getAuthority().equals("ROLE_API_USER"))) {
                 // SECURITY FIX: API client authenticated via our custom filter - retrieve token from secure reference
                 Object credentials = authentication.getCredentials();
                 if (credentials instanceof String) {
@@ -216,8 +217,10 @@ public class OAuth2TokenProvider implements TokenProvider {
                     // Retrieve actual token from secure token reference
                     Optional<String> token = tokenReferenceService.getToken(tokenReferenceId);
                     if (token.isPresent()) {
-                        logger.debug("Successfully retrieved token from secure token reference {}: {}",
-                                    tokenReferenceId, SecurityLogUtil.maskToken(token.get()));
+                        logger.debug(
+                                "Successfully retrieved token from secure token reference {}: {}",
+                                tokenReferenceId,
+                                SecurityLogUtil.maskToken(token.get()));
                         return token.get();
                     } else {
                         logger.warn("Token reference not found or expired");
@@ -234,14 +237,14 @@ public class OAuth2TokenProvider implements TokenProvider {
         try {
             String principalName = getCurrentPrincipalName();
             String oauth2Token = getAccessToken(principalName);
-            logger.debug("Successfully authenticated using OAuth2 context: {}",
-                        SecurityLogUtil.maskToken(oauth2Token));
+            logger.debug("Successfully authenticated using OAuth2 context: {}", SecurityLogUtil.maskToken(oauth2Token));
             return oauth2Token;
         } catch (Exception e) {
-            logger.error("All authentication methods failed. Bearer: {}, API Client: {}, OAuth2: {}",
-                        lastException != null ? lastException.getMessage() : "None",
-                        "No API client authentication found",
-                        e.getMessage());
+            logger.error(
+                    "All authentication methods failed. Bearer: {}, API Client: {}, OAuth2: {}",
+                    lastException != null ? lastException.getMessage() : "None",
+                    "No API client authentication found",
+                    e.getMessage());
             throw new AuthenticationException("Authentication failed: No valid authentication method found", e);
         }
     }
@@ -270,18 +273,17 @@ public class OAuth2TokenProvider implements TokenProvider {
     private OAuth2AuthorizedClient getAuthorizedClient(String principalName) throws AuthenticationException {
         String registrationId = properties.oauth2().clientRegistrationId();
 
-        OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(
-            registrationId,
-            principalName
-        );
+        OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(registrationId, principalName);
 
         if (client == null) {
-            logger.error("OAuth2AuthorizedClient is null for clientRegistrationId: {}, principalName: {}",
-                        registrationId, principalName);
-            throw new AuthenticationException(
-                String.format("OAuth2AuthorizedClient not found for user '%s' with registration '%s'. " +
-                             "Please re-authenticate.", principalName, registrationId)
-            );
+            logger.error(
+                    "OAuth2AuthorizedClient is null for clientRegistrationId: {}, principalName: {}",
+                    registrationId,
+                    principalName);
+            throw new AuthenticationException(String.format(
+                    "OAuth2AuthorizedClient not found for user '%s' with registration '%s'. "
+                            + "Please re-authenticate.",
+                    principalName, registrationId));
         }
 
         logger.debug("Successfully retrieved OAuth2AuthorizedClient for user: {}", principalName);

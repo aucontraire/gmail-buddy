@@ -4,7 +4,6 @@ import com.aucontraire.gmailbuddy.validation.GmailMessageId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-
 import java.util.List;
 
 /**
@@ -19,10 +18,8 @@ import java.util.List;
  */
 @Schema(description = "A list of Gmail message IDs to apply a batch mutation to")
 public record BatchMessageIdsRequest(
-
-    @Schema(description = "Gmail message IDs to move to/restore from Trash", example = "[\"18d1a2b3c4d5e6f7\", \"18d1a2b3c4d5e700\"]")
-    @NotEmpty(message = "messageIds must not be empty")
-    List<@NotNull @GmailMessageId String> messageIds
-
-) {
-}
+        @Schema(
+                        description = "Gmail message IDs to move to/restore from Trash",
+                        example = "[\"18d1a2b3c4d5e6f7\", \"18d1a2b3c4d5e700\"]")
+                @NotEmpty(message = "messageIds must not be empty")
+                List<@NotNull @GmailMessageId String> messageIds) {}

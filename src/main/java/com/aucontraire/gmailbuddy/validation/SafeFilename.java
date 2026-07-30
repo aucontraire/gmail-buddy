@@ -48,7 +48,8 @@ public @interface SafeFilename {
      *
      * @return the error message template
      */
-    String message() default "Filename must not contain line-terminator characters, path-traversal sequences (.. / \\), or NUL bytes";
+    String message() default
+            "Filename must not contain line-terminator characters, path-traversal sequences (.. / \\), or NUL bytes";
 
     /**
      * Validation groups this constraint belongs to.

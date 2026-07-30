@@ -1,16 +1,15 @@
 package com.aucontraire.gmailbuddy.validation;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import jakarta.validation.ConstraintValidatorContext;
+import java.lang.reflect.Field;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.util.unit.DataSize;
-
-import java.lang.reflect.Field;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link MaxBodySizeValidator}.
@@ -199,7 +198,8 @@ class MaxBodySizeValidatorTest {
                         "me",
                         50,
                         100L,
-                        new GmailBuddyProperties.GmailApi.RateLimit(60L,
+                        new GmailBuddyProperties.GmailApi.RateLimit(
+                                60L,
                                 new GmailBuddyProperties.GmailApi.RateLimit.BatchOperations(
                                         1000L, 3, 1000L, 2.0, 30000L, 50, 0L)),
                         new GmailBuddyProperties.GmailApi.ServiceUnavailable(60L),
@@ -209,32 +209,31 @@ class MaxBodySizeValidatorTest {
                                 new GmailBuddyProperties.GmailApi.MessageProcessing.Labels("UNREAD")),
                         new GmailBuddyProperties.GmailApi.QueryOperators(
                                 "from:", "to:", "subject:", "has:attachment", "label:", " AND ")),
-                new GmailBuddyProperties.OAuth2(
-                        "google",
-                        new GmailBuddyProperties.OAuth2.Token("Bearer ")),
+                new GmailBuddyProperties.OAuth2("google", new GmailBuddyProperties.OAuth2.Token("Bearer ")),
                 new GmailBuddyProperties.ErrorHandling(
                         new GmailBuddyProperties.ErrorHandling.ErrorCodes(
-                                "RATE_LIMIT_EXCEEDED", "SERVICE_UNAVAILABLE", "VALIDATION_ERROR",
-                                "CONSTRAINT_VIOLATION", "GMAIL_SERVICE_ERROR", "MESSAGE_NOT_FOUND",
-                                "AUTHENTICATION_ERROR", "AUTHORIZATION_ERROR", "RESOURCE_NOT_FOUND",
-                                "GMAIL_API_ERROR", "INTERNAL_SERVER_ERROR"),
-                        new GmailBuddyProperties.ErrorHandling.ErrorCategories(
-                                "CLIENT_ERROR", "SERVER_ERROR")),
+                                "RATE_LIMIT_EXCEEDED",
+                                "SERVICE_UNAVAILABLE",
+                                "VALIDATION_ERROR",
+                                "CONSTRAINT_VIOLATION",
+                                "GMAIL_SERVICE_ERROR",
+                                "MESSAGE_NOT_FOUND",
+                                "AUTHENTICATION_ERROR",
+                                "AUTHORIZATION_ERROR",
+                                "RESOURCE_NOT_FOUND",
+                                "GMAIL_API_ERROR",
+                                "INTERNAL_SERVER_ERROR"),
+                        new GmailBuddyProperties.ErrorHandling.ErrorCategories("CLIENT_ERROR", "SERVER_ERROR")),
                 new GmailBuddyProperties.Validation(
-                        new GmailBuddyProperties.Validation.GmailQuery(
-                                "<script>", "^[a-zA-Z0-9]+$"),
-                        new GmailBuddyProperties.Validation.Email(
-                                "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")),
+                        new GmailBuddyProperties.Validation.GmailQuery("<script>", "^[a-zA-Z0-9]+$"),
+                        new GmailBuddyProperties.Validation.Email("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")),
                 new GmailBuddyProperties.Security(
-                        new String[]{"/actuator/health"},
-                        new GmailBuddyProperties.Security.OAuth2Security(
-                                "/dashboard", "/oauth2/authorization/google")),
-                new GmailBuddyProperties.Environment(
-                        new GmailBuddyProperties.Environment.EnvFile("./", ".env")),
+                        new String[] {"/actuator/health"},
+                        new GmailBuddyProperties.Security.OAuth2Security("/dashboard", "/oauth2/authorization/google")),
+                new GmailBuddyProperties.Environment(new GmailBuddyProperties.Environment.EnvFile("./", ".env")),
                 new GmailBuddyProperties.ApplicationRateLimit(1000, 60),
-                new GmailBuddyProperties.Send(maxBodySize, 500, 998,
-                        org.springframework.util.unit.DataSize.ofMegabytes(25))
-        );
+                new GmailBuddyProperties.Send(
+                        maxBodySize, 500, 998, org.springframework.util.unit.DataSize.ofMegabytes(25)));
     }
 
     /**
@@ -244,8 +243,8 @@ class MaxBodySizeValidatorTest {
      *
      * @throws Exception if the field cannot be accessed
      */
-    private static void injectProperties(MaxBodySizeValidator target,
-                                         GmailBuddyProperties properties) throws Exception {
+    private static void injectProperties(MaxBodySizeValidator target, GmailBuddyProperties properties)
+            throws Exception {
         Field field = MaxBodySizeValidator.class.getDeclaredField("gmailBuddyProperties");
         field.setAccessible(true);
         field.set(target, properties);
@@ -254,8 +253,7 @@ class MaxBodySizeValidatorTest {
     /**
      * Unchecked wrapper around {@link #injectProperties} for use inside lambdas.
      */
-    private static void injectPropertiesUnchecked(MaxBodySizeValidator target,
-                                                   GmailBuddyProperties properties) {
+    private static void injectPropertiesUnchecked(MaxBodySizeValidator target, GmailBuddyProperties properties) {
         try {
             injectProperties(target, properties);
         } catch (Exception e) {

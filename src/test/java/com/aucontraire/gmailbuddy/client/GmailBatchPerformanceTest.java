@@ -1,23 +1,15 @@
 package com.aucontraire.gmailbuddy.client;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
+
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.google.api.client.googleapis.batch.BatchRequest;
-import com.google.api.client.googleapis.batch.json.JsonBatchCallback;
-import com.google.api.client.http.HttpHeaders;
 import com.google.api.services.gmail.Gmail;
-import com.google.api.services.gmail.model.ModifyMessageRequest;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,12 +18,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.lenient;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Performance and large-scale tests for GmailBatchClient.
@@ -73,7 +68,8 @@ class GmailBatchPerformanceTest {
         // Create nested mock structure for GmailBuddyProperties
         GmailBuddyProperties.GmailApi gmailApi = mock(GmailBuddyProperties.GmailApi.class);
         GmailBuddyProperties.GmailApi.RateLimit rateLimit = mock(GmailBuddyProperties.GmailApi.RateLimit.class);
-        GmailBuddyProperties.GmailApi.RateLimit.BatchOperations batchOps = mock(GmailBuddyProperties.GmailApi.RateLimit.BatchOperations.class);
+        GmailBuddyProperties.GmailApi.RateLimit.BatchOperations batchOps =
+                mock(GmailBuddyProperties.GmailApi.RateLimit.BatchOperations.class);
 
         // Wire up the mock chain
         lenient().when(properties.gmailApi()).thenReturn(gmailApi);
@@ -103,12 +99,12 @@ class GmailBatchPerformanceTest {
     @ParameterizedTest
     @MethodSource("largeScaleTestCases")
     @DisplayName("Should handle large-scale operations with optimal batch partitioning")
-    void batchDeleteMessages_LargeScale_ShouldPartitionOptimally(int messageCount, int expectedChunks) throws IOException {
+    void batchDeleteMessages_LargeScale_ShouldPartitionOptimally(int messageCount, int expectedChunks)
+            throws IOException {
         // Arrange
         String userId = "me";
-        List<String> messageIds = IntStream.range(1, messageCount + 1)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+        List<String> messageIds =
+                IntStream.range(1, messageCount + 1).mapToObj(i -> "msg" + i).toList();
 
         // Note: With native batchDelete API, we don't mock individual delete operations
         // The batchDelete mock is already set up in setUp() method
@@ -129,23 +125,23 @@ class GmailBatchPerformanceTest {
         assertThat(duration).isLessThan(messageCount * 2); // 2ms per message is very generous for mocked operations
 
         // Log performance metrics for visibility
-        System.out.printf("Processed %d messages in %d chunks in %dms (%.2f messages/second)%n",
-                messageCount, expectedChunks, duration,
-                messageCount / Math.max(duration / 1000.0, 0.001));
+        System.out.printf(
+                "Processed %d messages in %d chunks in %dms (%.2f messages/second)%n",
+                messageCount, expectedChunks, duration, messageCount / Math.max(duration / 1000.0, 0.001));
     }
 
     static Stream<Arguments> largeScaleTestCases() {
         // Native batchDelete supports up to 1000 messages per chunk
         return Stream.of(
-                Arguments.of(50, 1),       // Single chunk
-                Arguments.of(500, 1),      // Single chunk
-                Arguments.of(1000, 1),     // Exactly one chunk
-                Arguments.of(1500, 2),     // 1.5 chunks
-                Arguments.of(2000, 2),     // 2 chunks
-                Arguments.of(5000, 5),     // 5 chunks
-                Arguments.of(10000, 10),   // 10 chunks
-                Arguments.of(20000, 20)    // 20 chunks stress test
-        );
+                Arguments.of(50, 1), // Single chunk
+                Arguments.of(500, 1), // Single chunk
+                Arguments.of(1000, 1), // Exactly one chunk
+                Arguments.of(1500, 2), // 1.5 chunks
+                Arguments.of(2000, 2), // 2 chunks
+                Arguments.of(5000, 5), // 5 chunks
+                Arguments.of(10000, 10), // 10 chunks
+                Arguments.of(20000, 20) // 20 chunks stress test
+                );
     }
 
     @Test
@@ -178,17 +174,21 @@ class GmailBatchPerformanceTest {
         }
 
         // Assert consistent performance
-        double averageTime = executionTimes.stream().mapToLong(Long::longValue).average().orElse(0);
-        double maxTime = executionTimes.stream().mapToLong(Long::longValue).max().orElse(0);
-        double minTime = executionTimes.stream().mapToLong(Long::longValue).min().orElse(0);
+        double averageTime =
+                executionTimes.stream().mapToLong(Long::longValue).average().orElse(0);
+        double maxTime =
+                executionTimes.stream().mapToLong(Long::longValue).max().orElse(0);
+        double minTime =
+                executionTimes.stream().mapToLong(Long::longValue).min().orElse(0);
 
         // Performance shouldn't vary dramatically between executions (be more generous for mock timing variance)
         // Use Math.max to handle near-zero timing where variance check would be too strict
-        assertThat(maxTime - minTime).isLessThan(Math.max(averageTime * 2, 10)); // Variance should be reasonable, min 10ms threshold
+        assertThat(maxTime - minTime)
+                .isLessThan(Math.max(averageTime * 2, 10)); // Variance should be reasonable, min 10ms threshold
         assertThat(averageTime).isLessThan(5000); // Average should be under 5 seconds for mocked operations
 
-        System.out.printf("Performance consistency: avg=%.2fms, min=%.2fms, max=%.2fms%n",
-                averageTime, minTime, maxTime);
+        System.out.printf(
+                "Performance consistency: avg=%.2fms, min=%.2fms, max=%.2fms%n", averageTime, minTime, maxTime);
     }
 
     @Test
@@ -200,11 +200,11 @@ class GmailBatchPerformanceTest {
 
         // Monitor memory before operation
         System.gc();
-        long memoryBefore = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+        long memoryBefore =
+                Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
 
-        List<String> messageIds = IntStream.range(1, messageCount + 1)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+        List<String> messageIds =
+                IntStream.range(1, messageCount + 1).mapToObj(i -> "msg" + i).toList();
 
         // Note: No individual delete mocks needed with native batchDelete API
 
@@ -215,7 +215,8 @@ class GmailBatchPerformanceTest {
 
         // Monitor memory after operation
         System.gc();
-        long memoryAfter = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+        long memoryAfter =
+                Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
         long memoryUsed = memoryAfter - memoryBefore;
 
         // Assert
@@ -226,8 +227,8 @@ class GmailBatchPerformanceTest {
         // Memory usage should be reasonable (less than 100MB for this operation)
         assertThat(memoryUsed).isLessThan(100 * 1024 * 1024);
 
-        System.out.printf("Processed %d messages in %dms using %d bytes of memory%n",
-                messageCount, duration, memoryUsed);
+        System.out.printf(
+                "Processed %d messages in %dms using %d bytes of memory%n", messageCount, duration, memoryUsed);
     }
 
     @Test
@@ -290,7 +291,8 @@ class GmailBatchPerformanceTest {
         assertThat(totalOperations).isEqualTo(threadsCount * messagesPerThread);
         assertThat(duration).isLessThan(15000); // Should complete within 15 seconds
 
-        System.out.printf("Concurrent execution: %d threads, %d total operations in %dms%n",
+        System.out.printf(
+                "Concurrent execution: %d threads, %d total operations in %dms%n",
                 threadsCount, totalOperations, duration);
     }
 
@@ -326,9 +328,8 @@ class GmailBatchPerformanceTest {
         // Arrange
         String userId = "me";
         int messageCount = 1000;
-        List<String> messageIds = IntStream.range(1, messageCount + 1)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+        List<String> messageIds =
+                IntStream.range(1, messageCount + 1).mapToObj(i -> "msg" + i).toList();
 
         // Note: With native batchDelete API, it's all-or-nothing per chunk
         // We can't easily test mixed results without mocking IOException scenarios
@@ -350,9 +351,8 @@ class GmailBatchPerformanceTest {
 
         String userId = "me";
         int messageCount = 500;
-        List<String> messageIds = IntStream.range(1, messageCount + 1)
-                .mapToObj(i -> "msg" + i)
-                .toList();
+        List<String> messageIds =
+                IntStream.range(1, messageCount + 1).mapToObj(i -> "msg" + i).toList();
 
         // Simulate batch operation timing
         long batchStartTime = System.currentTimeMillis();
@@ -370,11 +370,12 @@ class GmailBatchPerformanceTest {
         // - Native batchDelete: 1 HTTP request = ~5-10 seconds (50 quota units flat fee)
         // This represents a 27x-54x performance improvement!
 
-        System.out.printf("Native batchDelete processed %d messages in %d chunk in %dms%n",
-                messageCount, 1, batchDuration);
-        System.out.printf("Theoretical individual operations would take ~%d minutes%n",
+        System.out.printf(
+                "Native batchDelete processed %d messages in %d chunk in %dms%n", messageCount, 1, batchDuration);
+        System.out.printf(
+                "Theoretical individual operations would take ~%d minutes%n",
                 messageCount * 500 / 1000 / 60); // Assuming 500ms per individual operation
-        System.out.printf("Performance improvement: ~%.1fx faster%n",
-                (messageCount * 500.0) / Math.max(batchDuration, 1));
+        System.out.printf(
+                "Performance improvement: ~%.1fx faster%n", (messageCount * 500.0) / Math.max(batchDuration, 1));
     }
 }

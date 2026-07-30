@@ -1,15 +1,14 @@
 package com.aucontraire.gmailbuddy.dto.response;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
 import com.google.api.services.gmail.model.Message;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for MessageListResponse DTO.
@@ -23,10 +22,8 @@ class MessageListResponseTest {
     void builder_WithAllFields_CreatesValidResponse() {
         // Given
         List<MessageSummary> messages = createTestMessageSummaries(3);
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(150L)
-                .quotaUsed(5)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(150L).quotaUsed(5).build();
 
         // When
         MessageListResponse response = MessageListResponse.builder()
@@ -94,10 +91,8 @@ class MessageListResponseTest {
     @DisplayName("builder creates response with metadata included")
     void builder_WithMetadata_IncludesMetadata() {
         // Given
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(250L)
-                .quotaUsed(10)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(250L).quotaUsed(10).build();
 
         // When
         MessageListResponse response = MessageListResponse.builder()
@@ -139,9 +134,8 @@ class MessageListResponseTest {
     void getMessages_ReturnsMessageList() {
         // Given
         List<MessageSummary> messages = createTestMessageSummaries(4);
-        MessageListResponse response = MessageListResponse.builder()
-                .messages(messages)
-                .build();
+        MessageListResponse response =
+                MessageListResponse.builder().messages(messages).build();
 
         // When
         List<MessageSummary> result = response.getMessages();
@@ -154,9 +148,8 @@ class MessageListResponseTest {
     @DisplayName("getTotalCount() returns the total count")
     void getTotalCount_ReturnsTotalCount() {
         // Given
-        MessageListResponse response = MessageListResponse.builder()
-                .totalCount(42)
-                .build();
+        MessageListResponse response =
+                MessageListResponse.builder().totalCount(42).build();
 
         // When
         Integer totalCount = response.getTotalCount();
@@ -169,9 +162,8 @@ class MessageListResponseTest {
     @DisplayName("getHasMore() returns the hasMore flag")
     void getHasMore_ReturnsHasMoreFlag() {
         // Given
-        MessageListResponse response = MessageListResponse.builder()
-                .hasMore(true)
-                .build();
+        MessageListResponse response =
+                MessageListResponse.builder().hasMore(true).build();
 
         // When
         Boolean hasMore = response.getHasMore();
@@ -184,9 +176,8 @@ class MessageListResponseTest {
     @DisplayName("getNextPageToken() returns the next page token")
     void getNextPageToken_ReturnsNextPageToken() {
         // Given
-        MessageListResponse response = MessageListResponse.builder()
-                .nextPageToken("page-token-xyz")
-                .build();
+        MessageListResponse response =
+                MessageListResponse.builder().nextPageToken("page-token-xyz").build();
 
         // When
         String token = response.getNextPageToken();
@@ -199,13 +190,10 @@ class MessageListResponseTest {
     @DisplayName("getMetadata() returns the response metadata")
     void getMetadata_ReturnsMetadata() {
         // Given
-        ResponseMetadata metadata = ResponseMetadata.builder()
-                .durationMs(300L)
-                .quotaUsed(15)
-                .build();
-        MessageListResponse response = MessageListResponse.builder()
-                .metadata(metadata)
-                .build();
+        ResponseMetadata metadata =
+                ResponseMetadata.builder().durationMs(300L).quotaUsed(15).build();
+        MessageListResponse response =
+                MessageListResponse.builder().metadata(metadata).build();
 
         // When
         ResponseMetadata result = response.getMetadata();

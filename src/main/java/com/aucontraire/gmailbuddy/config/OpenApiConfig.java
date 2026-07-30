@@ -11,10 +11,9 @@ import io.swagger.v3.oas.models.security.Scopes;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.util.List;
 
 /**
  * OpenAPI/Swagger configuration for Gmail Buddy API documentation.
@@ -28,15 +27,10 @@ public class OpenApiConfig {
     public OpenAPI gmailBuddyOpenAPI() {
         return new OpenAPI()
                 .info(apiInfo())
-                .servers(List.of(
-                        new Server()
-                                .url("http://localhost:8020")
-                                .description("Local Development Server")
-                ))
+                .servers(List.of(new Server().url("http://localhost:8020").description("Local Development Server")))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth", bearerAuthScheme())
-                        .addSecuritySchemes("oauth2", oauth2Scheme())
-                )
+                        .addSecuritySchemes("oauth2", oauth2Scheme()))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
     }
 
@@ -44,7 +38,8 @@ public class OpenApiConfig {
         return new Info()
                 .title("Gmail Buddy API")
                 .version("1.0.0")
-                .description("""
+                .description(
+                        """
                         Gmail Buddy is a REST API for managing Gmail messages with OAuth2 authentication.
 
                         ## Features
@@ -68,12 +63,8 @@ public class OpenApiConfig {
                         ## Response Format
                         All responses follow RFC 7807 for errors and include standardized metadata.
                         """)
-                .contact(new Contact()
-                        .name("Gmail Buddy Team")
-                        .email("support@gmailbuddy.example.com"))
-                .license(new License()
-                        .name("MIT License")
-                        .url("https://opensource.org/licenses/MIT"));
+                .contact(new Contact().name("Gmail Buddy Team").email("support@gmailbuddy.example.com"))
+                .license(new License().name("MIT License").url("https://opensource.org/licenses/MIT"));
     }
 
     private SecurityScheme bearerAuthScheme() {
@@ -95,11 +86,10 @@ public class OpenApiConfig {
                                 .scopes(new Scopes()
                                         .addString("email", "Access email address")
                                         .addString("profile", "Access profile information")
-                                        .addString("https://www.googleapis.com/auth/gmail.readonly", "Read Gmail messages")
-                                        .addString("https://www.googleapis.com/auth/gmail.modify", "Modify Gmail messages")
-                                        .addString("https://mail.google.com/", "Full Gmail access")
-                                )
-                        )
-                );
+                                        .addString(
+                                                "https://www.googleapis.com/auth/gmail.readonly", "Read Gmail messages")
+                                        .addString(
+                                                "https://www.googleapis.com/auth/gmail.modify", "Modify Gmail messages")
+                                        .addString("https://mail.google.com/", "Full Gmail access"))));
     }
 }

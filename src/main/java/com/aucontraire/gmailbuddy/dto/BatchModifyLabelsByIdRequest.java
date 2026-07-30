@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-
 import java.util.List;
 
 /**
@@ -24,18 +23,13 @@ import java.util.List;
  */
 @Schema(description = "A list of Gmail message IDs plus raw label IDs to add/remove on exactly those messages")
 public record BatchModifyLabelsByIdRequest(
-
-    @Schema(description = "Gmail message IDs to modify labels on", example = "[\"18d1a2b3c4d5e6f7\"]")
-    @NotEmpty(message = "messageIds must not be empty")
-    List<@NotNull @GmailMessageId String> messageIds,
-
-    @Schema(description = "Raw Gmail label IDs to add to each message", example = "[\"Label_42\"]")
-    List<@NotNull @GmailLabelId String> labelIdsToAdd,
-
-    @Schema(description = "Raw Gmail label IDs to remove from each message", example = "[\"UNREAD\"]")
-    List<@NotNull @GmailLabelId String> labelIdsToRemove
-
-) {
+        @Schema(description = "Gmail message IDs to modify labels on", example = "[\"18d1a2b3c4d5e6f7\"]")
+                @NotEmpty(message = "messageIds must not be empty")
+                List<@NotNull @GmailMessageId String> messageIds,
+        @Schema(description = "Raw Gmail label IDs to add to each message", example = "[\"Label_42\"]")
+                List<@NotNull @GmailLabelId String> labelIdsToAdd,
+        @Schema(description = "Raw Gmail label IDs to remove from each message", example = "[\"UNREAD\"]")
+                List<@NotNull @GmailLabelId String> labelIdsToRemove) {
 
     /**
      * Class-level constraint (FR-007): a no-op modify — both {@code labelIdsToAdd}

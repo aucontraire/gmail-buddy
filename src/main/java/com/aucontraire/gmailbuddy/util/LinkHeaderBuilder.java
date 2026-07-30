@@ -1,8 +1,8 @@
 package com.aucontraire.gmailbuddy.util;
 
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
  * Builds RFC 5988 Link headers for pagination.
@@ -15,9 +15,9 @@ public class LinkHeaderBuilder {
     public LinkHeaderBuilder addNext(String nextPageToken) {
         if (nextPageToken != null && !nextPageToken.isEmpty()) {
             String url = ServletUriComponentsBuilder.fromCurrentRequest()
-                .replaceQueryParam("pageToken", nextPageToken)
-                .build()
-                .toUriString();
+                    .replaceQueryParam("pageToken", nextPageToken)
+                    .build()
+                    .toUriString();
             links.add(new Link(url, "next"));
         }
         return this;
@@ -26,9 +26,9 @@ public class LinkHeaderBuilder {
     public LinkHeaderBuilder addPrev(String prevPageToken) {
         if (prevPageToken != null && !prevPageToken.isEmpty()) {
             String url = ServletUriComponentsBuilder.fromCurrentRequest()
-                .replaceQueryParam("pageToken", prevPageToken)
-                .build()
-                .toUriString();
+                    .replaceQueryParam("pageToken", prevPageToken)
+                    .build()
+                    .toUriString();
             links.add(new Link(url, "prev"));
         }
         return this;
@@ -36,9 +36,9 @@ public class LinkHeaderBuilder {
 
     public LinkHeaderBuilder addFirst() {
         String url = ServletUriComponentsBuilder.fromCurrentRequest()
-            .replaceQueryParam("pageToken")
-            .build()
-            .toUriString();
+                .replaceQueryParam("pageToken")
+                .build()
+                .toUriString();
         links.add(new Link(url, "first"));
         return this;
     }
@@ -46,9 +46,9 @@ public class LinkHeaderBuilder {
     public LinkHeaderBuilder addLast(String lastPageToken) {
         if (lastPageToken != null && !lastPageToken.isEmpty()) {
             String url = ServletUriComponentsBuilder.fromCurrentRequest()
-                .replaceQueryParam("pageToken", lastPageToken)
-                .build()
-                .toUriString();
+                    .replaceQueryParam("pageToken", lastPageToken)
+                    .build()
+                    .toUriString();
             links.add(new Link(url, "last"));
         }
         return this;

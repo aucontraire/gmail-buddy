@@ -1,10 +1,9 @@
 package com.aucontraire.gmailbuddy.config;
 
+import jakarta.validation.Validator;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
-
-import jakarta.validation.Validator;
 
 /**
  * Test configuration for configuration properties tests.

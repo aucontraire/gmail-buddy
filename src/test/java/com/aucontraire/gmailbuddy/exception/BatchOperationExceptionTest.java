@@ -1,16 +1,15 @@
 package com.aucontraire.gmailbuddy.exception;
 
+import static org.assertj.core.api.Assertions.*;
+
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.HttpStatus;
-
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.*;
 
 @DisplayName("BatchOperationException Tests")
 class BatchOperationExceptionTest {
@@ -156,9 +155,9 @@ class BatchOperationExceptionTest {
 
     static Stream<Arguments> httpStatusTestCases() {
         return Stream.of(
-                Arguments.of(true, HttpStatus.MULTI_STATUS.value()),   // Partial failure
-                Arguments.of(false, HttpStatus.BAD_GATEWAY.value())    // Complete failure
-        );
+                Arguments.of(true, HttpStatus.MULTI_STATUS.value()), // Partial failure
+                Arguments.of(false, HttpStatus.BAD_GATEWAY.value()) // Complete failure
+                );
     }
 
     @Test
@@ -197,9 +196,7 @@ class BatchOperationExceptionTest {
         BatchOperationException exception = BatchOperationException.partialFailure(result);
 
         // Assert
-        assertThat(exception.getMessage())
-                .contains("1/4 operations succeeded")
-                .contains("25.0% success rate");
+        assertThat(exception.getMessage()).contains("1/4 operations succeeded").contains("25.0% success rate");
         assertThat(exception.getSuccessRate()).isEqualTo(25.0);
         assertThat(exception.isPartialFailure()).isTrue();
     }
@@ -264,8 +261,7 @@ class BatchOperationExceptionTest {
             BatchOperationException exception = BatchOperationException.completeFailure(result);
 
             // Assert
-            assertThat(exception.getMessage())
-                    .contains("Batch " + operationType + " operation completely failed");
+            assertThat(exception.getMessage()).contains("Batch " + operationType + " operation completely failed");
         }
     }
 

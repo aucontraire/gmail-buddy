@@ -1,17 +1,15 @@
 package com.aucontraire.gmailbuddy.security;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.DisplayName;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
-import java.time.Instant;
-import java.util.Optional;
-
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
+
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 /**
  * Comprehensive security tests for TokenReferenceService.
@@ -70,12 +68,13 @@ class TokenReferenceServiceTest {
         long customLifetime = 1800; // 30 minutes
 
         // Act
-        TokenReference tokenReference = tokenReferenceService.createTokenReference(
-            TEST_TOKEN, TEST_USER_ID, customLifetime);
+        TokenReference tokenReference =
+                tokenReferenceService.createTokenReference(TEST_TOKEN, TEST_USER_ID, customLifetime);
 
         // Assert
         assertThat(tokenReference.getSecondsUntilExpiration()).isLessThanOrEqualTo(customLifetime);
-        assertThat(tokenReference.getSecondsUntilExpiration()).isGreaterThan(customLifetime - 5); // Allow for small delay
+        assertThat(tokenReference.getSecondsUntilExpiration())
+                .isGreaterThan(customLifetime - 5); // Allow for small delay
     }
 
     @Test
@@ -145,8 +144,7 @@ class TokenReferenceServiceTest {
     @DisplayName("Should handle expired token references")
     void shouldHandleExpiredTokenReferences() {
         // Create a token reference with very short lifetime
-        TokenReference tokenReference = tokenReferenceService.createTokenReference(
-            TEST_TOKEN, TEST_USER_ID, 1);
+        TokenReference tokenReference = tokenReferenceService.createTokenReference(TEST_TOKEN, TEST_USER_ID, 1);
 
         // Wait for expiration
         try {
@@ -172,7 +170,8 @@ class TokenReferenceServiceTest {
         TokenReference tokenReference = tokenReferenceService.createTokenReference(TEST_TOKEN, TEST_USER_ID);
 
         // Act & Assert - valid reference
-        assertThat(tokenReferenceService.isValidReference(tokenReference.getReferenceId())).isTrue();
+        assertThat(tokenReferenceService.isValidReference(tokenReference.getReferenceId()))
+                .isTrue();
 
         // Act & Assert - invalid reference
         assertThat(tokenReferenceService.isValidReference("non-existent")).isFalse();
@@ -220,9 +219,12 @@ class TokenReferenceServiceTest {
         // Assert
         assertThat(removedCount).isEqualTo(2);
         assertThat(tokenReferenceService.getActiveTokenCount()).isEqualTo(1);
-        assertThat(tokenReferenceService.isValidReference(token1.getReferenceId())).isFalse();
-        assertThat(tokenReferenceService.isValidReference(token2.getReferenceId())).isFalse();
-        assertThat(tokenReferenceService.isValidReference(token3.getReferenceId())).isTrue();
+        assertThat(tokenReferenceService.isValidReference(token1.getReferenceId()))
+                .isFalse();
+        assertThat(tokenReferenceService.isValidReference(token2.getReferenceId()))
+                .isFalse();
+        assertThat(tokenReferenceService.isValidReference(token3.getReferenceId()))
+                .isTrue();
     }
 
     @Test
@@ -287,7 +289,8 @@ class TokenReferenceServiceTest {
         // Assert
         assertThat(result).isEmpty();
         // Token should be removed due to corruption
-        assertThat(tokenReferenceService.isValidReference(tokenReference.getReferenceId())).isFalse();
+        assertThat(tokenReferenceService.isValidReference(tokenReference.getReferenceId()))
+                .isFalse();
         assertThat(tokenReferenceService.getActiveTokenCount()).isEqualTo(0);
     }
 

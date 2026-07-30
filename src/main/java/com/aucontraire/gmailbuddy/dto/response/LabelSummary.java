@@ -17,21 +17,20 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Schema(description = "Per-label summary item in the label list response")
 public record LabelSummary(
-        @Schema(description = "Gmail label ID", example = "INBOX")
-        String id,
-
-        @Schema(description = "Display name of the label", example = "INBOX")
-        String name,
-
-        @Schema(description = "Label type: system or user", example = "system",
-                allowableValues = {"system", "user"})
-        String type,
-
-        @Schema(description = "Gmail messageListVisibility setting; null if not configured",
-                example = "show", nullable = true)
-        String messageListVisibility,
-
-        @Schema(description = "Gmail labelListVisibility setting; null if not configured",
-                example = "labelShow", nullable = true)
-        String labelListVisibility
-) {}
+        @Schema(description = "Gmail label ID", example = "INBOX") String id,
+        @Schema(description = "Display name of the label", example = "INBOX") String name,
+        @Schema(
+                        description = "Label type: system or user",
+                        example = "system",
+                        allowableValues = {"system", "user"})
+                String type,
+        @Schema(
+                        description = "Gmail messageListVisibility setting; null if not configured",
+                        example = "show",
+                        nullable = true)
+                String messageListVisibility,
+        @Schema(
+                        description = "Gmail labelListVisibility setting; null if not configured",
+                        example = "labelShow",
+                        nullable = true)
+                String labelListVisibility) {}

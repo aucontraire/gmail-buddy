@@ -1,7 +1,6 @@
 package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.dto.response.LabelSummary;
-
 import java.util.List;
 
 /**
@@ -20,7 +19,4 @@ import java.util.List;
  * @param labels     All visible labels; {@code List.of()} if the user has no labels
  * @param totalCount {@code labels.size()} — always computed from the list, never null
  */
-public record LabelListResult(
-        List<LabelSummary> labels,
-        int totalCount
-) {}
+public record LabelListResult(List<LabelSummary> labels, int totalCount) {}

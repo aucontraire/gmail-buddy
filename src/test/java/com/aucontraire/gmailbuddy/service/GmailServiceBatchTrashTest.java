@@ -1,18 +1,5 @@
 package com.aucontraire.gmailbuddy.service;
 
-import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
-import com.aucontraire.gmailbuddy.exception.ValidationException;
-import com.aucontraire.gmailbuddy.fixture.BatchOperationFixtures;
-import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
-import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
-import com.aucontraire.gmailbuddy.repository.GmailRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
-import java.util.Collections;
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -20,6 +7,18 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
+import com.aucontraire.gmailbuddy.exception.ValidationException;
+import com.aucontraire.gmailbuddy.fixture.BatchOperationFixtures;
+import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
+import com.aucontraire.gmailbuddy.repository.GmailRepository;
+import java.util.Collections;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link GmailService#batchTrashMessages} and
@@ -66,8 +65,13 @@ class GmailServiceBatchTrashTest {
         when(properties.gmailApi()).thenReturn(gmailApiProperties);
         when(gmailApiProperties.batchDeleteMaxResults()).thenReturn(TEST_MAX_BATCH_SIZE);
 
-        gmailService = new GmailService(gmailRepository, gmailQueryBuilder, filterCriteriaMapper,
-                mimeMessageBuilder, gmailMessageMapper, properties);
+        gmailService = new GmailService(
+                gmailRepository,
+                gmailQueryBuilder,
+                filterCriteriaMapper,
+                mimeMessageBuilder,
+                gmailMessageMapper,
+                properties);
     }
 
     // -------------------------------------------------------------------------
@@ -118,8 +122,7 @@ class GmailServiceBatchTrashTest {
         List<String> oversizedIds = oversizedMessageIds();
 
         // Act & Assert
-        assertThrows(ValidationException.class,
-                () -> gmailService.batchTrashMessages(USER_ID, oversizedIds));
+        assertThrows(ValidationException.class, () -> gmailService.batchTrashMessages(USER_ID, oversizedIds));
         verifyRepositoryNeverCalled();
     }
 
@@ -130,8 +133,7 @@ class GmailServiceBatchTrashTest {
         List<String> oversizedIds = oversizedMessageIds();
 
         // Act & Assert
-        assertThrows(ValidationException.class,
-                () -> gmailService.batchUntrashMessages(USER_ID, oversizedIds));
+        assertThrows(ValidationException.class, () -> gmailService.batchUntrashMessages(USER_ID, oversizedIds));
         verifyRepositoryNeverCalled();
     }
 

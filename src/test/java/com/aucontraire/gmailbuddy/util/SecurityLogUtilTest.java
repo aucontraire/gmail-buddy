@@ -1,15 +1,14 @@
 package com.aucontraire.gmailbuddy.util;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.lang.reflect.Constructor;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import java.lang.reflect.Constructor;
-import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Comprehensive test suite for SecurityLogUtil to ensure secure token masking
@@ -30,18 +29,21 @@ class SecurityLogUtilTest {
     @Test
     void constructor_ShouldThrowAssertionError() {
         // Given & When & Then
-        assertThrows(AssertionError.class, () -> {
-            try {
-                Constructor<SecurityLogUtil> constructor = SecurityLogUtil.class.getDeclaredConstructor();
-                constructor.setAccessible(true);
-                constructor.newInstance();
-            } catch (Exception e) {
-                if (e.getCause() instanceof AssertionError) {
-                    throw (AssertionError) e.getCause();
-                }
-                throw new RuntimeException(e);
-            }
-        }, "Utility class constructor should throw AssertionError");
+        assertThrows(
+                AssertionError.class,
+                () -> {
+                    try {
+                        Constructor<SecurityLogUtil> constructor = SecurityLogUtil.class.getDeclaredConstructor();
+                        constructor.setAccessible(true);
+                        constructor.newInstance();
+                    } catch (Exception e) {
+                        if (e.getCause() instanceof AssertionError) {
+                            throw (AssertionError) e.getCause();
+                        }
+                        throw new RuntimeException(e);
+                    }
+                },
+                "Utility class constructor should throw AssertionError");
     }
 
     @Test
@@ -114,7 +116,8 @@ class SecurityLogUtilTest {
     @Test
     void maskToken_WithJWTStyleToken_ShouldMaskProperly() {
         // Given - JWT-style token with dots
-        String token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+        String token =
+                "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
 
         // When
         String result = SecurityLogUtil.maskToken(token);
@@ -238,7 +241,8 @@ class SecurityLogUtilTest {
 
     @ParameterizedTest
     @MethodSource("provideSensitiveParameters")
-    void maskSensitiveParameter_WithSensitiveNames_ShouldMaskValues(String paramName, String paramValue, boolean shouldBeMasked) {
+    void maskSensitiveParameter_WithSensitiveNames_ShouldMaskValues(
+            String paramName, String paramValue, boolean shouldBeMasked) {
         // When
         String result = SecurityLogUtil.maskSensitiveParameter(paramName, paramValue);
 
@@ -282,37 +286,36 @@ class SecurityLogUtilTest {
         String shortValue = "short";
 
         return Stream.of(
-            // Sensitive parameters that should be masked
-            Arguments.of("token", longValue, true),
-            Arguments.of("access_token", longValue, true),
-            Arguments.of("refresh_token", longValue, true),
-            Arguments.of("id_token", longValue, true),
-            Arguments.of("password", longValue, true),
-            Arguments.of("passwd", longValue, true),
-            Arguments.of("pwd", longValue, true),
-            Arguments.of("secret", longValue, true),
-            Arguments.of("client_secret", longValue, true),
-            Arguments.of("key", longValue, true),
-            Arguments.of("api_key", longValue, true),
-            Arguments.of("apikey", longValue, true),
-            Arguments.of("authorization", longValue, true),
-            Arguments.of("auth", longValue, true),
+                // Sensitive parameters that should be masked
+                Arguments.of("token", longValue, true),
+                Arguments.of("access_token", longValue, true),
+                Arguments.of("refresh_token", longValue, true),
+                Arguments.of("id_token", longValue, true),
+                Arguments.of("password", longValue, true),
+                Arguments.of("passwd", longValue, true),
+                Arguments.of("pwd", longValue, true),
+                Arguments.of("secret", longValue, true),
+                Arguments.of("client_secret", longValue, true),
+                Arguments.of("key", longValue, true),
+                Arguments.of("api_key", longValue, true),
+                Arguments.of("apikey", longValue, true),
+                Arguments.of("authorization", longValue, true),
+                Arguments.of("auth", longValue, true),
 
-            // Short sensitive values (should still be masked but differently)
-            Arguments.of("token", shortValue, true),
-            Arguments.of("password", shortValue, true),
+                // Short sensitive values (should still be masked but differently)
+                Arguments.of("token", shortValue, true),
+                Arguments.of("password", shortValue, true),
 
-            // Non-sensitive parameters that should not be masked
-            Arguments.of("username", longValue, false),
-            Arguments.of("email", longValue, false),
-            Arguments.of("name", longValue, false),
-            Arguments.of("id", longValue, false),
-            Arguments.of("scope", longValue, false),
-            Arguments.of("redirect_uri", longValue, false),
-            Arguments.of("state", longValue, false),
-            Arguments.of("code", longValue, false),
-            Arguments.of("grant_type", longValue, false)
-        );
+                // Non-sensitive parameters that should not be masked
+                Arguments.of("username", longValue, false),
+                Arguments.of("email", longValue, false),
+                Arguments.of("name", longValue, false),
+                Arguments.of("id", longValue, false),
+                Arguments.of("scope", longValue, false),
+                Arguments.of("redirect_uri", longValue, false),
+                Arguments.of("state", longValue, false),
+                Arguments.of("code", longValue, false),
+                Arguments.of("grant_type", longValue, false));
     }
 
     @Test
@@ -337,16 +340,15 @@ class SecurityLogUtilTest {
             if (token.length() >= 12) {
                 // For long tokens, verify masking pattern
                 assertTrue(masked.contains("****"), "Long tokens should contain mask pattern");
-                assertEquals(token.substring(0, 4), masked.substring(0, 4),
-                           "First 4 characters should be preserved");
-                assertEquals(token.substring(token.length() - 4),
-                           masked.substring(masked.length() - 4),
-                           "Last 4 characters should be preserved");
+                assertEquals(token.substring(0, 4), masked.substring(0, 4), "First 4 characters should be preserved");
+                assertEquals(
+                        token.substring(token.length() - 4),
+                        masked.substring(masked.length() - 4),
+                        "Last 4 characters should be preserved");
 
                 // Critical: Verify no sensitive middle part is exposed
                 String middlePart = token.substring(4, token.length() - 4);
-                assertFalse(masked.contains(middlePart),
-                           "Masked token should never contain the sensitive middle part");
+                assertFalse(masked.contains(middlePart), "Masked token should never contain the sensitive middle part");
             } else {
                 // Short tokens should be completely masked
                 assertEquals("[MASKED]", masked, "Short tokens should be completely masked");

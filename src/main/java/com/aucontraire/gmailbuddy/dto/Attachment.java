@@ -38,37 +38,31 @@ import jakarta.validation.constraints.Size;
  */
 @Schema(description = "A single file attachment encoded as standard Base64")
 public record Attachment(
-
-    @Schema(
-        description = "Attachment display name, max 255 UTF-8 chars, no path separators (/, \\, ..), " +
-                      "no line terminator characters. RFC 2047 encoding for non-ASCII characters is " +
-                      "applied at MIME generation time.",
-        example = "resume.pdf",
-        requiredMode = Schema.RequiredMode.REQUIRED
-    )
-    @NotBlank
-    @Size(max = 255)
-    @SafeFilename
-    String filename,
-
-    @Schema(
-        description = "RFC 6838 type/subtype (e.g. application/pdf, image/jpeg). Well-formedness is " +
-                      "validated against the RFC 6838 token character set; no content-type whitelist is enforced.",
-        example = "application/pdf",
-        requiredMode = Schema.RequiredMode.REQUIRED
-    )
-    @NotBlank
-    @ValidMimeType
-    String mimeType,
-
-    @Schema(
-        description = "Standard Base64 encoding of the attachment binary content (not URL-safe Base64). " +
-                      "The value is decoded server-side using java.util.Base64.getDecoder().",
-        example = "JVBERi0xLjQK...",
-        requiredMode = Schema.RequiredMode.REQUIRED
-    )
-    @NotBlank
-    @ValidBase64
-    String base64Data
-
-) {}
+        @Schema(
+                        description = "Attachment display name, max 255 UTF-8 chars, no path separators (/, \\, ..), "
+                                + "no line terminator characters. RFC 2047 encoding for non-ASCII characters is "
+                                + "applied at MIME generation time.",
+                        example = "resume.pdf",
+                        requiredMode = Schema.RequiredMode.REQUIRED)
+                @NotBlank
+                @Size(max = 255)
+                @SafeFilename
+                String filename,
+        @Schema(
+                        description =
+                                "RFC 6838 type/subtype (e.g. application/pdf, image/jpeg). Well-formedness is "
+                                        + "validated against the RFC 6838 token character set; no content-type whitelist is enforced.",
+                        example = "application/pdf",
+                        requiredMode = Schema.RequiredMode.REQUIRED)
+                @NotBlank
+                @ValidMimeType
+                String mimeType,
+        @Schema(
+                        description =
+                                "Standard Base64 encoding of the attachment binary content (not URL-safe Base64). "
+                                        + "The value is decoded server-side using java.util.Base64.getDecoder().",
+                        example = "JVBERi0xLjQK...",
+                        requiredMode = Schema.RequiredMode.REQUIRED)
+                @NotBlank
+                @ValidBase64
+                String base64Data) {}

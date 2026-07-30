@@ -1,5 +1,14 @@
 package com.aucontraire.gmailbuddy.integration;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.fixture.SendMessageRequestFixtures;
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
@@ -14,20 +23,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Integration tests for {@code POST /api/v1/gmail/drafts} with the full Spring
@@ -67,9 +67,9 @@ class CreateDraftIntegrationTest {
     static final String VALID_GOOGLE_TOKEN = "ya29.a0ARrdaM-valid-google-token-for-draft";
 
     private static final String DRAFTS_ENDPOINT = "/api/v1/gmail/drafts";
-    private static final String DRAFT_ID        = "r-9876543210";
-    private static final String MESSAGE_ID      = "19a2b3c4d5e6f7g8";
-    private static final String THREAD_ID       = "19a2b3c4d5e6f7g8";
+    private static final String DRAFT_ID = "r-9876543210";
+    private static final String MESSAGE_ID = "19a2b3c4d5e6f7g8";
+    private static final String THREAD_ID = "19a2b3c4d5e6f7g8";
 
     // -------------------------------------------------------------------------
     // Spring-managed beans
@@ -107,24 +107,19 @@ class CreateDraftIntegrationTest {
      * {@code ApiClientAuthenticationIntegrationTest}.
      */
     private void mockValidTokenResponseForDraft() throws Exception {
-        GoogleTokenValidator.TokenInfoResponse tokenInfo =
-                createValidTokenInfo();
+        GoogleTokenValidator.TokenInfoResponse tokenInfo = createValidTokenInfo();
         when(tokenValidator.getTokenInfo(VALID_GOOGLE_TOKEN)).thenReturn(tokenInfo);
         when(tokenValidator.hasValidGmailScopes(tokenInfo.getScope())).thenReturn(true);
 
-        DraftCreationResult stubResult =
-                new DraftCreationResult(DRAFT_ID, MESSAGE_ID, THREAD_ID);
-        when(gmailService.createDraft(anyString(), any(SendMessageDTO.class)))
-                .thenReturn(stubResult);
+        DraftCreationResult stubResult = new DraftCreationResult(DRAFT_ID, MESSAGE_ID, THREAD_ID);
+        when(gmailService.createDraft(anyString(), any(SendMessageDTO.class))).thenReturn(stubResult);
     }
 
     private GoogleTokenValidator.TokenInfoResponse createValidTokenInfo() {
-        GoogleTokenValidator.TokenInfoResponse tokenInfo =
-                new GoogleTokenValidator.TokenInfoResponse();
+        GoogleTokenValidator.TokenInfoResponse tokenInfo = new GoogleTokenValidator.TokenInfoResponse();
         tokenInfo.setEmail("api-user@example.com");
         tokenInfo.setUserId("123456789");
-        tokenInfo.setScope(
-                "https://www.googleapis.com/auth/gmail.readonly "
+        tokenInfo.setScope("https://www.googleapis.com/auth/gmail.readonly "
                 + "https://www.googleapis.com/auth/gmail.modify "
                 + "https://www.googleapis.com/auth/gmail.send");
         tokenInfo.setAudience("test-client-id");
@@ -143,8 +138,7 @@ class CreateDraftIntegrationTest {
 
         @Test
         @DisplayName("postDraft_bearerTokenAuth_validRequest_returns201WithDraftResponseBody")
-        void postDraft_bearerTokenAuth_validRequest_returns201WithDraftResponseBody()
-                throws Exception {
+        void postDraft_bearerTokenAuth_validRequest_returns201WithDraftResponseBody() throws Exception {
             // Arrange
             mockValidTokenResponseForDraft();
             SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
@@ -164,8 +158,7 @@ class CreateDraftIntegrationTest {
 
         @Test
         @DisplayName("postDraft_bearerTokenAuth_validRequest_returns201WithLocationHeader")
-        void postDraft_bearerTokenAuth_validRequest_returns201WithLocationHeader()
-                throws Exception {
+        void postDraft_bearerTokenAuth_validRequest_returns201WithLocationHeader() throws Exception {
             // Arrange
             mockValidTokenResponseForDraft();
             SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
@@ -177,8 +170,7 @@ class CreateDraftIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestBody))
                     .andExpect(status().isCreated())
-                    .andExpect(header().string("Location",
-                            "/api/v1/gmail/drafts/" + DRAFT_ID));
+                    .andExpect(header().string("Location", "/api/v1/gmail/drafts/" + DRAFT_ID));
         }
 
         @Test
@@ -210,11 +202,9 @@ class CreateDraftIntegrationTest {
         @Test
         @WithMockUser
         @DisplayName("postDraft_sessionAuth_validRequest_returns201WithDraftResponseBody")
-        void postDraft_sessionAuth_validRequest_returns201WithDraftResponseBody()
-                throws Exception {
+        void postDraft_sessionAuth_validRequest_returns201WithDraftResponseBody() throws Exception {
             // Arrange: no Bearer header; @WithMockUser injects a session principal.
-            DraftCreationResult stubResult =
-                    new DraftCreationResult(DRAFT_ID, MESSAGE_ID, THREAD_ID);
+            DraftCreationResult stubResult = new DraftCreationResult(DRAFT_ID, MESSAGE_ID, THREAD_ID);
             when(gmailService.createDraft(anyString(), any(SendMessageDTO.class)))
                     .thenReturn(stubResult);
 
@@ -235,11 +225,9 @@ class CreateDraftIntegrationTest {
         @Test
         @WithMockUser
         @DisplayName("postDraft_sessionAuth_validRequest_returns201WithLocationHeader")
-        void postDraft_sessionAuth_validRequest_returns201WithLocationHeader()
-                throws Exception {
+        void postDraft_sessionAuth_validRequest_returns201WithLocationHeader() throws Exception {
             // Arrange
-            DraftCreationResult stubResult =
-                    new DraftCreationResult(DRAFT_ID, MESSAGE_ID, THREAD_ID);
+            DraftCreationResult stubResult = new DraftCreationResult(DRAFT_ID, MESSAGE_ID, THREAD_ID);
             when(gmailService.createDraft(anyString(), any(SendMessageDTO.class)))
                     .thenReturn(stubResult);
 
@@ -251,8 +239,7 @@ class CreateDraftIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(requestBody))
                     .andExpect(status().isCreated())
-                    .andExpect(header().string("Location",
-                            "/api/v1/gmail/drafts/" + DRAFT_ID));
+                    .andExpect(header().string("Location", "/api/v1/gmail/drafts/" + DRAFT_ID));
         }
     }
 }

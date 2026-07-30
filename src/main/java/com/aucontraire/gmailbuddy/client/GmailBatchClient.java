@@ -1,9 +1,8 @@
 package com.aucontraire.gmailbuddy.client;
 
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
-import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.aucontraire.gmailbuddy.exception.BatchOperationException;
-import com.aucontraire.gmailbuddy.exception.GmailApiException;
+import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.google.api.client.googleapis.batch.BatchRequest;
 import com.google.api.client.googleapis.batch.json.JsonBatchCallback;
 import com.google.api.client.googleapis.json.GoogleJsonError;
@@ -12,19 +11,16 @@ import com.google.api.client.http.HttpHeaders;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.BatchDeleteMessagesRequest;
 import com.google.api.services.gmail.model.ModifyMessageRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
 import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 /**
  * Client for executing Gmail operations in batches to improve performance.
@@ -102,7 +98,8 @@ public class GmailBatchClient {
      * @return BulkOperationResult with detailed success/failure information
      * @throws IOException if there's an error executing the batch delete requests
      */
-    public BulkOperationResult batchDeleteMessages(Gmail gmail, String userId, List<String> messageIds) throws IOException {
+    public BulkOperationResult batchDeleteMessages(Gmail gmail, String userId, List<String> messageIds)
+            throws IOException {
         BulkOperationResult result = new BulkOperationResult("BATCH_DELETE");
 
         if (messageIds == null || messageIds.isEmpty()) {
@@ -111,8 +108,10 @@ public class GmailBatchClient {
             return result;
         }
 
-        logger.info("Starting native batchDelete operation for {} messages (max {} per batch)",
-                   messageIds.size(), BATCH_DELETE_MAX_SIZE);
+        logger.info(
+                "Starting native batchDelete operation for {} messages (max {} per batch)",
+                messageIds.size(),
+                BATCH_DELETE_MAX_SIZE);
 
         // Check circuit breaker state
         if (isCircuitBreakerOpen()) {
@@ -158,9 +157,12 @@ public class GmailBatchClient {
         }
 
         result.markCompleted();
-        logger.info("Native batchDelete operation completed: {} successful, {} failed, {} total (duration: {}ms)",
-                   result.getSuccessCount(), result.getFailureCount(), result.getTotalOperations(),
-                   result.getDurationMs());
+        logger.info(
+                "Native batchDelete operation completed: {} successful, {} failed, {} total (duration: {}ms)",
+                result.getSuccessCount(),
+                result.getFailureCount(),
+                result.getTotalOperations(),
+                result.getDurationMs());
         return result;
     }
 
@@ -176,10 +178,13 @@ public class GmailBatchClient {
      * @return BulkOperationResult with detailed success/failure information
      * @throws IOException if there's an error executing the batch requests
      */
-    public BulkOperationResult batchModifyLabels(Gmail gmail, String userId, List<String> messageIds,
-                                                ModifyMessageRequest modifyRequest) throws IOException {
+    public BulkOperationResult batchModifyLabels(
+            Gmail gmail, String userId, List<String> messageIds, ModifyMessageRequest modifyRequest)
+            throws IOException {
         BulkOperationResult result = new BulkOperationResult("MODIFY_LABELS");
-        logger.info("Starting batch modify labels operation for {} messages with adaptive rate limiting", messageIds.size());
+        logger.info(
+                "Starting batch modify labels operation for {} messages with adaptive rate limiting",
+                messageIds.size());
 
         // Check circuit breaker state
         if (isCircuitBreakerOpen()) {
@@ -210,8 +215,8 @@ public class GmailBatchClient {
             int previousSuccessCount = result.getSuccessCount();
 
             // Execute batch with retry logic
-            executeBatchWithRetry(gmail, userId, batch, result,
-                (g, u, b, r) -> executeBatchModifyLabels(g, u, b, modifyRequest, r));
+            executeBatchWithRetry(
+                    gmail, userId, batch, result, (g, u, b, r) -> executeBatchModifyLabels(g, u, b, modifyRequest, r));
 
             // Determine if this batch succeeded (all messages in batch were successfully modified)
             int successfulInBatch = result.getSuccessCount() - previousSuccessCount;
@@ -266,8 +271,8 @@ public class GmailBatchClient {
      * @param result the result tracker for recording successes and failures
      * @throws IOException if there's an error executing the batchDelete request
      */
-    private void executeNativeBatchDelete(Gmail gmail, String userId, List<String> messageIds,
-                                          BulkOperationResult result) throws IOException {
+    private void executeNativeBatchDelete(
+            Gmail gmail, String userId, List<String> messageIds, BulkOperationResult result) throws IOException {
         if (messageIds.isEmpty()) {
             logger.debug("No messages to delete in this chunk");
             return;
@@ -277,13 +282,10 @@ public class GmailBatchClient {
 
         try {
             // Create the batchDelete request
-            BatchDeleteMessagesRequest batchRequest = new BatchDeleteMessagesRequest()
-                .setIds(messageIds);
+            BatchDeleteMessagesRequest batchRequest = new BatchDeleteMessagesRequest().setIds(messageIds);
 
             // Execute the batchDelete - this is a single API call that costs 50 quota units
-            gmail.users().messages()
-                .batchDelete(userId, batchRequest)
-                .execute();
+            gmail.users().messages().batchDelete(userId, batchRequest).execute();
 
             // Success - all messages in this chunk were deleted
             messageIds.forEach(result::addSuccess);
@@ -298,8 +300,12 @@ public class GmailBatchClient {
             String errorMessage = error != null ? error.getMessage() : e.getMessage();
             int statusCode = e.getStatusCode();
 
-            logger.error("Gmail batchDelete failed for chunk of {} messages. Status: {}, Error: {}",
-                        messageIds.size(), statusCode, errorMessage, e);
+            logger.error(
+                    "Gmail batchDelete failed for chunk of {} messages. Status: {}, Error: {}",
+                    messageIds.size(),
+                    statusCode,
+                    errorMessage,
+                    e);
 
             // Mark all messages in this chunk as failed (batchDelete is all-or-nothing)
             messageIds.forEach(id -> result.addFailure(id, errorMessage));
@@ -311,8 +317,11 @@ public class GmailBatchClient {
             throw new IOException("Gmail batchDelete failed: " + errorMessage, e);
 
         } catch (IOException e) {
-            logger.error("IOException during batchDelete for chunk of {} messages: {}",
-                        messageIds.size(), e.getMessage(), e);
+            logger.error(
+                    "IOException during batchDelete for chunk of {} messages: {}",
+                    messageIds.size(),
+                    e.getMessage(),
+                    e);
 
             // Mark all messages in this chunk as failed
             messageIds.forEach(id -> result.addFailure(id, e.getMessage()));
@@ -335,8 +344,13 @@ public class GmailBatchClient {
      * @param result the result tracker for recording successes and failures
      * @throws IOException if there's an error creating or executing the batch request
      */
-    private void executeBatchModifyLabels(Gmail gmail, String userId, List<String> messageIds,
-                                         ModifyMessageRequest modifyRequest, BulkOperationResult result) throws IOException {
+    private void executeBatchModifyLabels(
+            Gmail gmail,
+            String userId,
+            List<String> messageIds,
+            ModifyMessageRequest modifyRequest,
+            BulkOperationResult result)
+            throws IOException {
         BatchRequest batch = gmail.batch();
 
         logger.debug("Queuing {} modify label operations with micro-delays", messageIds.size());
@@ -344,21 +358,24 @@ public class GmailBatchClient {
         for (int i = 0; i < messageIds.size(); i++) {
             String messageId = messageIds.get(i);
 
-            gmail.users().messages().modify(userId, messageId, modifyRequest)
-                .queue(batch, new JsonBatchCallback<com.google.api.services.gmail.model.Message>() {
-                    @Override
-                    public void onSuccess(com.google.api.services.gmail.model.Message message, HttpHeaders responseHeaders) {
-                        result.addSuccess(messageId);
-                        logger.debug("Successfully modified labels for message: {}", messageId);
-                    }
+            gmail.users()
+                    .messages()
+                    .modify(userId, messageId, modifyRequest)
+                    .queue(batch, new JsonBatchCallback<com.google.api.services.gmail.model.Message>() {
+                        @Override
+                        public void onSuccess(
+                                com.google.api.services.gmail.model.Message message, HttpHeaders responseHeaders) {
+                            result.addSuccess(messageId);
+                            logger.debug("Successfully modified labels for message: {}", messageId);
+                        }
 
-                    @Override
-                    public void onFailure(GoogleJsonError error, HttpHeaders responseHeaders) {
-                        String errorMessage = error != null ? error.getMessage() : "Unknown error";
-                        result.addFailure(messageId, errorMessage);
-                        logger.warn("Failed to modify labels for message {}: {}", messageId, errorMessage);
-                    }
-                });
+                        @Override
+                        public void onFailure(GoogleJsonError error, HttpHeaders responseHeaders) {
+                            String errorMessage = error != null ? error.getMessage() : "Unknown error";
+                            result.addFailure(messageId, errorMessage);
+                            logger.warn("Failed to modify labels for message {}: {}", messageId, errorMessage);
+                        }
+                    });
 
             // Add micro-delay between queuing operations to reduce concurrent pressure
             if (i < messageIds.size() - 1) {
@@ -427,8 +444,7 @@ public class GmailBatchClient {
         }
 
         // Analyze error messages to determine retryability
-        return result.getFailedOperations().values().stream()
-                .anyMatch(this::isRetryableError);
+        return result.getFailedOperations().values().stream().anyMatch(this::isRetryableError);
     }
 
     /**
@@ -445,15 +461,15 @@ public class GmailBatchClient {
         String lowerMessage = errorMessage.toLowerCase();
 
         // Network and temporary errors are typically retryable
-        return lowerMessage.contains("timeout") ||
-               lowerMessage.contains("temporary") ||
-               lowerMessage.contains("service unavailable") ||
-               lowerMessage.contains("rate limit") ||
-               lowerMessage.contains("quota exceeded") ||
-               lowerMessage.contains("internal error") ||
-               lowerMessage.contains("backend error") ||
-               lowerMessage.contains("too many concurrent requests") ||
-               lowerMessage.contains("user rate limit exceeded");
+        return lowerMessage.contains("timeout")
+                || lowerMessage.contains("temporary")
+                || lowerMessage.contains("service unavailable")
+                || lowerMessage.contains("rate limit")
+                || lowerMessage.contains("quota exceeded")
+                || lowerMessage.contains("internal error")
+                || lowerMessage.contains("backend error")
+                || lowerMessage.contains("too many concurrent requests")
+                || lowerMessage.contains("user rate limit exceeded");
     }
 
     /**
@@ -473,11 +489,13 @@ public class GmailBatchClient {
      * @param messageIds the message IDs to delete in this chunk
      * @param result the result tracker
      */
-    private void executeBatchDeleteWithRetry(Gmail gmail, String userId, List<String> messageIds,
-                                             BulkOperationResult result) {
+    private void executeBatchDeleteWithRetry(
+            Gmail gmail, String userId, List<String> messageIds, BulkOperationResult result) {
         int maxRetries = properties.gmailApi().rateLimit().batchOperations().maxRetryAttempts();
-        long initialBackoffMs = properties.gmailApi().rateLimit().batchOperations().initialBackoffMs();
-        double backoffMultiplier = properties.gmailApi().rateLimit().batchOperations().backoffMultiplier();
+        long initialBackoffMs =
+                properties.gmailApi().rateLimit().batchOperations().initialBackoffMs();
+        double backoffMultiplier =
+                properties.gmailApi().rateLimit().batchOperations().backoffMultiplier();
         long maxBackoffMs = properties.gmailApi().rateLimit().batchOperations().maxBackoffMs();
 
         int attempt = 0;
@@ -513,8 +531,8 @@ public class GmailBatchClient {
 
                 // Calculate exponential backoff delay
                 long delayMs = Math.min(backoffMs, maxBackoffMs);
-                logger.info("Retrying native batchDelete in {}ms (attempt {} of {})",
-                           delayMs, attempt + 1, maxRetries + 1);
+                logger.info(
+                        "Retrying native batchDelete in {}ms (attempt {} of {})", delayMs, attempt + 1, maxRetries + 1);
 
                 try {
                     Thread.sleep(delayMs);
@@ -525,7 +543,7 @@ public class GmailBatchClient {
                 }
 
                 // Increase backoff for next attempt
-                backoffMs = Math.min((long)(backoffMs * backoffMultiplier), maxBackoffMs);
+                backoffMs = Math.min((long) (backoffMs * backoffMultiplier), maxBackoffMs);
             }
         }
     }
@@ -539,11 +557,13 @@ public class GmailBatchClient {
      * @param result the result tracker
      * @param executor the batch execution function
      */
-    private void executeBatchWithRetry(Gmail gmail, String userId, List<String> batch,
-                                      BulkOperationResult result, BatchExecutor executor) {
+    private void executeBatchWithRetry(
+            Gmail gmail, String userId, List<String> batch, BulkOperationResult result, BatchExecutor executor) {
         int maxRetries = properties.gmailApi().rateLimit().batchOperations().maxRetryAttempts();
-        long initialBackoffMs = properties.gmailApi().rateLimit().batchOperations().initialBackoffMs();
-        double backoffMultiplier = properties.gmailApi().rateLimit().batchOperations().backoffMultiplier();
+        long initialBackoffMs =
+                properties.gmailApi().rateLimit().batchOperations().initialBackoffMs();
+        double backoffMultiplier =
+                properties.gmailApi().rateLimit().batchOperations().backoffMultiplier();
         long maxBackoffMs = properties.gmailApi().rateLimit().batchOperations().maxBackoffMs();
 
         int attempt = 0;
@@ -572,7 +592,8 @@ public class GmailBatchClient {
 
                     // Mark all messages in this batch as failed
                     for (String messageId : batch) {
-                        result.addFailure(messageId, "Batch execution failed after " + attempt + " attempts: " + errorMessage);
+                        result.addFailure(
+                                messageId, "Batch execution failed after " + attempt + " attempts: " + errorMessage);
                     }
 
                     if (attempt > 1) {
@@ -594,7 +615,7 @@ public class GmailBatchClient {
                 }
 
                 // Increase backoff for next attempt
-                backoffMs = Math.min((long)(backoffMs * backoffMultiplier), maxBackoffMs);
+                backoffMs = Math.min((long) (backoffMs * backoffMultiplier), maxBackoffMs);
             }
         }
     }
@@ -694,8 +715,10 @@ public class GmailBatchClient {
         lastFailureTime.set(System.currentTimeMillis());
 
         if (failures >= CIRCUIT_BREAKER_THRESHOLD) {
-            logger.warn("Circuit breaker triggered after {} consecutive failures. Cooling off for {}ms",
-                       failures, COOLING_OFF_PERIOD_MS);
+            logger.warn(
+                    "Circuit breaker triggered after {} consecutive failures. Cooling off for {}ms",
+                    failures,
+                    COOLING_OFF_PERIOD_MS);
         }
     }
 
@@ -736,7 +759,9 @@ public class GmailBatchClient {
 
         if (batchSuccess) {
             // Gradually increase batch size on success, but stay conservative
-            int newSize = Math.min(currentSize + 1, properties.gmailApi().rateLimit().batchOperations().maxBatchSize());
+            int newSize = Math.min(
+                    currentSize + 1,
+                    properties.gmailApi().rateLimit().batchOperations().maxBatchSize());
             if (newSize != currentSize) {
                 adaptiveBatchSize.set(newSize);
                 logger.debug("Adaptive batch size increased to {} after successful batch", newSize);
@@ -760,11 +785,10 @@ public class GmailBatchClient {
      */
     public Map<String, Object> getCircuitBreakerStats() {
         return Map.of(
-            "consecutiveFailures", consecutiveFailures.get(),
-            "isOpen", isCircuitBreakerOpen(),
-            "coolingOffRemainingMs", getCoolingOffRemainingMs(),
-            "adaptiveBatchSize", adaptiveBatchSize.get(),
-            "lastFailureTime", lastFailureTime.get()
-        );
+                "consecutiveFailures", consecutiveFailures.get(),
+                "isOpen", isCircuitBreakerOpen(),
+                "coolingOffRemainingMs", getCoolingOffRemainingMs(),
+                "adaptiveBatchSize", adaptiveBatchSize.get(),
+                "lastFailureTime", lastFailureTime.get());
     }
 }

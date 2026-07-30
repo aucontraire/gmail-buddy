@@ -1,20 +1,17 @@
 package com.aucontraire.gmailbuddy.client;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Arrays;
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * Simple unit tests for GmailBatchClient functionality.
@@ -33,7 +30,8 @@ class SimpleBatchClientTest {
         // Create nested mock structure for GmailBuddyProperties
         GmailBuddyProperties.GmailApi gmailApi = mock(GmailBuddyProperties.GmailApi.class);
         GmailBuddyProperties.GmailApi.RateLimit rateLimit = mock(GmailBuddyProperties.GmailApi.RateLimit.class);
-        GmailBuddyProperties.GmailApi.RateLimit.BatchOperations batchOps = mock(GmailBuddyProperties.GmailApi.RateLimit.BatchOperations.class);
+        GmailBuddyProperties.GmailApi.RateLimit.BatchOperations batchOps =
+                mock(GmailBuddyProperties.GmailApi.RateLimit.BatchOperations.class);
 
         // Wire up the mock chain
         lenient().when(properties.gmailApi()).thenReturn(gmailApi);
@@ -83,10 +81,12 @@ class SimpleBatchClientTest {
         failureResult.markCompleted();
 
         // When & Then
-        assertThrows(com.aucontraire.gmailbuddy.exception.BatchOperationException.class,
-                    () -> batchClient.validateBatchResult(failureResult, true));
-        assertThrows(com.aucontraire.gmailbuddy.exception.BatchOperationException.class,
-                    () -> batchClient.validateBatchResult(failureResult, false));
+        assertThrows(
+                com.aucontraire.gmailbuddy.exception.BatchOperationException.class,
+                () -> batchClient.validateBatchResult(failureResult, true));
+        assertThrows(
+                com.aucontraire.gmailbuddy.exception.BatchOperationException.class,
+                () -> batchClient.validateBatchResult(failureResult, false));
     }
 
     @Test
@@ -123,7 +123,7 @@ class SimpleBatchClientTest {
     void getRetryableFailures_FiltersCorrectly() {
         // Given
         BulkOperationResult result = new BulkOperationResult("DELETE");
-        result.addFailure("msg1", "Timeout occurred");  // Retryable
+        result.addFailure("msg1", "Timeout occurred"); // Retryable
         result.addFailure("msg2", "Message not found"); // Not retryable
         result.addFailure("msg3", "Rate limit exceeded"); // Retryable
         result.markCompleted();
@@ -172,7 +172,8 @@ class SimpleBatchClientTest {
         partialResult.markCompleted();
 
         // When & Then
-        assertThrows(com.aucontraire.gmailbuddy.exception.BatchOperationException.class,
-                    () -> batchClient.validateBatchResult(partialResult, true));
+        assertThrows(
+                com.aucontraire.gmailbuddy.exception.BatchOperationException.class,
+                () -> batchClient.validateBatchResult(partialResult, true));
     }
 }

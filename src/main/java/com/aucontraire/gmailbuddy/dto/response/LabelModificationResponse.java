@@ -4,7 +4,6 @@ import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
 import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
-
 import java.util.List;
 
 /**
@@ -146,12 +145,11 @@ public class LabelModificationResponse {
 
     @Override
     public String toString() {
-        return "LabelModificationResponse{" +
-                "status=" + status +
-                ", messagesModified=" + messagesModified +
-                ", labelsAdded=" + labelsAdded +
-                ", labelsRemoved=" + labelsRemoved +
-                ", metadata=" + metadata +
-                '}';
+        return "LabelModificationResponse{" + "status="
+                + status + ", messagesModified="
+                + messagesModified + ", labelsAdded="
+                + labelsAdded + ", labelsRemoved="
+                + labelsRemoved + ", metadata="
+                + metadata + '}';
     }
 }

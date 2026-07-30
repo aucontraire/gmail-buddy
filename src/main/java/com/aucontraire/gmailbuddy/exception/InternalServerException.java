@@ -6,7 +6,7 @@ import org.springframework.http.HttpStatus;
  * Exception thrown for unexpected internal server errors.
  * This represents unhandled exceptions and programming errors that
  * should not be exposed to clients in detail.
- * 
+ *
  * @author Gmail Buddy Team
  * @since 1.0
  */
@@ -25,7 +25,7 @@ public class InternalServerException extends GmailBuddyServerException {
     /**
      * Constructs a new internal server exception with the specified cause.
      * The cause details are logged but a generic message is shown to the client.
-     * 
+     *
      * @param cause the underlying cause of the internal error
      */
     public InternalServerException(Throwable cause) {
@@ -35,7 +35,7 @@ public class InternalServerException extends GmailBuddyServerException {
     /**
      * Constructs a new internal server exception with the specified message and cause.
      * This constructor should be used when you want to provide a specific internal message.
-     * 
+     *
      * @param message the internal error message (for logging)
      * @param cause the underlying cause of the internal error
      */
@@ -45,7 +45,7 @@ public class InternalServerException extends GmailBuddyServerException {
 
     /**
      * Constructs a new internal server exception with the specified message and correlation ID.
-     * 
+     *
      * @param message the internal error message
      * @param correlationId the correlation ID for request tracing
      */

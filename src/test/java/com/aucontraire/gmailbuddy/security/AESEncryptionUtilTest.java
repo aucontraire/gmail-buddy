@@ -1,12 +1,11 @@
 package com.aucontraire.gmailbuddy.security;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.DisplayName;
+import static org.assertj.core.api.Assertions.*;
 
 import java.util.Base64;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
  * Comprehensive security tests for AESEncryptionUtil.
@@ -114,16 +113,16 @@ class AESEncryptionUtilTest {
     @DisplayName("Should work with various token formats")
     void shouldWorkWithVariousTokenFormats() {
         String[] testTokens = {
-                "ya29.a0ARrdaM-short",
-                "ya29.a0ARrdaM-very-long-token-with-many-characters-and-special-symbols-!@#$%^&*()_+-=[]{}|;:,.<>?",
-                "simple-token",
-                "token.with.dots",
-                "token-with-dashes",
-                "token_with_underscores",
-                "1234567890",
-                "αβγδε", // Unicode characters
-                "token with spaces",
-                "multi\nline\ntoken"
+            "ya29.a0ARrdaM-short",
+            "ya29.a0ARrdaM-very-long-token-with-many-characters-and-special-symbols-!@#$%^&*()_+-=[]{}|;:,.<>?",
+            "simple-token",
+            "token.with.dots",
+            "token-with-dashes",
+            "token_with_underscores",
+            "1234567890",
+            "αβγδε", // Unicode characters
+            "token with spaces",
+            "multi\nline\ntoken"
         };
 
         for (String token : testTokens) {
@@ -166,10 +165,8 @@ class AESEncryptionUtilTest {
         assertThat(decrypted2).isEqualTo(TEST_TOKEN);
 
         // Different instances with different keys should not be compatible
-        assertThatThrownBy(() -> utilWithKey.decrypt(encrypted2))
-                .isInstanceOf(RuntimeException.class);
-        assertThatThrownBy(() -> utilWithoutKey.decrypt(encrypted))
-                .isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> utilWithKey.decrypt(encrypted2)).isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> utilWithoutKey.decrypt(encrypted)).isInstanceOf(RuntimeException.class);
     }
 
     @Test
@@ -196,8 +193,7 @@ class AESEncryptionUtilTest {
         assertThat(newKey).isNotEmpty();
 
         // Should be valid Base64
-        assertThatCode(() -> Base64.getDecoder().decode(newKey))
-                .doesNotThrowAnyException();
+        assertThatCode(() -> Base64.getDecoder().decode(newKey)).doesNotThrowAnyException();
 
         // Should be 32 bytes (256 bits)
         byte[] keyBytes = Base64.getDecoder().decode(newKey);

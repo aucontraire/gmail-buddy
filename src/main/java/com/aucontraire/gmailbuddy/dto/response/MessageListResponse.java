@@ -3,7 +3,6 @@ package com.aucontraire.gmailbuddy.dto.response;
 import com.aucontraire.gmailbuddy.dto.common.ResponseMetadata;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
-
 import java.util.List;
 
 /**
@@ -19,8 +18,10 @@ public class MessageListResponse {
     @Schema(description = "List of message summaries")
     private List<MessageSummary> messages;
 
-    @Schema(description = "Total count of messages (estimated); null when unavailable",
-            example = "150", nullable = true)
+    @Schema(
+            description = "Total count of messages (estimated); null when unavailable",
+            example = "150",
+            nullable = true)
     @JsonInclude(JsonInclude.Include.ALWAYS)
     private Integer totalCount;
 
@@ -28,8 +29,10 @@ public class MessageListResponse {
     @JsonInclude(JsonInclude.Include.ALWAYS)
     private Boolean hasMore;
 
-    @Schema(description = "Token for fetching the next page of results; null when all results are exhausted",
-            example = "eyJwYWdl...", nullable = true)
+    @Schema(
+            description = "Token for fetching the next page of results; null when all results are exhausted",
+            example = "eyJwYWdl...",
+            nullable = true)
     @JsonInclude(JsonInclude.Include.ALWAYS)
     private String nextPageToken;
 

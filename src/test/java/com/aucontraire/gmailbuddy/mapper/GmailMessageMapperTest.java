@@ -1,43 +1,38 @@
 package com.aucontraire.gmailbuddy.mapper;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+
 import com.aucontraire.gmailbuddy.dto.response.AttachmentMetadata;
 import com.aucontraire.gmailbuddy.dto.response.DraftDetailResponse;
 import com.aucontraire.gmailbuddy.dto.response.DraftListItem;
 import com.aucontraire.gmailbuddy.dto.response.DraftListResponse;
 import com.aucontraire.gmailbuddy.dto.response.MessageAttachmentMetadata;
-import com.aucontraire.gmailbuddy.dto.response.MessageDetailResponse;
 import com.aucontraire.gmailbuddy.dto.response.ThreadDetailResponse;
 import com.aucontraire.gmailbuddy.dto.response.ThreadListResponse;
 import com.aucontraire.gmailbuddy.dto.response.ThreadSummary;
 import com.aucontraire.gmailbuddy.fixture.ReadApiFixtures;
+import com.aucontraire.gmailbuddy.service.AttachmentListResult;
 import com.aucontraire.gmailbuddy.service.DraftCreationResult;
 import com.aucontraire.gmailbuddy.service.DraftDetailResult;
 import com.aucontraire.gmailbuddy.service.DraftListResult;
+import com.aucontraire.gmailbuddy.service.LabelDetailResult;
 import com.aucontraire.gmailbuddy.service.MessageDetailResult;
 import com.aucontraire.gmailbuddy.service.SentMessageResult;
 import com.aucontraire.gmailbuddy.service.ThreadDetailResult;
 import com.aucontraire.gmailbuddy.service.ThreadListResult;
-import com.aucontraire.gmailbuddy.service.AttachmentListResult;
-import com.aucontraire.gmailbuddy.service.LabelDetailResult;
 import com.google.api.services.gmail.model.Draft;
 import com.google.api.services.gmail.model.Label;
-import com.google.api.services.gmail.model.LabelColor;
 import com.google.api.services.gmail.model.Message;
 import com.google.api.services.gmail.model.MessagePart;
 import com.google.api.services.gmail.model.MessagePartBody;
 import com.google.api.services.gmail.model.MessagePartHeader;
 import com.google.api.services.gmail.model.Thread;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link GmailMessageMapper}.
@@ -115,8 +110,7 @@ class GmailMessageMapperTest {
         // passing null must propagate as NullPointerException (per @throws).
 
         // Act + Assert
-        assertThatNullPointerException()
-                .isThrownBy(() -> mapper.toSentMessageResult(null));
+        assertThatNullPointerException().isThrownBy(() -> mapper.toSentMessageResult(null));
     }
 
     // -------------------------------------------------------------------------
@@ -216,8 +210,7 @@ class GmailMessageMapperTest {
         // Arrange: the Javadoc contracts that null draft is disallowed.
 
         // Act + Assert
-        assertThatNullPointerException()
-                .isThrownBy(() -> mapper.toDraftCreationResult(null));
+        assertThatNullPointerException().isThrownBy(() -> mapper.toDraftCreationResult(null));
     }
 
     // -------------------------------------------------------------------------
@@ -280,9 +273,13 @@ class GmailMessageMapperTest {
         return h;
     }
 
-    private Draft buildFullDraft(String draftId, String messageId, String threadId,
-                                  String snippet, List<MessagePartHeader> headers,
-                                  List<MessagePart> subParts) {
+    private Draft buildFullDraft(
+            String draftId,
+            String messageId,
+            String threadId,
+            String snippet,
+            List<MessagePartHeader> headers,
+            List<MessagePart> subParts) {
         MessagePart payload = new MessagePart();
         payload.setMimeType("multipart/mixed");
         payload.setHeaders(headers);
@@ -304,15 +301,16 @@ class GmailMessageMapperTest {
     void toDraftDetailResult_fullDraft_allFieldsPopulated() {
         String bodyText = "Hello, Sarah!";
         Draft draft = buildFullDraft(
-                "draft-001", "msg-001", "thread-001", "Hello, Sarah!",
+                "draft-001",
+                "msg-001",
+                "thread-001",
+                "Hello, Sarah!",
                 List.of(
                         header("To", "sarah@example.com"),
                         header("Cc", "cc1@example.com"),
                         header("Bcc", "bcc1@example.com"),
-                        header("Subject", "Test Subject")
-                ),
-                List.of(buildBodyPart("text/plain", bodyText))
-        );
+                        header("Subject", "Test Subject")),
+                List.of(buildBodyPart("text/plain", bodyText)));
 
         DraftDetailResult result = mapper.toDraftDetailResult(draft);
 
@@ -333,10 +331,12 @@ class GmailMessageMapperTest {
     @Test
     void toDraftDetailResult_missingSubject_subjectIsNull() {
         Draft draft = buildFullDraft(
-                "draft-002", "msg-002", null, null,
+                "draft-002",
+                "msg-002",
+                null,
+                null,
                 List.of(header("To", "test@example.com")),
-                List.of(buildBodyPart("text/plain", "Body text"))
-        );
+                List.of(buildBodyPart("text/plain", "Body text")));
 
         DraftDetailResult result = mapper.toDraftDetailResult(draft);
 
@@ -346,10 +346,12 @@ class GmailMessageMapperTest {
     @Test
     void toDraftDetailResult_missingRecipients_returnsEmptyLists() {
         Draft draft = buildFullDraft(
-                "draft-003", "msg-003", null, null,
+                "draft-003",
+                "msg-003",
+                null,
+                null,
                 List.of(header("Subject", "No recipients")),
-                List.of(buildBodyPart("text/plain", "body"))
-        );
+                List.of(buildBodyPart("text/plain", "body")));
 
         DraftDetailResult result = mapper.toDraftDetailResult(draft);
 
@@ -361,13 +363,12 @@ class GmailMessageMapperTest {
     @Test
     void toDraftDetailResult_threadedDraft_setsThreadIdAndInReplyToMessageId() {
         Draft draft = buildFullDraft(
-                "draft-004", "msg-004", "thread-abc", null,
-                List.of(
-                        header("To", "test@example.com"),
-                        header("In-Reply-To", "<original-msg-id@mail.gmail.com>")
-                ),
-                List.of(buildBodyPart("text/plain", "reply body"))
-        );
+                "draft-004",
+                "msg-004",
+                "thread-abc",
+                null,
+                List.of(header("To", "test@example.com"), header("In-Reply-To", "<original-msg-id@mail.gmail.com>")),
+                List.of(buildBodyPart("text/plain", "reply body")));
 
         DraftDetailResult result = mapper.toDraftDetailResult(draft);
 
@@ -380,10 +381,12 @@ class GmailMessageMapperTest {
     void toDraftDetailResult_htmlBodyPart_bodyTypeIsHtml() {
         String htmlContent = "<p>Hello <b>World</b></p>";
         Draft draft = buildFullDraft(
-                "draft-005", "msg-005", null, null,
+                "draft-005",
+                "msg-005",
+                null,
+                null,
                 List.of(header("To", "test@example.com")),
-                List.of(buildBodyPart("text/html", htmlContent))
-        );
+                List.of(buildBodyPart("text/html", htmlContent)));
 
         DraftDetailResult result = mapper.toDraftDetailResult(draft);
 
@@ -395,10 +398,12 @@ class GmailMessageMapperTest {
     void toDraftDetailResult_textBodyPart_bodyTypeIsText() {
         String plainContent = "Plain text body";
         Draft draft = buildFullDraft(
-                "draft-006", "msg-006", null, null,
+                "draft-006",
+                "msg-006",
+                null,
+                null,
                 List.of(header("To", "test@example.com")),
-                List.of(buildBodyPart("text/plain", plainContent))
-        );
+                List.of(buildBodyPart("text/plain", plainContent)));
 
         DraftDetailResult result = mapper.toDraftDetailResult(draft);
 
@@ -414,10 +419,7 @@ class GmailMessageMapperTest {
         MessagePart payload = new MessagePart();
         payload.setMimeType("multipart/alternative");
         payload.setHeaders(List.of(header("To", "test@example.com")));
-        payload.setParts(List.of(
-                buildBodyPart("text/plain", plainContent),
-                buildBodyPart("text/html", htmlContent)
-        ));
+        payload.setParts(List.of(buildBodyPart("text/plain", plainContent), buildBodyPart("text/html", htmlContent)));
 
         Message message = new Message();
         message.setId("msg-007");
@@ -436,16 +438,18 @@ class GmailMessageMapperTest {
     @Test
     void toDraftDetailResult_withAttachments_attachmentCountMatchesAndMetadataCorrect() {
         Draft draft = buildFullDraft(
-                "draft-008", "msg-008", null, null,
+                "draft-008",
+                "msg-008",
+                null,
+                null,
                 List.of(header("To", "test@example.com")),
                 List.of(
                         buildBodyPart("text/plain", "body"),
                         buildAttachmentPart("resume.pdf", "application/pdf", 245760L),
-                        buildAttachmentPart("cover-letter.docx",
+                        buildAttachmentPart(
+                                "cover-letter.docx",
                                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                102400L)
-                )
-        );
+                                102400L)));
 
         DraftDetailResult result = mapper.toDraftDetailResult(draft);
 
@@ -459,8 +463,7 @@ class GmailMessageMapperTest {
     @Test
     void toDraftDetailResult_base64UrlBodyDecoding_roundTripsCorrectly() {
         String originalText = "Hello World! Special chars: é à ü";
-        String encodedBody = Base64.getUrlEncoder()
-                .encodeToString(originalText.getBytes(StandardCharsets.UTF_8));
+        String encodedBody = Base64.getUrlEncoder().encodeToString(originalText.getBytes(StandardCharsets.UTF_8));
 
         MessagePart bodyPart = new MessagePart();
         bodyPart.setMimeType("text/plain");
@@ -469,10 +472,7 @@ class GmailMessageMapperTest {
         bodyPart.setBody(body);
 
         Draft draft = buildFullDraft(
-                "draft-009", "msg-009", null, null,
-                List.of(header("To", "test@example.com")),
-                List.of(bodyPart)
-        );
+                "draft-009", "msg-009", null, null, List.of(header("To", "test@example.com")), List.of(bodyPart));
 
         DraftDetailResult result = mapper.toDraftDetailResult(draft);
 
@@ -499,15 +499,20 @@ class GmailMessageMapperTest {
 
     @Test
     void toDraftListItem_projection_picksCorrectSubsetOfFields() {
-        List<AttachmentMetadata> attachments = List.of(
-                new AttachmentMetadata("file.pdf", "application/pdf", 1024L)
-        );
+        List<AttachmentMetadata> attachments = List.of(new AttachmentMetadata("file.pdf", "application/pdf", 1024L));
         DraftDetailResult detail = new DraftDetailResult(
-                "draft-id-1", "msg-1", "thread-1",
-                List.of("to@example.com"), List.of("cc@example.com"), List.of(),
-                "Test Subject", "A snippet", "body text", "text",
-                "in-reply-to-id", attachments
-        );
+                "draft-id-1",
+                "msg-1",
+                "thread-1",
+                List.of("to@example.com"),
+                List.of("cc@example.com"),
+                List.of(),
+                "Test Subject",
+                "A snippet",
+                "body text",
+                "text",
+                "in-reply-to-id",
+                attachments);
 
         DraftListItem item = mapper.toDraftListItem(detail);
 
@@ -526,12 +531,9 @@ class GmailMessageMapperTest {
         List<AttachmentMetadata> attachments = List.of(
                 new AttachmentMetadata("a.pdf", "application/pdf", 100L),
                 new AttachmentMetadata("b.pdf", "application/pdf", 200L),
-                new AttachmentMetadata("c.pdf", "application/pdf", 300L)
-        );
+                new AttachmentMetadata("c.pdf", "application/pdf", 300L));
         DraftDetailResult detail = new DraftDetailResult(
-                "d1", "m1", null, List.of(), List.of(), List.of(),
-                null, null, null, "text", null, attachments
-        );
+                "d1", "m1", null, List.of(), List.of(), List.of(), null, null, null, "text", null, attachments);
 
         DraftListItem item = mapper.toDraftListItem(detail);
 
@@ -544,15 +546,20 @@ class GmailMessageMapperTest {
 
     @Test
     void toDraftDetailResponse_oneToOneFieldMapping_allFieldsTransferred() {
-        List<AttachmentMetadata> attachments = List.of(
-                new AttachmentMetadata("doc.pdf", "application/pdf", 5000L)
-        );
+        List<AttachmentMetadata> attachments = List.of(new AttachmentMetadata("doc.pdf", "application/pdf", 5000L));
         DraftDetailResult detail = new DraftDetailResult(
-                "draft-resp-1", "msg-resp-1", "thread-resp-1",
-                List.of("recipient@example.com"), List.of(), List.of(),
-                "Subject line", "snippet", "<p>HTML body</p>", "html",
-                "in-reply-to-ref", attachments
-        );
+                "draft-resp-1",
+                "msg-resp-1",
+                "thread-resp-1",
+                List.of("recipient@example.com"),
+                List.of(),
+                List.of(),
+                "Subject line",
+                "snippet",
+                "<p>HTML body</p>",
+                "html",
+                "in-reply-to-ref",
+                attachments);
 
         DraftDetailResponse response = mapper.toDraftDetailResponse(detail);
 
@@ -571,10 +578,18 @@ class GmailMessageMapperTest {
     @Test
     void toDraftDetailResponse_nullableFieldsPassThroughAsNull() {
         DraftDetailResult detail = new DraftDetailResult(
-                "draft-null-fields", "msg-n", null,
-                List.of(), List.of(), List.of(),
-                null, null, null, "text", null, List.of()
-        );
+                "draft-null-fields",
+                "msg-n",
+                null,
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                "text",
+                null,
+                List.of());
 
         DraftDetailResponse response = mapper.toDraftDetailResponse(detail);
 
@@ -591,11 +606,32 @@ class GmailMessageMapperTest {
     @Test
     void toDraftListResponse_eachDraftProjectedViaToDraftListItem() {
         List<DraftDetailResult> drafts = List.of(
-                new DraftDetailResult("d1", "m1", null, List.of("a@b.com"), List.of(), List.of(),
-                        "S1", "snip1", null, "text", null, List.of()),
-                new DraftDetailResult("d2", "m2", "t2", List.of("c@d.com"), List.of(), List.of(),
-                        "S2", "snip2", null, "text", null, List.of())
-        );
+                new DraftDetailResult(
+                        "d1",
+                        "m1",
+                        null,
+                        List.of("a@b.com"),
+                        List.of(),
+                        List.of(),
+                        "S1",
+                        "snip1",
+                        null,
+                        "text",
+                        null,
+                        List.of()),
+                new DraftDetailResult(
+                        "d2",
+                        "m2",
+                        "t2",
+                        List.of("c@d.com"),
+                        List.of(),
+                        List.of(),
+                        "S2",
+                        "snip2",
+                        null,
+                        "text",
+                        null,
+                        List.of()));
         DraftListResult listResult = new DraftListResult(drafts, "token-abc", 42);
 
         DraftListResponse response = mapper.toDraftListResponse(listResult);
@@ -728,10 +764,8 @@ class GmailMessageMapperTest {
 
     @Test
     void toThreadListResponse_projectsAllFields() {
-        List<ThreadSummary> summaries = List.of(
-                new ThreadSummary("t1", "Snippet 1", "100"),
-                new ThreadSummary("t2", "Snippet 2", null)
-        );
+        List<ThreadSummary> summaries =
+                List.of(new ThreadSummary("t1", "Snippet 1", "100"), new ThreadSummary("t2", "Snippet 2", null));
         ThreadListResult listResult = new ThreadListResult(summaries, "next-token", 42);
 
         ThreadListResponse response = mapper.toThreadListResponse(listResult);
@@ -763,8 +797,7 @@ class GmailMessageMapperTest {
     @Test
     void toMessageDetailResult_allNineWhitelistedHeaders_presentInOutputMap() {
         List<MessagePartHeader> headers = ReadApiFixtures.buildAllNineWhitelistedHeaders();
-        Message message = ReadApiFixtures.buildMessageWithHeaders(
-                "msg-hdr", "t1", headers, "snippet", null);
+        Message message = ReadApiFixtures.buildMessageWithHeaders("msg-hdr", "t1", headers, "snippet", null);
 
         MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
 
@@ -784,10 +817,10 @@ class GmailMessageMapperTest {
     void toMessageDetailResult_caseInsensitiveHeaderInput_canonicalCaseInOutput() {
         // Gmail may return mixed-case header names; we should normalize to canonical
         List<MessagePartHeader> headers = List.of(
-                ReadApiFixtures.header("from", "sender@example.com"),   // lowercase
-                ReadApiFixtures.header("SUBJECT", "Test subject"),       // uppercase
+                ReadApiFixtures.header("from", "sender@example.com"), // lowercase
+                ReadApiFixtures.header("SUBJECT", "Test subject"), // uppercase
                 ReadApiFixtures.header("message-id", "<id@example.com>") // all lowercase
-        );
+                );
         Message message = ReadApiFixtures.buildMessageWithHeaders("msg-case", "t1", headers, null, null);
 
         MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
@@ -807,9 +840,7 @@ class GmailMessageMapperTest {
     void toMessageDetailResult_missingHeaders_absentFromMap_notNull() {
         // Only 2 of 9 whitelisted headers present
         List<MessagePartHeader> headers = List.of(
-                ReadApiFixtures.header("From", "sender@example.com"),
-                ReadApiFixtures.header("Subject", "Hello")
-        );
+                ReadApiFixtures.header("From", "sender@example.com"), ReadApiFixtures.header("Subject", "Hello"));
         Message message = ReadApiFixtures.buildMessageWithHeaders("msg-missing", "t1", headers, null, null);
 
         MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
@@ -827,8 +858,7 @@ class GmailMessageMapperTest {
                 ReadApiFixtures.header("Received", "by mx.example.com"),
                 ReadApiFixtures.header("Authentication-Results", "spf=pass"),
                 ReadApiFixtures.header("X-Mailer", "Gmail/2026"),
-                ReadApiFixtures.header("Subject", "Test")
-        );
+                ReadApiFixtures.header("Subject", "Test"));
         Message message = ReadApiFixtures.buildMessageWithHeaders("msg-nonwl", "t1", headers, null, null);
 
         MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
@@ -841,8 +871,8 @@ class GmailMessageMapperTest {
 
     @Test
     void toMessageDetailResult_formatFull_bodyPresent() {
-        Message message = ReadApiFixtures.buildMessageWithHeaders(
-                "msg-body", "t1", List.of(), "A snippet", "Hello world");
+        Message message =
+                ReadApiFixtures.buildMessageWithHeaders("msg-body", "t1", List.of(), "A snippet", "Hello world");
 
         MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
 
@@ -852,8 +882,8 @@ class GmailMessageMapperTest {
 
     @Test
     void toMessageDetailResult_formatMetadata_bodyNull() {
-        Message message = ReadApiFixtures.buildMessageWithHeaders(
-                "msg-meta", "t1", List.of(), "snippet", "Hello world");
+        Message message =
+                ReadApiFixtures.buildMessageWithHeaders("msg-meta", "t1", List.of(), "snippet", "Hello world");
 
         MessageDetailResult result = mapper.toMessageDetailResult(message, "metadata");
 
@@ -863,9 +893,8 @@ class GmailMessageMapperTest {
 
     @Test
     void toMessageDetailResult_withAttachments_attachmentMetadataExtracted() {
-        List<MessagePart> parts = List.of(
-                ReadApiFixtures.buildAttachmentPart("att-id-1", "doc.pdf", "application/pdf", 5000L)
-        );
+        List<MessagePart> parts =
+                List.of(ReadApiFixtures.buildAttachmentPart("att-id-1", "doc.pdf", "application/pdf", 5000L));
         Message message = ReadApiFixtures.buildMessageWithAttachments("msg-att", parts);
 
         MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
@@ -889,8 +918,8 @@ class GmailMessageMapperTest {
 
     @Test
     void toMessageDetailResult_labelIds_populatedFromMessage() {
-        Message message = ReadApiFixtures.buildMessage("msg-labels", "t1",
-                List.of("INBOX", "UNREAD", "CATEGORY_PERSONAL"));
+        Message message =
+                ReadApiFixtures.buildMessage("msg-labels", "t1", List.of("INBOX", "UNREAD", "CATEGORY_PERSONAL"));
 
         MessageDetailResult result = mapper.toMessageDetailResult(message, "full");
 
@@ -919,8 +948,8 @@ class GmailMessageMapperTest {
 
     @Test
     void toAttachmentListResult_messageWithOneAttachment_returnsSingleItem() {
-        MessagePart attachPart = ReadApiFixtures.buildAttachmentPart(
-                "attach-id-001", "report.pdf", "application/pdf", 245760L);
+        MessagePart attachPart =
+                ReadApiFixtures.buildAttachmentPart("attach-id-001", "report.pdf", "application/pdf", 245760L);
         Message message = ReadApiFixtures.buildMessageWithAttachments("msg-attach", List.of(attachPart));
 
         AttachmentListResult result = mapper.toAttachmentListResult(message);
@@ -935,10 +964,8 @@ class GmailMessageMapperTest {
 
     @Test
     void toAttachmentListResult_messageWithTwoAttachments_returnsBothItems() {
-        MessagePart part1 = ReadApiFixtures.buildAttachmentPart(
-                "attach-001", "doc1.pdf", "application/pdf", 10000L);
-        MessagePart part2 = ReadApiFixtures.buildAttachmentPart(
-                "attach-002", "image.png", "image/png", 50000L);
+        MessagePart part1 = ReadApiFixtures.buildAttachmentPart("attach-001", "doc1.pdf", "application/pdf", 10000L);
+        MessagePart part2 = ReadApiFixtures.buildAttachmentPart("attach-002", "image.png", "image/png", 50000L);
         Message message = ReadApiFixtures.buildMessageWithAttachments("msg-two", List.of(part1, part2));
 
         AttachmentListResult result = mapper.toAttachmentListResult(message);
@@ -1013,8 +1040,7 @@ class GmailMessageMapperTest {
 
     @Test
     void toLabelDetailResult_labelWithColor_colorFieldsPopulated() {
-        Label label = ReadApiFixtures.buildLabelWithColor(
-                "Label_42", "Recruiters", "#222222", "#16a766");
+        Label label = ReadApiFixtures.buildLabelWithColor("Label_42", "Recruiters", "#222222", "#16a766");
 
         LabelDetailResult result = mapper.toLabelDetailResult(label);
 

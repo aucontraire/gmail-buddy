@@ -1,11 +1,17 @@
 package com.aucontraire.gmailbuddy.exception;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import com.aucontraire.gmailbuddy.constants.ProblemTypes;
 import com.aucontraire.gmailbuddy.dto.error.ProblemDetail;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
+import java.io.IOException;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,13 +29,6 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.Set;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 /**
  * Comprehensive tests for RFC 7807 compliant error responses in GlobalExceptionHandler.
@@ -200,7 +199,8 @@ class GlobalExceptionHandlerRfc7807Test {
         @DisplayName("Should return RFC 7807 with Retry-After header for RateLimitException")
         void shouldReturnRfc7807WithRetryAfterHeader() {
             long retryAfter = 60L;
-            RateLimitException exception = new RateLimitException("Rate limit exceeded: 100 requests/minute", retryAfter);
+            RateLimitException exception =
+                    new RateLimitException("Rate limit exceeded: 100 requests/minute", retryAfter);
 
             ResponseEntity<ProblemDetail> response = exceptionHandler.handleRateLimitException(exception);
 
@@ -422,7 +422,8 @@ class GlobalExceptionHandlerRfc7807Test {
 
             ResponseEntity<ProblemDetail> response = exceptionHandler.handleResourceNotFoundException(exception);
 
-            assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.parseMediaType("application/problem+json"));
+            assertThat(response.getHeaders().getContentType())
+                    .isEqualTo(MediaType.parseMediaType("application/problem+json"));
         }
 
         @Test
@@ -483,7 +484,8 @@ class GlobalExceptionHandlerRfc7807Test {
             ProblemDetail problem = response.getBody();
             assertThat(problem).isNotNull();
             assertThat(problem.getRequestId()).isNotNull();
-            assertThat(problem.getRequestId()).matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+            assertThat(problem.getRequestId())
+                    .matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
         }
     }
 }

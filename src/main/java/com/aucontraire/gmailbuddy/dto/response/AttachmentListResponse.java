@@ -1,7 +1,6 @@
 package com.aucontraire.gmailbuddy.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-
 import java.util.List;
 
 /**
@@ -17,8 +16,5 @@ import java.util.List;
 @Schema(description = "Response envelope for listing attachments on a message")
 public record AttachmentListResponse(
         @Schema(description = "List of attachment metadata items; empty when message has no attachments")
-        List<MessageAttachmentMetadata> results,
-
-        @Schema(description = "Total number of attachments on this message", example = "2")
-        int totalCount
-) {}
+                List<MessageAttachmentMetadata> results,
+        @Schema(description = "Total number of attachments on this message", example = "2") int totalCount) {}

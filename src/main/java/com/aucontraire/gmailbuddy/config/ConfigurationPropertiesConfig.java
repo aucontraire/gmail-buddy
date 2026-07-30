@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Configuration class to enable and register configuration properties.
  * This makes GmailBuddyProperties available as a Spring bean.
- * 
+ *
  * @author Gmail Buddy Team
  * @since 1.0
  */

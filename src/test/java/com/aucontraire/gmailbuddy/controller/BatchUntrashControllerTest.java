@@ -1,5 +1,13 @@
 package com.aucontraire.gmailbuddy.controller;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.GmailBuddyApplication;
 import com.aucontraire.gmailbuddy.config.TestTokenProviderConfiguration;
 import com.aucontraire.gmailbuddy.dto.BatchMessageIdsRequest;
@@ -9,6 +17,8 @@ import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Collections;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,17 +36,6 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.util.Collections;
-import java.util.List;
-
-import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Controller-slice contract tests for {@code POST /api/v1/gmail/messages/batchUntrash}
@@ -77,8 +76,7 @@ class BatchUntrashControllerTest {
         OAuth2User principal = new DefaultOAuth2User(
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")),
                 Collections.singletonMap("name", "testuser"),
-                "name"
-        );
+                "name");
         OAuth2AuthenticationToken authentication =
                 new OAuth2AuthenticationToken(principal, principal.getAuthorities(), "google");
         SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -170,8 +168,7 @@ class BatchUntrashControllerTest {
         String repeatedId = BatchOperationFixtures.validMessageIds(1).get(0);
         List<String> oversizedIds = Collections.nCopies(11, repeatedId);
         when(gmailService.batchUntrashMessages(eq(USER_ID), eq(oversizedIds)))
-                .thenThrow(new ValidationException(
-                        "messageIds size (11) exceeds the configured maximum (10)"));
+                .thenThrow(new ValidationException("messageIds size (11) exceeds the configured maximum (10)"));
         String requestBody = objectMapper.writeValueAsString(new BatchMessageIdsRequest(oversizedIds));
 
         // Act & Assert

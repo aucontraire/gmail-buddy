@@ -1,5 +1,9 @@
 package com.aucontraire.gmailbuddy.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -7,6 +11,8 @@ import ch.qos.logback.core.read.ListAppender;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,13 +20,6 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-
-import java.io.IOException;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 /**
  * Tests to verify that MDC (Mapped Diagnostic Context) logging correlation works correctly
@@ -66,11 +65,13 @@ class MDCLoggingCorrelationTest {
         request.addHeader("X-Request-ID", providedRequestId);
 
         doAnswer(invocation -> {
-            // Assert - requestId should be in MDC during filter chain execution
-            String mdcRequestId = MDC.get("requestId");
-            assertThat(mdcRequestId).isEqualTo(providedRequestId);
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    // Assert - requestId should be in MDC during filter chain execution
+                    String mdcRequestId = MDC.get("requestId");
+                    assertThat(mdcRequestId).isEqualTo(providedRequestId);
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -86,10 +87,12 @@ class MDCLoggingCorrelationTest {
         request.addHeader("X-Request-ID", providedRequestId);
 
         doAnswer(invocation -> {
-            // Log something during request processing
-            testLogger.info("Processing request");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    // Log something during request processing
+                    testLogger.info("Processing request");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -111,12 +114,14 @@ class MDCLoggingCorrelationTest {
 
         final String[] mdcRequestIdDuringProcessing = {null};
         doAnswer(invocation -> {
-            mdcRequestIdDuringProcessing[0] = MDC.get("requestId");
-            // Trigger response write to add headers
-            HttpServletResponse wrappedResponse = invocation.getArgument(1);
-            wrappedResponse.getWriter().write("response");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    mdcRequestIdDuringProcessing[0] = MDC.get("requestId");
+                    // Trigger response write to add headers
+                    HttpServletResponse wrappedResponse = invocation.getArgument(1);
+                    wrappedResponse.getWriter().write("response");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -133,12 +138,14 @@ class MDCLoggingCorrelationTest {
         // Arrange - no request ID provided, should be generated
         final String[] mdcRequestId = {null};
         doAnswer(invocation -> {
-            mdcRequestId[0] = MDC.get("requestId");
-            // Trigger response write to add headers
-            HttpServletResponse wrappedResponse = invocation.getArgument(1);
-            wrappedResponse.getWriter().write("response");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    mdcRequestId[0] = MDC.get("requestId");
+                    // Trigger response write to add headers
+                    HttpServletResponse wrappedResponse = invocation.getArgument(1);
+                    wrappedResponse.getWriter().write("response");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -154,9 +161,11 @@ class MDCLoggingCorrelationTest {
     void mdcCleanup_shouldRemoveRequestIdAfterCompletion() throws ServletException, IOException {
         // Arrange
         doAnswer(invocation -> {
-            assertThat(MDC.get("requestId")).isNotNull();
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    assertThat(MDC.get("requestId")).isNotNull();
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -172,12 +181,14 @@ class MDCLoggingCorrelationTest {
         request.addHeader("X-Request-ID", providedRequestId);
 
         doAnswer(invocation -> {
-            // Log multiple statements during request processing
-            testLogger.info("First log statement");
-            testLogger.warn("Second log statement");
-            testLogger.error("Third log statement");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    // Log multiple statements during request processing
+                    testLogger.info("First log statement");
+                    testLogger.warn("Second log statement");
+                    testLogger.error("Third log statement");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -198,13 +209,15 @@ class MDCLoggingCorrelationTest {
         request.addHeader("X-Request-ID", providedRequestId);
 
         doAnswer(invocation -> {
-            // Log during exception handling
-            testLogger.error("Error occurred", new RuntimeException("Test exception"));
-            // Trigger response write to add headers
-            HttpServletResponse wrappedResponse = invocation.getArgument(1);
-            wrappedResponse.getWriter().write("error response");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    // Log during exception handling
+                    testLogger.error("Error occurred", new RuntimeException("Test exception"));
+                    // Trigger response write to add headers
+                    HttpServletResponse wrappedResponse = invocation.getArgument(1);
+                    wrappedResponse.getWriter().write("error response");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // Act
         filter.doFilter(request, response, filterChain);
@@ -228,11 +241,13 @@ class MDCLoggingCorrelationTest {
         String secondRequestId = "sequential-2";
 
         doAnswer(invocation -> {
-            testLogger.info("Request log");
-            HttpServletResponse wrappedResponse = invocation.getArgument(1);
-            wrappedResponse.getWriter().write("response");
-            return null;
-        }).when(filterChain).doFilter(any(), any());
+                    testLogger.info("Request log");
+                    HttpServletResponse wrappedResponse = invocation.getArgument(1);
+                    wrappedResponse.getWriter().write("response");
+                    return null;
+                })
+                .when(filterChain)
+                .doFilter(any(), any());
 
         // First request
         request.addHeader("X-Request-ID", firstRequestId);

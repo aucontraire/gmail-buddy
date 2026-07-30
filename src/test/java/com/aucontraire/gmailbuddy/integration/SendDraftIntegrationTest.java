@@ -1,5 +1,13 @@
 package com.aucontraire.gmailbuddy.integration;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.repository.GmailRepository;
 import com.aucontraire.gmailbuddy.service.GmailService;
 import com.aucontraire.gmailbuddy.service.GoogleTokenValidator;
@@ -11,18 +19,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Integration tests for {@code POST /api/v1/gmail/drafts/{draftId}/send} with
@@ -58,9 +58,9 @@ class SendDraftIntegrationTest {
     static final String VALID_GOOGLE_TOKEN = "ya29.a0ARrdaM-valid-google-token-for-send-draft";
 
     private static final String SEND_DRAFT_ENDPOINT = "/api/v1/gmail/drafts/{draftId}/send";
-    private static final String DRAFT_ID             = "r-9876543210";
-    private static final String MESSAGE_ID           = "19a2b3c4d5e6f7g8";
-    private static final String THREAD_ID            = "thread-19a2b3c4d5e6f7g8";
+    private static final String DRAFT_ID = "r-9876543210";
+    private static final String MESSAGE_ID = "19a2b3c4d5e6f7g8";
+    private static final String THREAD_ID = "thread-19a2b3c4d5e6f7g8";
 
     // -------------------------------------------------------------------------
     // Spring-managed beans
@@ -98,12 +98,10 @@ class SendDraftIntegrationTest {
     }
 
     private GoogleTokenValidator.TokenInfoResponse createValidTokenInfo() {
-        GoogleTokenValidator.TokenInfoResponse tokenInfo =
-                new GoogleTokenValidator.TokenInfoResponse();
+        GoogleTokenValidator.TokenInfoResponse tokenInfo = new GoogleTokenValidator.TokenInfoResponse();
         tokenInfo.setEmail("api-user@example.com");
         tokenInfo.setUserId("123456789");
-        tokenInfo.setScope(
-                "https://www.googleapis.com/auth/gmail.readonly "
+        tokenInfo.setScope("https://www.googleapis.com/auth/gmail.readonly "
                 + "https://www.googleapis.com/auth/gmail.modify "
                 + "https://www.googleapis.com/auth/gmail.send");
         tokenInfo.setAudience("test-client-id");
@@ -122,14 +120,12 @@ class SendDraftIntegrationTest {
 
         @Test
         @DisplayName("postSendDraft_bearerTokenAuth_validDraftId_returns200WithSentBody")
-        void postSendDraft_bearerTokenAuth_validDraftId_returns200WithSentBody()
-                throws Exception {
+        void postSendDraft_bearerTokenAuth_validDraftId_returns200WithSentBody() throws Exception {
             // Arrange
             mockValidTokenResponseForSendDraft();
 
             // Act & Assert: 200 OK with correct body.
-            mockMvc.perform(post(SEND_DRAFT_ENDPOINT, DRAFT_ID)
-                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN))
+            mockMvc.perform(post(SEND_DRAFT_ENDPOINT, DRAFT_ID).header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.messageId").value(MESSAGE_ID))
                     .andExpect(jsonPath("$.threadId").value(THREAD_ID))
@@ -138,15 +134,13 @@ class SendDraftIntegrationTest {
 
         @Test
         @DisplayName("postSendDraft_bearerTokenAuth_validDraftId_locationHeaderIsAbsent")
-        void postSendDraft_bearerTokenAuth_validDraftId_locationHeaderIsAbsent()
-                throws Exception {
+        void postSendDraft_bearerTokenAuth_validDraftId_locationHeaderIsAbsent() throws Exception {
             // Arrange
             mockValidTokenResponseForSendDraft();
 
             // Act & Assert: no Location header for a state transition
             // (per contracts/api-endpoints.md Endpoint 3 and Decision 3).
-            mockMvc.perform(post(SEND_DRAFT_ENDPOINT, DRAFT_ID)
-                            .header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN))
+            mockMvc.perform(post(SEND_DRAFT_ENDPOINT, DRAFT_ID).header("Authorization", "Bearer " + VALID_GOOGLE_TOKEN))
                     .andExpect(status().isOk())
                     .andExpect(header().doesNotExist("Location"));
         }

@@ -36,5 +36,4 @@ public record LabelDetailResult(
         Integer messagesTotal,
         Integer messagesUnread,
         Integer threadsTotal,
-        Integer threadsUnread
-) {}
+        Integer threadsUnread) {}

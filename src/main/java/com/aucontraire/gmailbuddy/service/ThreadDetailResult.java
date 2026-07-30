@@ -12,8 +12,4 @@ import java.util.List;
  * from the Gmail SDK {@code Thread} object. {@code messages} is in chronological
  * ascending order (oldest first) as returned by Gmail's API.</p>
  */
-public record ThreadDetailResult(
-        String threadId,
-        List<String> labelIds,
-        List<MessageDetailResult> messages
-) {}
+public record ThreadDetailResult(String threadId, List<String> labelIds, List<MessageDetailResult> messages) {}

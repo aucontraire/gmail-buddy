@@ -1,10 +1,10 @@
 package com.aucontraire.gmailbuddy.exception;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("MessageSendException Tests")
 class MessageSendExceptionTest {
@@ -80,10 +80,8 @@ class MessageSendExceptionTest {
     void getHttpStatus_Always_ReturnsBadGateway502() {
         // Arrange
         MessageSendException fromMessage = new MessageSendException("send failed");
-        MessageSendException fromMessageAndCause =
-                new MessageSendException("send failed", new Exception("api error"));
-        MessageSendException fromMessageAndCorrelation =
-                new MessageSendException("send failed", "corr-id-999");
+        MessageSendException fromMessageAndCause = new MessageSendException("send failed", new Exception("api error"));
+        MessageSendException fromMessageAndCorrelation = new MessageSendException("send failed", "corr-id-999");
 
         // Act & Assert
         assertThat(fromMessage.getHttpStatus()).isEqualTo(HttpStatus.BAD_GATEWAY.value());

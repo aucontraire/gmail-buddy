@@ -1,22 +1,21 @@
 package com.aucontraire.gmailbuddy.service;
 
-import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
-import com.aucontraire.gmailbuddy.exception.GmailApiException;
-import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
-import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
-import com.aucontraire.gmailbuddy.repository.GmailRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.util.unit.DataSize;
-
-import java.io.IOException;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
+import com.aucontraire.gmailbuddy.exception.GmailApiException;
+import com.aucontraire.gmailbuddy.mapper.FilterCriteriaMapper;
+import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
+import com.aucontraire.gmailbuddy.repository.GmailRepository;
+import java.io.IOException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.util.unit.DataSize;
 
 /**
  * Pure Mockito unit tests for {@link GmailService#sendDraft(String, String)}.
@@ -35,9 +34,9 @@ class GmailServiceSendDraftTest {
     // Constants
     // -------------------------------------------------------------------------
 
-    private static final String USER_ID        = "me";
-    private static final String TEST_DRAFT_ID  = "r-9876543210";
-    private static final String TEST_MSG_ID    = "19a2b3c4d5e6f7g8";
+    private static final String USER_ID = "me";
+    private static final String TEST_DRAFT_ID = "r-9876543210";
+    private static final String TEST_MSG_ID = "19a2b3c4d5e6f7g8";
     private static final String TEST_THREAD_ID = "thread-19a2b3c4d5e6f7g8";
 
     // -------------------------------------------------------------------------
@@ -54,17 +53,21 @@ class GmailServiceSendDraftTest {
 
     @BeforeEach
     void setUp() {
-        gmailRepository      = mock(GmailRepository.class);
-        gmailQueryBuilder    = mock(GmailQueryBuilder.class);
+        gmailRepository = mock(GmailRepository.class);
+        gmailQueryBuilder = mock(GmailQueryBuilder.class);
         filterCriteriaMapper = mock(FilterCriteriaMapper.class);
-        mimeMessageBuilder   = mock(MimeMessageBuilder.class);
-        properties           = mock(GmailBuddyProperties.class);
-        send                 = mock(GmailBuddyProperties.Send.class);
+        mimeMessageBuilder = mock(MimeMessageBuilder.class);
+        properties = mock(GmailBuddyProperties.class);
+        send = mock(GmailBuddyProperties.Send.class);
         when(properties.send()).thenReturn(send);
         when(send.maxTotalPayloadSize()).thenReturn(DataSize.ofMegabytes(25));
         gmailService = new GmailService(
-                gmailRepository, gmailQueryBuilder, filterCriteriaMapper, mimeMessageBuilder,
-                mock(GmailMessageMapper.class), properties);
+                gmailRepository,
+                gmailQueryBuilder,
+                filterCriteriaMapper,
+                mimeMessageBuilder,
+                mock(GmailMessageMapper.class),
+                properties);
     }
 
     // -------------------------------------------------------------------------

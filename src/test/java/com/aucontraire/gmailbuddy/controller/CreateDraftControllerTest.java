@@ -1,5 +1,14 @@
 package com.aucontraire.gmailbuddy.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.aucontraire.gmailbuddy.dto.SendMessageDTO;
 import com.aucontraire.gmailbuddy.fixture.SendMessageRequestFixtures;
 import com.aucontraire.gmailbuddy.mapper.GmailMessageMapper;
@@ -16,21 +25,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Controller-slice test for {@code POST /api/v1/gmail/drafts} — success contract.
@@ -54,9 +54,9 @@ class CreateDraftControllerTest {
     private static final String DRAFTS_ENDPOINT = "/api/v1/gmail/drafts";
 
     // Test-fixture draft identifiers — chosen to be unambiguous.
-    private static final String DRAFT_ID   = "r-9876543210";
+    private static final String DRAFT_ID = "r-9876543210";
     private static final String MESSAGE_ID = "19a2b3c4d5e6f7g8";
-    private static final String THREAD_ID  = "19a2b3c4d5e6f7g8";
+    private static final String THREAD_ID = "19a2b3c4d5e6f7g8";
 
     @Autowired
     private MockMvc mockMvc;
@@ -95,19 +95,16 @@ class CreateDraftControllerTest {
     @Test
     @WithMockUser
     @DisplayName("postDraft_validRequest_returns201WithDraftIdMessageIdThreadIdAndDraftStatus")
-    void postDraft_validRequest_returns201WithDraftIdMessageIdThreadIdAndDraftStatus()
-            throws Exception {
+    void postDraft_validRequest_returns201WithDraftIdMessageIdThreadIdAndDraftStatus() throws Exception {
         // Arrange
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         String requestBody = objectMapper.writeValueAsString(dto);
 
-        DraftCreationResult stubResult =
-                new DraftCreationResult(DRAFT_ID, MESSAGE_ID, THREAD_ID);
+        DraftCreationResult stubResult = new DraftCreationResult(DRAFT_ID, MESSAGE_ID, THREAD_ID);
 
         // The controller uses properties.gmailApi().defaultUserId() = "me" from the
         // TestGmailBuddyPropertiesConfiguration bean.
-        when(gmailService.createDraft(eq("me"), any(SendMessageDTO.class)))
-                .thenReturn(stubResult);
+        when(gmailService.createDraft(eq("me"), any(SendMessageDTO.class))).thenReturn(stubResult);
 
         // Act & Assert
         mockMvc.perform(post(DRAFTS_ENDPOINT)
@@ -133,11 +130,9 @@ class CreateDraftControllerTest {
         SendMessageDTO dto = SendMessageRequestFixtures.validSingleRecipient();
         String requestBody = objectMapper.writeValueAsString(dto);
 
-        DraftCreationResult stubResult =
-                new DraftCreationResult(DRAFT_ID, MESSAGE_ID, THREAD_ID);
+        DraftCreationResult stubResult = new DraftCreationResult(DRAFT_ID, MESSAGE_ID, THREAD_ID);
 
-        when(gmailService.createDraft(eq("me"), any(SendMessageDTO.class)))
-                .thenReturn(stubResult);
+        when(gmailService.createDraft(eq("me"), any(SendMessageDTO.class))).thenReturn(stubResult);
 
         // Act & Assert: Location header must point to /api/v1/gmail/drafts/{draftId}
         // per the api-endpoints.md § Endpoint 2 success-response example.
@@ -161,11 +156,9 @@ class CreateDraftControllerTest {
         SendMessageDTO dto = SendMessageRequestFixtures.validHtmlBody();
         String requestBody = objectMapper.writeValueAsString(dto);
 
-        DraftCreationResult stubResult =
-                new DraftCreationResult(DRAFT_ID, MESSAGE_ID, THREAD_ID);
+        DraftCreationResult stubResult = new DraftCreationResult(DRAFT_ID, MESSAGE_ID, THREAD_ID);
 
-        when(gmailService.createDraft(eq("me"), any(SendMessageDTO.class)))
-                .thenReturn(stubResult);
+        when(gmailService.createDraft(eq("me"), any(SendMessageDTO.class))).thenReturn(stubResult);
 
         // Act & Assert
         mockMvc.perform(post(DRAFTS_ENDPOINT)
