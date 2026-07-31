@@ -10,6 +10,7 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.BatchDeleteMessagesRequest;
+import com.google.api.services.gmail.model.BatchModifyMessagesRequest;
 import com.google.api.services.gmail.model.ModifyMessageRequest;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -24,12 +25,16 @@ import org.springframework.stereotype.Component;
 
 /**
  * Client for executing Gmail operations in batches to improve performance.
- * Uses Gmail's native batchDelete() endpoint for deletions (50 quota units for up to 1000 messages)
- * and batch requests for label modifications while respecting Gmail API limits.
+ * Uses Gmail's native batchDelete() endpoint for deletions and native batchModify() endpoint for
+ * label modifications (add/remove labels, trash/untrash) while respecting Gmail API limits.
  *
  * This component significantly reduces API calls, quota usage, and improves performance:
  * - Delete operations: Uses batchDelete() API (50 units flat fee for up to 1000 messages)
- * - Label modifications: Uses batch requests (100 operations per batch)
+ * - Label modifications: Uses batchModify() API (~50 units flat fee per chunk of up to 1000
+ *   messages). A non-transient whole-chunk failure (e.g. an invalid or inaccessible message ID)
+ *   falls back to a per-message recovery pass so valid IDs are not lost to the native operation's
+ *   all-or-nothing failure mode; a transient failure (rate limit / server error / transport) is
+ *   retried on the native path instead (WI-1, FR-005/FR-006).
  *
  * @author Gmail Buddy Team
  * @since 1.0
@@ -167,9 +172,20 @@ public class GmailBatchClient {
     }
 
     /**
-     * Executes bulk label modification operations using Gmail API batch requests.
+     * Executes bulk label modification operations using Gmail's native {@code users.messages.batchModify}
+     * endpoint (one call per chunk, ~50 flat quota units) as the primary path (WI-1, FR-001/FR-004).
      *
-     * Includes circuit breaker pattern and adaptive rate limiting for Gmail API protection.
+     * <p>On a non-transient whole-chunk failure (e.g. an invalid or inaccessible message ID), the
+     * chunk is recovered via the per-message fallback ({@link #executeBatchModifyLabelsPerMessage})
+     * so valid IDs are still reported as successful (FR-005). On a transient failure (rate limit,
+     * server error, or transport-level {@link IOException}), the native call is retried with bounded
+     * backoff via {@link #executeBatchWithRetry} rather than falling back per-message (FR-006).
+     *
+     * <p>{@code batchTrash} / {@code batchUntrash} / {@code batchModifyLabels} (the three feature-005
+     * batch-by-id endpoints) all share this one primitive via a {@code TRASH} label add/remove, so all
+     * three benefit identically (FR-010).
+     *
+     * <p>Includes circuit breaker pattern and adaptive rate limiting for Gmail API protection.
      *
      * @param gmail the authenticated Gmail service instance
      * @param userId the user ID (typically "me")
@@ -214,9 +230,12 @@ public class GmailBatchClient {
             // Track success count before this batch
             int previousSuccessCount = result.getSuccessCount();
 
-            // Execute batch with retry logic
+            // Execute batch with retry logic, using the native batchModify primitive as the
+            // primary path (WI-1). executeBatchModifyLabelsNative recovers non-transient
+            // whole-chunk failures per-message in place; only transient failures are rethrown
+            // here for bounded native retry.
             executeBatchWithRetry(
-                    gmail, userId, batch, result, (g, u, b, r) -> executeBatchModifyLabels(g, u, b, modifyRequest, r));
+                    gmail, userId, batch, result, (g, u, b, r) -> executeBatchModifyLabelsNative(g, u, b, modifyRequest, r));
 
             // Determine if this batch succeeded (all messages in batch were successfully modified)
             int successfulInBatch = result.getSuccessCount() - previousSuccessCount;
@@ -335,7 +354,113 @@ public class GmailBatchClient {
     }
 
     /**
-     * Executes a single batch of label modification operations.
+     * Executes a single native {@code users.messages.batchModify} call for a chunk of message IDs
+     * (up to 1000), the primary path for label modifications (WI-1, R1). The call costs a flat ~50
+     * quota units regardless of chunk size and returns no body (HTTP 204) on success.
+     *
+     * <p>Failure classification (FR-006, research R2): on {@link GoogleJsonResponseException}, a
+     * rate-limit or server error (HTTP 429/5xx) is treated as <b>transient</b> and rethrown as an
+     * {@link IOException} so {@link #executeBatchWithRetry} performs bounded native retry with
+     * backoff; a non-429 4xx (e.g. an invalid or inaccessible message ID) is treated as
+     * <b>non-transient</b> and recovered in place via {@link #executeBatchModifyLabelsPerMessage} so
+     * the caller receives truthful per-ID outcomes instead of losing every valid ID to the native
+     * operation's all-or-nothing failure mode (FR-005). A plain (non-JSON) transport {@link
+     * IOException} is likewise treated as transient. The per-message recovery is idempotent, so it
+     * is safe to re-apply even if the native call partially applied before failing (FR-012).
+     *
+     * @param gmail the authenticated Gmail service instance
+     * @param userId the user ID
+     * @param messageIds the message IDs to modify in this chunk (up to 1000)
+     * @param modifyRequest the label modification request (add/remove label IDs)
+     * @param result the result tracker for recording successes and failures
+     * @throws IOException if the native call fails transiently and should be retried by the caller
+     */
+    private void executeBatchModifyLabelsNative(
+            Gmail gmail,
+            String userId,
+            List<String> messageIds,
+            ModifyMessageRequest modifyRequest,
+            BulkOperationResult result)
+            throws IOException {
+        if (messageIds.isEmpty()) {
+            logger.debug("No messages to modify in this chunk");
+            return;
+        }
+
+        logger.debug("Executing native batchModify for {} messages (~50 quota units)", messageIds.size());
+
+        try {
+            BatchModifyMessagesRequest nativeRequest = new BatchModifyMessagesRequest()
+                    .setIds(messageIds)
+                    .setAddLabelIds(modifyRequest.getAddLabelIds())
+                    .setRemoveLabelIds(modifyRequest.getRemoveLabelIds());
+
+            // Execute the native batchModify - a single API call that costs ~50 quota units
+            // regardless of chunk size, and returns no body (HTTP 204) on success.
+            gmail.users().messages().batchModify(userId, nativeRequest).execute();
+
+            // Success - every message in this chunk was modified.
+            messageIds.forEach(result::addSuccess);
+            logger.info("Successfully modified labels for {} messages using native batchModify (~50 quota units)", messageIds.size());
+
+            resetCircuitBreaker();
+
+        } catch (GoogleJsonResponseException e) {
+            int statusCode = e.getStatusCode();
+            GoogleJsonError error = e.getDetails();
+            String errorMessage = error != null ? error.getMessage() : e.getMessage();
+
+            recordFailure();
+
+            if (isTransientStatusCode(statusCode)) {
+                logger.warn(
+                        "Native batchModify transient failure for chunk of {} messages. Status: {}, Error: {}",
+                        messageIds.size(),
+                        statusCode,
+                        errorMessage,
+                        e);
+                throw new IOException("Gmail batchModify failed transiently: " + errorMessage, e);
+            }
+
+            logger.warn(
+                    "Native batchModify non-transient failure for chunk of {} messages (status {}); "
+                            + "recovering per-message: {}",
+                    messageIds.size(),
+                    statusCode,
+                    errorMessage,
+                    e);
+            executeBatchModifyLabelsPerMessage(gmail, userId, messageIds, modifyRequest, result);
+
+        } catch (IOException e) {
+            // Transport-level failure carrying no HTTP status - treated as transient (FR-006).
+            logger.warn(
+                    "IOException during native batchModify for chunk of {} messages: {}",
+                    messageIds.size(),
+                    e.getMessage(),
+                    e);
+            recordFailure();
+            throw e;
+        }
+    }
+
+    /**
+     * Determines whether a Gmail API HTTP status code represents a transient condition (rate
+     * limiting or a server-side error) that should be retried on the native batch path, as opposed
+     * to a non-transient client error (e.g. an invalid or inaccessible message ID) that should be
+     * recovered per-message (FR-006, research R2).
+     *
+     * @param statusCode the HTTP status code from a {@link GoogleJsonResponseException}
+     * @return true if the status code (429 or 5xx) indicates a transient condition
+     */
+    private boolean isTransientStatusCode(int statusCode) {
+        return statusCode == 429 || (statusCode >= 500 && statusCode < 600);
+    }
+
+    /**
+     * Executes a single batch of label modification operations. Serves as the per-message recovery
+     * path (WI-1): invoked directly by {@link #executeBatchModifyLabelsNative} when a native
+     * batchModify call fails non-transiently, to reconstruct truthful per-ID success/failure
+     * outcomes for the chunk.
      *
      * @param gmail the authenticated Gmail service instance
      * @param userId the user ID
@@ -344,7 +469,7 @@ public class GmailBatchClient {
      * @param result the result tracker for recording successes and failures
      * @throws IOException if there's an error creating or executing the batch request
      */
-    private void executeBatchModifyLabels(
+    private void executeBatchModifyLabelsPerMessage(
             Gmail gmail,
             String userId,
             List<String> messageIds,
@@ -583,17 +708,24 @@ public class GmailBatchClient {
             } catch (IOException e) {
                 attempt++;
                 String errorMessage = e.getMessage();
+                boolean retryable = isRetryableFailure(e);
 
                 logger.warn("Batch execution attempt {} failed: {}", attempt, errorMessage);
 
                 // Check if this is the last attempt or if the error is not retryable
-                if (attempt > maxRetries || !isRetryableError(errorMessage)) {
+                if (attempt > maxRetries || !retryable) {
                     logger.error("Batch execution failed after {} attempts: {}", attempt, errorMessage);
 
-                    // Mark all messages in this batch as failed
+                    // Mark all messages in this batch as failed with a truthful, PII-free reason
+                    // that distinguishes a retry-exhausted transient failure from a non-retryable
+                    // one (FR-013). Native batchModify's own non-transient (bad-ID) failures never
+                    // reach this branch - they are recovered per-message before rethrowing.
+                    String reason = retryable
+                            ? "Retryable (rate-limited or transient server error) after " + attempt
+                                    + " attempts: " + errorMessage
+                            : "Batch execution failed after " + attempt + " attempts: " + errorMessage;
                     for (String messageId : batch) {
-                        result.addFailure(
-                                messageId, "Batch execution failed after " + attempt + " attempts: " + errorMessage);
+                        result.addFailure(messageId, reason);
                     }
 
                     if (attempt > 1) {
@@ -618,6 +750,25 @@ public class GmailBatchClient {
                 backoffMs = Math.min((long) (backoffMs * backoffMultiplier), maxBackoffMs);
             }
         }
+    }
+
+    /**
+     * Determines whether a failure caught by {@link #executeBatchWithRetry} should be retried.
+     * If the failure wraps a {@link GoogleJsonResponseException} (as {@link
+     * #executeBatchModifyLabelsNative} does for transient statuses), retryability is decided by
+     * the HTTP status code (429/5xx, FR-006) rather than error-message text. Otherwise (a plain
+     * transport-level {@link IOException}), it is treated as retryable, consistent with FR-006
+     * classifying transport failures as transient.
+     *
+     * @param e the exception thrown by the batch executor
+     * @return true if the failure should be retried
+     */
+    private boolean isRetryableFailure(IOException e) {
+        Throwable cause = e.getCause();
+        if (cause instanceof GoogleJsonResponseException) {
+            return isTransientStatusCode(((GoogleJsonResponseException) cause).getStatusCode());
+        }
+        return true;
     }
 
     /**

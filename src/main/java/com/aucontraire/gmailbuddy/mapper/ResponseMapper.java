@@ -25,13 +25,14 @@ import org.springframework.stereotype.Component;
 public class ResponseMapper {
 
     /**
-     * Per-message quota cost of the feature-005 batch-by-id mutation endpoints,
-     * which loop {@code users.messages.modify} (Gmail ~5 units/message; mirrors
-     * {@code GmailQuotaEstimator.MESSAGES_MODIFY_QUOTA}, FR-013). This differs from
-     * the flat ~50-units-per-batch {@code batchDelete} cost used by
-     * {@link #estimateQuotaUsed}.
+     * Flat per-chunk quota cost of Gmail's native {@code users.messages.batchModify} and
+     * {@code users.messages.batchDelete} endpoints (~50 units regardless of chunk size, up to
+     * 1000 message IDs per chunk). Replaces the previous per-message {@code modify} loop's
+     * {@code totalOperations * 5} estimate now that the feature-005/WI-1 batch-by-id endpoints
+     * (batchTrash / batchUntrash / batchModifyLabels) issue one native batchModify call per
+     * chunk instead of one call per message (WI-1, FR-008).
      */
-    private static final int MODIFY_QUOTA_PER_MESSAGE = 5;
+    private static final int BATCH_MODIFY_QUOTA_PER_CHUNK = 50;
 
     /**
      * Converts a BulkOperationResult to a BulkDeleteResponse DTO.
@@ -92,9 +93,11 @@ public class ResponseMapper {
      *
      * <p>{@code status} is taken directly from {@link BulkOperationResult#getStatus()}
      * (SUCCESS/PARTIAL_SUCCESS/FAILURE/NO_RESULTS from the counts), and per-id outcomes
-     * are exposed via {@code successfulOperations}/{@code failedOperations}. Unlike the
-     * flat-fee {@code batchDelete} path, quota is estimated as total operations ×
-     * {@value #MODIFY_QUOTA_PER_MESSAGE} (per-message {@code modify}, FR-013).</p>
+     * are exposed via {@code successfulOperations}/{@code failedOperations}. As of WI-1, these
+     * endpoints issue Gmail's native {@code batchModify} once per chunk, so quota is estimated
+     * on that same flat per-chunk basis as {@code batchDelete} — {@code totalBatchesProcessed} ×
+     * {@value #BATCH_MODIFY_QUOTA_PER_CHUNK} — rather than the previous per-message-modify
+     * estimate (FR-008).</p>
      *
      * @param serviceResult the result from the service layer containing operation details
      * @return BatchOperationResponse DTO with status, per-id outcomes, and metadata
@@ -102,7 +105,7 @@ public class ResponseMapper {
     public BatchOperationResponse toBatchOperationResponse(BulkOperationResult serviceResult) {
         ResponseMetadata metadata = ResponseMetadata.builder()
                 .durationMs(serviceResult.getDurationMs())
-                .quotaUsed(serviceResult.getTotalOperations() * MODIFY_QUOTA_PER_MESSAGE)
+                .quotaUsed(estimateQuotaUsed(serviceResult))
                 .build();
 
         return BatchOperationResponse.builder()
@@ -132,8 +135,9 @@ public class ResponseMapper {
      * @return estimated quota units consumed by the operation
      */
     private int estimateQuotaUsed(BulkOperationResult result) {
-        // Gmail API batch operations use approximately 50 quota units per batch
-        // This is based on Google's documented quota costs for batch operations
-        return result.getTotalBatchesProcessed() * 50;
+        // Gmail API batch operations (batchDelete, and batchModify as of WI-1) use
+        // approximately 50 quota units per batch/chunk, regardless of chunk size.
+        // This is based on Google's documented quota costs for batch operations.
+        return result.getTotalBatchesProcessed() * BATCH_MODIFY_QUOTA_PER_CHUNK;
     }
 }

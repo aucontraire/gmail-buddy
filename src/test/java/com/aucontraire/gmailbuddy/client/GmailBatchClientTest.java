@@ -8,16 +8,24 @@ import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.lenient;
 
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
+import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
+import com.aucontraire.gmailbuddy.dto.response.BatchOperationResponse;
 import com.aucontraire.gmailbuddy.exception.BatchOperationException;
+import com.aucontraire.gmailbuddy.mapper.ResponseMapper;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.api.client.googleapis.batch.BatchRequest;
 import com.google.api.client.googleapis.batch.json.JsonBatchCallback;
 import com.google.api.client.googleapis.json.GoogleJsonError;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.BatchDeleteMessagesRequest;
+import com.google.api.services.gmail.model.BatchModifyMessagesRequest;
 import com.google.api.services.gmail.model.ModifyMessageRequest;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -71,6 +79,9 @@ class GmailBatchClientTest {
     private Gmail.Users.Messages.BatchDelete batchDeleteRequest;
 
     @Mock
+    private Gmail.Users.Messages.BatchModify batchModifyRequest;
+
+    @Mock
     private Gmail.Users.Messages.Modify modifyRequest;
 
     @Mock
@@ -120,6 +131,21 @@ class GmailBatchClientTest {
         when(exception.getStatusCode()).thenReturn(statusCode);
 
         return exception;
+    }
+
+    /**
+     * Maps a {@link BulkOperationResult} through the production {@link ResponseMapper}, serializes
+     * it with a plain {@link ObjectMapper}, and strips the non-contract {@code metadata} object
+     * (its {@code durationMs}/{@code quotaUsed} MAY legitimately differ between the native and
+     * per-message-recovery paths per FR-011) so only the pinned contract fields (status, counts,
+     * successfulOperations, failedOperations) remain for comparison.
+     */
+    private JsonNode toContractJsonWithoutMetadata(ObjectMapper objectMapper, ResponseMapper responseMapper, BulkOperationResult result)
+            throws IOException {
+        BatchOperationResponse dto = responseMapper.toBatchOperationResponse(result);
+        JsonNode json = objectMapper.readTree(objectMapper.writeValueAsString(dto));
+        ((ObjectNode) json).remove("metadata");
+        return json;
     }
 
     @Nested
@@ -867,7 +893,7 @@ class GmailBatchClientTest {
     class LabelModificationTests {
 
         @Test
-        @DisplayName("Should successfully batch modify labels for single message")
+        @DisplayName("Should successfully batch modify labels for single message via native batchModify")
         void batchModifyLabels_SingleMessage_ShouldSucceed() throws IOException {
             // Arrange
             String userId = "me";
@@ -876,30 +902,150 @@ class GmailBatchClientTest {
             ModifyMessageRequest modifyRequest =
                     new ModifyMessageRequest().setAddLabelIds(List.of("INBOX")).setRemoveLabelIds(List.of("UNREAD"));
 
-            Gmail.Users.Messages.Modify mockModifyRequest = mock(Gmail.Users.Messages.Modify.class);
-            when(messages.modify(userId, messageId, modifyRequest)).thenReturn(mockModifyRequest);
+            when(messages.batchModify(eq(userId), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            doNothing().when(batchModifyRequest).execute();
 
             // Act
             BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
 
             // Assert
-            verify(batchRequest).execute();
             assertThat(result.getOperationType()).isEqualTo("MODIFY_LABELS");
+            assertThat(result.getSuccessCount()).isEqualTo(1);
+            assertThat(result.getFailureCount()).isZero();
+            assertThat(result.getSuccessfulOperations()).containsExactly(messageId);
+
+            ArgumentCaptor<BatchModifyMessagesRequest> captor = ArgumentCaptor.forClass(BatchModifyMessagesRequest.class);
+            verify(messages).batchModify(eq(userId), captor.capture());
+            assertThat(captor.getValue().getIds()).containsExactly(messageId);
+            assertThat(captor.getValue().getAddLabelIds()).containsExactly("INBOX");
+            assertThat(captor.getValue().getRemoveLabelIds()).containsExactly("UNREAD");
+            verify(messages, never()).modify(anyString(), anyString(), any(ModifyMessageRequest.class));
         }
 
         @Test
-        @DisplayName("Should record every message as failed and NOT throw when the whole batch fails (T037)")
-        void batchModifyLabels_allMessagesFailViaCallback_returnsAllFailedResultWithoutThrowing() throws IOException {
-            // Arrange: each queued modify() operation reports failure through its
-            // JsonBatchCallback#onFailure -- this is how Gmail surfaces per-item
-            // rejections (e.g. every id in the batch is invalid/not found). A
-            // BatchRequest#execute() throwing an IOException is reserved for genuine
-            // transport-level failures, not per-item rejections, so the swallow-and-record
-            // contract (BulkOperationResult carries every failure; batchModifyLabels itself
-            // never throws) must hold even when 100% of items fail.
+        @DisplayName("T004: Native batchModify success issues one native call per chunk, not one per message")
+        void batchModifyLabels_NativeSuccess_IssuesOneNativeCallPerChunkNotPerMessage() throws IOException {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds =
+                    IntStream.range(1, 21).mapToObj(i -> "msg" + i).toList(); // 20 messages
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest().setAddLabelIds(List.of("IMPORTANT"));
+
+            when(messages.batchModify(eq(userId), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            doNothing().when(batchModifyRequest).execute();
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
+
+            // Assert: full success, every id reported
+            assertThat(result.getStatus()).isEqualTo(OperationStatus.SUCCESS);
+            assertThat(result.getSuccessCount()).isEqualTo(20);
+            assertThat(result.getFailureCount()).isZero();
+            assertThat(result.getSuccessfulOperations()).containsExactlyInAnyOrderElementsOf(messageIds);
+
+            // Behavioral side effect: the win is one native batchModify call per chunk (fewer
+            // Gmail interactions than messages), never one messages.modify() call per message.
+            verify(messages, times(result.getTotalBatchesProcessed()))
+                    .batchModify(eq(userId), any(BatchModifyMessagesRequest.class));
+            verify(messages, never()).modify(anyString(), anyString(), any(ModifyMessageRequest.class));
+            assertThat(result.getTotalBatchesProcessed()).isLessThan(messageIds.size());
+        }
+
+        @Test
+        @DisplayName("T006: TRASH label toggle (as used by batchTrash/batchUntrash) routes through the native batchModify primitive")
+        void batchModifyLabels_trashToggle_routesThroughNativeBatchModify() throws IOException {
+            // Arrange: GmailRepositoryImpl.batchTrashMessages/batchUntrashMessages build a
+            // ModifyMessageRequest that adds/removes the TRASH label and delegate to this same
+            // batchModifyLabels primitive, so exercising it with a TRASH toggle proves all three
+            // batch-by-id endpoints share the native win (FR-010).
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2", "msg3");
+            ModifyMessageRequest trashRequest = new ModifyMessageRequest().setAddLabelIds(List.of("TRASH"));
+
+            when(messages.batchModify(eq(userId), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            doNothing().when(batchModifyRequest).execute();
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, trashRequest);
+
+            // Assert
+            assertThat(result.getSuccessCount()).isEqualTo(3);
+            ArgumentCaptor<BatchModifyMessagesRequest> captor = ArgumentCaptor.forClass(BatchModifyMessagesRequest.class);
+            verify(messages).batchModify(eq(userId), captor.capture());
+            assertThat(captor.getValue().getAddLabelIds()).containsExactly("TRASH");
+            verify(messages, never()).modify(anyString(), anyString(), any(ModifyMessageRequest.class));
+        }
+
+        @Test
+        @DisplayName("T010: Non-transient native failure (404) recovers per-message; valid ids succeed, bad id fails, PARTIAL_SUCCESS")
+        void batchModifyLabels_oneBadId_nonTransientNativeFailure_recoversPerMessage_returnsPartialSuccess()
+                throws IOException {
+            // Arrange: the native batchModify call fails for the whole chunk because of one bad
+            // id (a 404 - a non-transient, non-429 4xx per FR-006). The chunk is recovered
+            // per-message so the two good ids still succeed and only the bad one fails.
+            String userId = "me";
+            List<String> messageIds = List.of("msg-good-1", "msg-good-2", "msg-bad");
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest().setAddLabelIds(List.of("STARRED"));
+
+            GoogleJsonResponseException nativeException =
+                    createMockedGoogleJsonResponseException(404, "Requested entity was not found.");
+            when(messages.batchModify(eq(userId), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            when(batchModifyRequest.execute()).thenThrow(nativeException);
+
+            for (String messageId : messageIds) {
+                boolean isBad = messageId.equals("msg-bad");
+                Gmail.Users.Messages.Modify mockModify = mock(Gmail.Users.Messages.Modify.class);
+                when(messages.modify(userId, messageId, modifyRequest)).thenReturn(mockModify);
+                doAnswer(invocation -> {
+                            JsonBatchCallback<com.google.api.services.gmail.model.Message> callback =
+                                    invocation.getArgument(1);
+                            if (isBad) {
+                                GoogleJsonError error = new GoogleJsonError();
+                                error.setMessage("Requested entity was not found.");
+                                callback.onFailure(error, null);
+                            } else {
+                                callback.onSuccess(
+                                        new com.google.api.services.gmail.model.Message().setId(messageId), null);
+                            }
+                            return null;
+                        })
+                        .when(mockModify)
+                        .queue(eq(batchRequest), any());
+            }
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
+
+            // Assert
+            assertThat(result.getStatus()).isEqualTo(OperationStatus.PARTIAL_SUCCESS);
+            assertThat(result.getSuccessfulOperations()).containsExactlyInAnyOrder("msg-good-1", "msg-good-2");
+            assertThat(result.getFailedOperations()).containsOnlyKeys("msg-bad");
+            assertThat(result.getFailedOperations().get("msg-bad")).containsIgnoringCase("not found");
+            verify(messages).batchModify(eq(userId), any(BatchModifyMessagesRequest.class));
+            verify(batchRequest).execute();
+        }
+
+        @Test
+        @DisplayName("T011: Non-transient native failure (400) where every id is invalid recovers per-message and still fails all, without throwing")
+        void batchModifyLabels_allInvalid_nonTransientNativeFailure_recoveryAlsoFails_returnsAllFailedWithoutThrowing()
+                throws IOException {
+            // Arrange: native batchModify fails with a non-transient 400 (e.g. every id
+            // invalid); the per-message recovery must then run and, in this scenario, also fail
+            // every id via its JsonBatchCallback#onFailure -- and batchModifyLabels itself must
+            // never throw, even though 100% of items fail on both paths.
             String userId = "me";
             List<String> messageIds = List.of("msg-fail-1", "msg-fail-2");
             ModifyMessageRequest modifyMessageRequest = new ModifyMessageRequest().setAddLabelIds(List.of("TRASH"));
+
+            GoogleJsonResponseException nativeException =
+                    createMockedGoogleJsonResponseException(400, "Invalid message id");
+            when(messages.batchModify(eq(userId), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            when(batchModifyRequest.execute()).thenThrow(nativeException);
 
             for (String messageId : messageIds) {
                 Gmail.Users.Messages.Modify mockModify = mock(Gmail.Users.Messages.Modify.class);
@@ -916,15 +1062,245 @@ class GmailBatchClientTest {
                         .queue(eq(batchRequest), any());
             }
 
-            // Act: must complete normally, not throw, even though every message failed.
+            // Act: must complete normally, not throw, even though every message failed on both paths.
             BulkOperationResult result =
                     gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyMessageRequest);
 
             // Assert
+            assertThat(result.getStatus()).isEqualTo(OperationStatus.FAILURE);
+            verify(messages).batchModify(eq(userId), any(BatchModifyMessagesRequest.class));
             verify(batchRequest).execute();
             assertThat(result.getSuccessCount()).isZero();
             assertThat(result.getFailureCount()).isEqualTo(2);
             assertThat(result.getFailedOperations()).containsKeys("msg-fail-1", "msg-fail-2");
+        }
+
+        @ParameterizedTest(name = "status {0} is treated as transient and retried natively")
+        @ValueSource(ints = {429, 500, 503})
+        @DisplayName("T012: transient status codes exhaust bounded native retry without per-message fan-out, RETRYABLE reason")
+        void batchModifyLabels_transientStatusCodes_exhaustNativeRetry_noPerMessageFanOut(int statusCode)
+                throws IOException {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1");
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest().setAddLabelIds(List.of("IMPORTANT"));
+
+            when(batchOperations.maxRetryAttempts()).thenReturn(1);
+            when(batchOperations.initialBackoffMs()).thenReturn(5L);
+            when(batchOperations.maxBackoffMs()).thenReturn(10L);
+
+            GoogleJsonResponseException exception =
+                    createMockedGoogleJsonResponseException(statusCode, "transient failure");
+            when(messages.batchModify(eq(userId), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            when(batchModifyRequest.execute()).thenThrow(exception);
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
+
+            // Assert: bounded native retry (initial + 1 retry = 2 native calls), never per-message
+            verify(messages, times(2)).batchModify(eq(userId), any(BatchModifyMessagesRequest.class));
+            verify(messages, never()).modify(anyString(), anyString(), any(ModifyMessageRequest.class));
+            assertThat(result.getSuccessCount()).isZero();
+            assertThat(result.getFailureCount()).isEqualTo(1);
+            assertThat(result.getFailedOperations().get("msg1")).containsIgnoringCase("retryable");
+        }
+
+        @Test
+        @DisplayName("T012: transport-level (non-JSON) IOException is treated as transient and retried natively")
+        void batchModifyLabels_transportIOException_retriesNatively_noPerMessageFanOut() throws IOException {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("msg1", "msg2");
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest().setAddLabelIds(List.of("IMPORTANT"));
+
+            when(batchOperations.maxRetryAttempts()).thenReturn(2);
+            when(batchOperations.initialBackoffMs()).thenReturn(5L);
+            when(batchOperations.maxBackoffMs()).thenReturn(10L);
+
+            IOException transportException = new IOException("Connection reset by peer");
+            when(messages.batchModify(eq(userId), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            doThrow(transportException)
+                    .doNothing() // succeeds on 2nd attempt
+                    .when(batchModifyRequest)
+                    .execute();
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
+
+            // Assert: transport IOException was retried (not treated as a bad-id failure), and
+            // succeeded on retry without ever falling back to per-message.
+            verify(messages, times(2)).batchModify(eq(userId), any(BatchModifyMessagesRequest.class));
+            verify(messages, never()).modify(anyString(), anyString(), any(ModifyMessageRequest.class));
+            assertThat(result.getSuccessCount()).isEqualTo(2);
+            assertThat(result.getSuccessfulOperations()).containsExactlyInAnyOrder("msg1", "msg2");
+        }
+
+        @Test
+        @DisplayName("T013: per-message recovery is idempotent -- re-applying to an already-modified message is a safe no-op that still succeeds")
+        void batchModifyLabels_recovery_reapplyingAlreadyModifiedMessage_isSafeNoOpAndSucceeds() throws IOException {
+            // Arrange: native batchModify fails non-transiently (simulating a partial-apply
+            // scenario where some ids were already modified before the whole-chunk call failed);
+            // per-message recovery re-applies the same add/remove toggle to every id, including
+            // the already-modified one. Gmail's modify() is idempotent -- it reports success
+            // again rather than erroring -- so no valid id is lost (FR-012).
+            String userId = "me";
+            List<String> messageIds = List.of("msg-already-modified", "msg-not-yet-modified");
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest().setAddLabelIds(List.of("TRASH"));
+
+            GoogleJsonResponseException nativeException =
+                    createMockedGoogleJsonResponseException(400, "Precondition failed for one or more ids");
+            when(messages.batchModify(eq(userId), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            when(batchModifyRequest.execute()).thenThrow(nativeException);
+
+            for (String messageId : messageIds) {
+                Gmail.Users.Messages.Modify mockModify = mock(Gmail.Users.Messages.Modify.class);
+                when(messages.modify(userId, messageId, modifyRequest)).thenReturn(mockModify);
+                doAnswer(invocation -> {
+                            JsonBatchCallback<com.google.api.services.gmail.model.Message> callback =
+                                    invocation.getArgument(1);
+                            // Idempotent no-op: Gmail reports success whether or not the label
+                            // change was already applied by the partially-failed native call.
+                            callback.onSuccess(
+                                    new com.google.api.services.gmail.model.Message().setId(messageId), null);
+                            return null;
+                        })
+                        .when(mockModify)
+                        .queue(eq(batchRequest), any());
+            }
+
+            // Act
+            BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
+
+            // Assert
+            assertThat(result.getFailureCount()).isZero();
+            assertThat(result.getSuccessfulOperations())
+                    .containsExactlyInAnyOrder("msg-already-modified", "msg-not-yet-modified");
+        }
+
+        @Test
+        @DisplayName(
+                "T014: FR-011/SC-007 path invariance -- native full success and recovery full success serialize to identical contract bytes (metadata excluded)")
+        void batchModifyLabels_fullSuccess_pathInvariant_nativeVsRecovery_produceIdenticalContractBytes()
+                throws IOException {
+            // Arrange
+            String userId = "me";
+            List<String> messageIds = List.of("id1", "id2");
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest().setAddLabelIds(List.of("STARRED"));
+
+            // --- Run 1: NATIVE path -- batchModify succeeds outright for both ids.
+            when(messages.batchModify(eq(userId), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            doNothing().when(batchModifyRequest).execute();
+
+            BulkOperationResult nativeResult =
+                    gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
+
+            // --- Run 2: RECOVERY path -- native batchModify fails non-transiently (400), so every
+            // id is re-applied per-message, and every per-message call succeeds via its
+            // JsonBatchCallback -- a full success reached via the other internal path.
+            doThrow(createMockedGoogleJsonResponseException(400, "Invalid message id"))
+                    .when(batchModifyRequest)
+                    .execute();
+
+            for (String messageId : messageIds) {
+                Gmail.Users.Messages.Modify mockModify = mock(Gmail.Users.Messages.Modify.class);
+                when(messages.modify(userId, messageId, modifyRequest)).thenReturn(mockModify);
+                doAnswer(invocation -> {
+                            JsonBatchCallback<com.google.api.services.gmail.model.Message> callback =
+                                    invocation.getArgument(1);
+                            callback.onSuccess(
+                                    new com.google.api.services.gmail.model.Message().setId(messageId), null);
+                            return null;
+                        })
+                        .when(mockModify)
+                        .queue(eq(batchRequest), any());
+            }
+
+            BulkOperationResult recoveryResult =
+                    gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
+
+            // Assert: both paths agree on the observable outcome...
+            assertThat(nativeResult.getStatus()).isEqualTo(OperationStatus.SUCCESS);
+            assertThat(recoveryResult.getStatus()).isEqualTo(OperationStatus.SUCCESS);
+
+            // ...and -- the actual FR-011/SC-007 proof -- decode to byte-identical contract JSON.
+            // metadata is excluded per FR-011 since durationMs/quotaUsed legitimately differ by path.
+            ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+            ResponseMapper responseMapper = new ResponseMapper();
+
+            JsonNode nativeJson = toContractJsonWithoutMetadata(objectMapper, responseMapper, nativeResult);
+            JsonNode recoveryJson = toContractJsonWithoutMetadata(objectMapper, responseMapper, recoveryResult);
+
+            assertThat(recoveryJson).isEqualTo(nativeJson);
+        }
+
+        @Test
+        @DisplayName(
+                "T014: FR-011/SC-007 path invariance -- recovery-path partial failure matches the canonical golden-master contract fixture")
+        void batchModifyLabels_partialFailure_pathInvariant_recoveryMatchesCanonicalContractFixture()
+                throws IOException {
+            // Arrange: native batchModify fails non-transiently (404), so recovery reprocesses
+            // per-message: id1 succeeds, id2 fails with reason "notFound" -- matching the exact
+            // ids/reason pinned by contract/batch-operation-response-partial-failure.json, so the
+            // recovery path's contract JSON can be compared directly against that canonical
+            // golden-master fixture (which the native path would produce identically per FR-011,
+            // were native able to report per-id outcomes -- it cannot, hence the recovery path).
+            String userId = "me";
+            List<String> messageIds = List.of("id1", "id2");
+            ModifyMessageRequest modifyRequest = new ModifyMessageRequest().setAddLabelIds(List.of("STARRED"));
+
+            GoogleJsonResponseException nativeException =
+                    createMockedGoogleJsonResponseException(404, "Requested entity was not found.");
+            when(messages.batchModify(eq(userId), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            when(batchModifyRequest.execute()).thenThrow(nativeException);
+
+            for (String messageId : messageIds) {
+                boolean isBad = messageId.equals("id2");
+                Gmail.Users.Messages.Modify mockModify = mock(Gmail.Users.Messages.Modify.class);
+                when(messages.modify(userId, messageId, modifyRequest)).thenReturn(mockModify);
+                doAnswer(invocation -> {
+                            JsonBatchCallback<com.google.api.services.gmail.model.Message> callback =
+                                    invocation.getArgument(1);
+                            if (isBad) {
+                                GoogleJsonError error = new GoogleJsonError();
+                                error.setMessage("notFound");
+                                callback.onFailure(error, null);
+                            } else {
+                                callback.onSuccess(
+                                        new com.google.api.services.gmail.model.Message().setId(messageId), null);
+                            }
+                            return null;
+                        })
+                        .when(mockModify)
+                        .queue(eq(batchRequest), any());
+            }
+
+            // Act
+            BulkOperationResult recoveryResult =
+                    gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
+
+            // Assert
+            assertThat(recoveryResult.getStatus()).isEqualTo(OperationStatus.PARTIAL_SUCCESS);
+
+            ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+            ResponseMapper responseMapper = new ResponseMapper();
+            JsonNode recoveryJson = toContractJsonWithoutMetadata(objectMapper, responseMapper, recoveryResult);
+
+            JsonNode expected;
+            try (InputStream in = getClass()
+                    .getClassLoader()
+                    .getResourceAsStream("contract/batch-operation-response-partial-failure.json")) {
+                assertThat(in)
+                        .as("canonical partial-failure fixture must be on the classpath")
+                        .isNotNull();
+                expected = objectMapper.readTree(in);
+            }
+
+            assertThat(recoveryJson).isEqualTo(expected);
         }
     }
 
@@ -1444,9 +1820,9 @@ class GmailBatchClientTest {
             AtomicInteger adaptiveSize = (AtomicInteger) adaptiveField.get(gmailBatchClient);
             int currentAdaptiveSize = adaptiveSize.get(); // Should be 15
 
-            Gmail.Users.Messages.Modify mockModifyRequest = mock(Gmail.Users.Messages.Modify.class);
-            when(messages.modify(anyString(), anyString(), any(ModifyMessageRequest.class)))
-                    .thenReturn(mockModifyRequest);
+            when(messages.batchModify(anyString(), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            doNothing().when(batchModifyRequest).execute();
 
             // Act
             BulkOperationResult result = gmailBatchClient.batchModifyLabels(gmail, userId, messageIds, modifyRequest);
@@ -1964,9 +2340,9 @@ class GmailBatchClientTest {
             List<String> messageIds = List.of("msg1", "msg2", "msg3");
             ModifyMessageRequest modifyRequest = new ModifyMessageRequest().setAddLabelIds(List.of("LABEL_1"));
 
-            Gmail.Users.Messages.Modify mockModifyRequest = mock(Gmail.Users.Messages.Modify.class);
-            when(messages.modify(anyString(), anyString(), any(ModifyMessageRequest.class)))
-                    .thenReturn(mockModifyRequest);
+            when(messages.batchModify(anyString(), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            doNothing().when(batchModifyRequest).execute();
 
             // Get adaptive size field
             java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");
@@ -1994,9 +2370,9 @@ class GmailBatchClientTest {
                     IntStream.range(1, 46).mapToObj(i -> "msg" + i).toList();
             ModifyMessageRequest modifyRequest = new ModifyMessageRequest().setAddLabelIds(List.of("LABEL_1"));
 
-            Gmail.Users.Messages.Modify mockModifyRequest = mock(Gmail.Users.Messages.Modify.class);
-            when(messages.modify(anyString(), anyString(), any(ModifyMessageRequest.class)))
-                    .thenReturn(mockModifyRequest);
+            when(messages.batchModify(anyString(), any(BatchModifyMessagesRequest.class)))
+                    .thenReturn(batchModifyRequest);
+            doNothing().when(batchModifyRequest).execute();
 
             // Set adaptive size to 10
             java.lang.reflect.Field adaptiveField = GmailBatchClient.class.getDeclaredField("adaptiveBatchSize");

@@ -3,6 +3,7 @@ package com.aucontraire.gmailbuddy.mapper;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aucontraire.gmailbuddy.dto.common.OperationStatus;
+import com.aucontraire.gmailbuddy.dto.response.BatchOperationResponse;
 import com.aucontraire.gmailbuddy.dto.response.BulkDeleteResponse;
 import com.aucontraire.gmailbuddy.dto.response.LabelModificationResponse;
 import com.aucontraire.gmailbuddy.service.BulkOperationResult;
@@ -783,6 +784,78 @@ class ResponseMapperTest {
             assertThat(response.getLabelsAdded()).hasSize(5);
             assertThat(response.getLabelsRemoved()).hasSize(3);
             assertThat(response.getAffectedMessageIds()).hasSize(100);
+        }
+    }
+
+    @Nested
+    @DisplayName("toBatchOperationResponse Tests (WI-1 native batch-modify)")
+    class ToBatchOperationResponseTests {
+
+        @Test
+        @DisplayName("Should map status, counts, and per-id outcomes correctly")
+        void shouldMapFieldsCorrectly() {
+            // Arrange
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            serviceResult.addSuccess("id1");
+            serviceResult.addSuccess("id2");
+            serviceResult.addFailure("id3", "notFound");
+            serviceResult.incrementBatchesProcessed();
+            serviceResult.markCompleted();
+
+            // Act
+            BatchOperationResponse response = responseMapper.toBatchOperationResponse(serviceResult);
+
+            // Assert
+            assertThat(response.getStatus()).isEqualTo(OperationStatus.PARTIAL_SUCCESS);
+            assertThat(response.getTotalOperations()).isEqualTo(3);
+            assertThat(response.getSuccessCount()).isEqualTo(2);
+            assertThat(response.getFailureCount()).isEqualTo(1);
+            assertThat(response.getSuccessfulOperations()).containsExactlyInAnyOrder("id1", "id2");
+            assertThat(response.getFailedOperations()).containsEntry("id3", "notFound");
+        }
+
+        @Test
+        @DisplayName("T005: quotaUsed reflects the flat native per-chunk cost (~50/chunk), not totalOperations * 5")
+        void shouldCalculateQuotaAsFlatNativePerChunkCost_NotPerMessage() {
+            // Arrange: 20 successful messages processed as a single native batchModify chunk.
+            // Under the old per-message estimate this would have been 20 * 5 = 100; under the
+            // native per-chunk estimate it must be 1 chunk * 50 = 50 (FR-008).
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            for (int i = 1; i <= 20; i++) {
+                serviceResult.addSuccess("msg-" + i);
+            }
+            serviceResult.incrementBatchesProcessed(); // 1 native batchModify call
+            serviceResult.markCompleted();
+
+            // Act
+            BatchOperationResponse response = responseMapper.toBatchOperationResponse(serviceResult);
+
+            // Assert
+            assertThat(response.getMetadata().getQuotaUsed())
+                    .as("quota should reflect 1 native chunk (~50 units), not totalOperations(20) * 5")
+                    .isEqualTo(50)
+                    .isNotEqualTo(serviceResult.getTotalOperations() * 5);
+        }
+
+        @Test
+        @DisplayName("Should calculate quotaUsed for multiple native chunks")
+        void shouldCalculateQuotaForMultipleChunks() {
+            // Arrange: 3 chunks processed (e.g. a large batch split across native calls)
+            BulkOperationResult serviceResult =
+                    new BulkOperationResult(BulkOperationResult.OPERATION_TYPE_BATCH_MODIFY);
+            serviceResult.addSuccess("id1");
+            serviceResult.incrementBatchesProcessed();
+            serviceResult.incrementBatchesProcessed();
+            serviceResult.incrementBatchesProcessed();
+            serviceResult.markCompleted();
+
+            // Act
+            BatchOperationResponse response = responseMapper.toBatchOperationResponse(serviceResult);
+
+            // Assert
+            assertThat(response.getMetadata().getQuotaUsed()).isEqualTo(150); // 3 chunks * 50
         }
     }
 
