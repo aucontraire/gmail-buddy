@@ -119,9 +119,9 @@ Gmail Buddy supports **dual authentication modes**:
 | `PUT` | `/api/v1/gmail/messages/{id}/read` | Mark message as read | - | Standard |
 | `DELETE` | `/api/v1/gmail/messages/filter` | **High-performance bulk delete** | `FilterCriteriaDTO` | **99% quota reduction** |
 | `POST` | `/api/v1/gmail/messages/filter/modifyLabels` | Bulk modify labels | `FilterCriteriaWithLabelsDTO` | Batch optimized |
-| `POST` | `/api/v1/gmail/messages/batchTrash` | **Batch trash by message ID** (recoverable via Trash) | `BatchMessageIdsRequest` | Batch (~5 units/msg) |
-| `POST` | `/api/v1/gmail/messages/batchUntrash` | **Batch restore from Trash** by message ID | `BatchMessageIdsRequest` | Batch (~5 units/msg) |
-| `POST` | `/api/v1/gmail/messages/batchModifyLabels` | **Batch add/remove labels by message ID** (raw label IDs, no name resolution) | `BatchModifyLabelsByIdRequest` | Batch (~5 units/msg) |
+| `POST` | `/api/v1/gmail/messages/batchTrash` | **Batch trash by message ID** (recoverable via Trash) | `BatchMessageIdsRequest` | Native batch (~50 units/chunk, up to 1000 IDs) |
+| `POST` | `/api/v1/gmail/messages/batchUntrash` | **Batch restore from Trash** by message ID | `BatchMessageIdsRequest` | Native batch (~50 units/chunk, up to 1000 IDs) |
+| `POST` | `/api/v1/gmail/messages/batchModifyLabels` | **Batch add/remove labels by message ID** (raw label IDs, no name resolution) | `BatchModifyLabelsByIdRequest` | Native batch (~50 units/chunk, up to 1000 IDs) |
 | `POST` | `/api/v1/gmail/labels` | **Create a Gmail label** (201; 409 on duplicate) | `CreateLabelRequest` | Standard (1 unit) |
 | `POST` | `/api/v1/gmail/drafts` | **Stage a draft for review** in Gmail Drafts folder | `SendMessageDTO` | Standard (10 quota units) |
 | `POST` | `/api/v1/gmail/drafts/{draftId}/send` | **Send a previously-created draft** programmatically | - | Standard (100 quota units, naturally idempotent) |
@@ -320,7 +320,8 @@ Gmail Buddy implements modern architectural patterns for reliability and maintai
   - Single API call with 50 quota unit flat fee
   - All-or-nothing transactional semantics
 - **Chunking Strategy**: Splits large operations into optimal batch sizes
-  - Configurable chunk sizes (default: 1000 for delete, 50 for modify)
+  - Configurable input caps via `batch-delete-max-results` (default: 500, permanent delete) and `batch-modify-max-results` (default: 1000, batchTrash/batchUntrash/batchModifyLabels) — decoupled so raising the modify cap doesn't widen the permanent-delete blast radius
+  - `batchTrash`, `batchUntrash`, and `batchModifyLabels` now call Gmail's native `users.messages.batchModify` (flat ~50 quota units per chunk, not per-message); an adaptive batch-sizing layer currently keeps native chunks smaller than the 1000-ID cap, so realized quota savings are less than the theoretical maximum
   - Automatic batch creation and processing
   - Progress tracking across multiple chunks
 

@@ -63,7 +63,7 @@ class GmailServiceBatchTrashTest {
         GmailBuddyProperties properties = mock(GmailBuddyProperties.class);
         GmailBuddyProperties.GmailApi gmailApiProperties = mock(GmailBuddyProperties.GmailApi.class);
         when(properties.gmailApi()).thenReturn(gmailApiProperties);
-        when(gmailApiProperties.batchDeleteMaxResults()).thenReturn(TEST_MAX_BATCH_SIZE);
+        when(gmailApiProperties.batchModifyMaxResults()).thenReturn(TEST_MAX_BATCH_SIZE);
 
         gmailService = new GmailService(
                 gmailRepository,
@@ -154,8 +154,71 @@ class GmailServiceBatchTrashTest {
     }
 
     // -------------------------------------------------------------------------
+    // WI-1 US3 (T018): real production cap boundary — 1000 accepted, 1001 rejected.
+    // Unlike the boundary tests above (which exercise validateBatchSize generically
+    // against the TEST_MAX_BATCH_SIZE=5 fixture), these prove the actual
+    // gmail-buddy.gmail-api.batch-modify-max-results=1000 ceiling (FR-007), decoupled
+    // from the unchanged permanent-delete batch-delete-max-results cap (FR-009).
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("batchTrashMessages_batchSizeAtProductionCap1000_doesNotThrowAndDelegatesToRepository")
+    void batchTrashMessages_batchSizeAtProductionCap1000_doesNotThrowAndDelegatesToRepository() throws Exception {
+        // Arrange: exactly 1000 — the real production batch-modify-max-results ceiling.
+        GmailService serviceWithProductionCap = newGmailServiceWithBatchModifyMaxResults(1000L);
+        List<String> messageIdsAt1000 = messageIdsOfSize(1000);
+        BulkOperationResult repositoryResult = BatchOperationFixtures.buildAllSuccessResult(messageIdsAt1000);
+        when(gmailRepository.batchTrashMessages(USER_ID, messageIdsAt1000)).thenReturn(repositoryResult);
+
+        // Act
+        BulkOperationResult result = serviceWithProductionCap.batchTrashMessages(USER_ID, messageIdsAt1000);
+
+        // Assert: no exception, repository invoked, result passed through
+        assertThat(result).isSameAs(repositoryResult);
+        verify(gmailRepository).batchTrashMessages(USER_ID, messageIdsAt1000);
+    }
+
+    @Test
+    @DisplayName("batchTrashMessages_batchSizeOneAbove1000_throwsValidationExceptionBeforeAnyGmailCall")
+    void batchTrashMessages_batchSizeOneAbove1000_throwsValidationExceptionBeforeAnyGmailCall() throws Exception {
+        // Arrange: 1001 — one past the real production batch-modify-max-results ceiling.
+        GmailService serviceWithProductionCap = newGmailServiceWithBatchModifyMaxResults(1000L);
+        List<String> messageIdsAt1001 = messageIdsOfSize(1001);
+
+        // Act & Assert: rejected before any Gmail call is issued (FR-007).
+        assertThrows(
+                ValidationException.class,
+                () -> serviceWithProductionCap.batchTrashMessages(USER_ID, messageIdsAt1001));
+        verify(gmailRepository, never()).batchTrashMessages(any(), any());
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Builds a {@link GmailService} wired to a mocked {@link GmailBuddyProperties}
+     * reporting the given {@code batchModifyMaxResults} ceiling, reusing this test's
+     * shared {@link #gmailRepository} mock. Used by the T018 production-cap boundary
+     * tests, which need a cap other than {@link #TEST_MAX_BATCH_SIZE}.
+     */
+    private GmailService newGmailServiceWithBatchModifyMaxResults(long cap) {
+        GmailQueryBuilder gmailQueryBuilder = mock(GmailQueryBuilder.class);
+        FilterCriteriaMapper filterCriteriaMapper = mock(FilterCriteriaMapper.class);
+        MimeMessageBuilder mimeMessageBuilder = mock(MimeMessageBuilder.class);
+        GmailMessageMapper gmailMessageMapper = mock(GmailMessageMapper.class);
+        GmailBuddyProperties properties = mock(GmailBuddyProperties.class);
+        GmailBuddyProperties.GmailApi gmailApiProperties = mock(GmailBuddyProperties.GmailApi.class);
+        when(properties.gmailApi()).thenReturn(gmailApiProperties);
+        when(gmailApiProperties.batchModifyMaxResults()).thenReturn(cap);
+        return new GmailService(
+                gmailRepository,
+                gmailQueryBuilder,
+                filterCriteriaMapper,
+                mimeMessageBuilder,
+                gmailMessageMapper,
+                properties);
+    }
 
     /** Builds a batch one element larger than {@link #TEST_MAX_BATCH_SIZE}. */
     private static List<String> oversizedMessageIds() {

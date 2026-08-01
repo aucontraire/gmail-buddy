@@ -18,6 +18,7 @@ public class TestGmailBuddyPropertiesConfiguration {
                         "me",
                         50,
                         100L,
+                        1000L,
                         new GmailBuddyProperties.GmailApi.RateLimit(
                                 60L,
                                 new GmailBuddyProperties.GmailApi.RateLimit.BatchOperations(

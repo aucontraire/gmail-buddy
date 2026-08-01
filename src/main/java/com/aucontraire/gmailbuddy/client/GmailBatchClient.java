@@ -47,9 +47,12 @@ public class GmailBatchClient {
     /**
      * Maximum number of operations allowed per batch request by Gmail API.
      * For batchDelete: Gmail allows up to 1000 message IDs per request.
-     * For batch modify: Conservative limit of 100 operations to prevent rate limiting.
+     * For batch modify: Gmail's native batchModify hard-caps the ids array at 1000
+     * per call (WI-1 US3); this is a clamp on {@code getMaxBatchSize()}'s reported
+     * ceiling and does not itself change delete chunking, which uses the separate
+     * {@link #BATCH_DELETE_MAX_SIZE} constant.
      */
-    private static final int DEFAULT_MAX_BATCH_SIZE = 100;
+    private static final int DEFAULT_MAX_BATCH_SIZE = 1000;
 
     /**
      * Maximum number of message IDs allowed in a single batchDelete request.
@@ -235,7 +238,11 @@ public class GmailBatchClient {
             // whole-chunk failures per-message in place; only transient failures are rethrown
             // here for bounded native retry.
             executeBatchWithRetry(
-                    gmail, userId, batch, result, (g, u, b, r) -> executeBatchModifyLabelsNative(g, u, b, modifyRequest, r));
+                    gmail,
+                    userId,
+                    batch,
+                    result,
+                    (g, u, b, r) -> executeBatchModifyLabelsNative(g, u, b, modifyRequest, r));
 
             // Determine if this batch succeeded (all messages in batch were successfully modified)
             int successfulInBatch = result.getSuccessCount() - previousSuccessCount;
@@ -401,7 +408,9 @@ public class GmailBatchClient {
 
             // Success - every message in this chunk was modified.
             messageIds.forEach(result::addSuccess);
-            logger.info("Successfully modified labels for {} messages using native batchModify (~50 quota units)", messageIds.size());
+            logger.info(
+                    "Successfully modified labels for {} messages using native batchModify (~50 quota units)",
+                    messageIds.size());
 
             resetCircuitBreaker();
 
@@ -721,8 +730,8 @@ public class GmailBatchClient {
                     // one (FR-013). Native batchModify's own non-transient (bad-ID) failures never
                     // reach this branch - they are recovered per-message before rethrowing.
                     String reason = retryable
-                            ? "Retryable (rate-limited or transient server error) after " + attempt
-                                    + " attempts: " + errorMessage
+                            ? "Retryable (rate-limited or transient server error) after " + attempt + " attempts: "
+                                    + errorMessage
                             : "Batch execution failed after " + attempt + " attempts: " + errorMessage;
                     for (String messageId : batch) {
                         result.addFailure(messageId, reason);

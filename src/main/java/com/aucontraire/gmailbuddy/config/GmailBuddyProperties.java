@@ -38,6 +38,7 @@ public record GmailBuddyProperties(
             @NotBlank String defaultUserId,
             @Min(1) @Max(1000) int defaultLatestMessagesLimit,
             @Min(1) @Max(1000) long batchDeleteMaxResults,
+            @Min(1) @Max(1000) long batchModifyMaxResults,
             @Valid @NotNull RateLimit rateLimit,
             @Valid @NotNull ServiceUnavailable serviceUnavailable,
             @Valid @NotNull MessageProcessing messageProcessing,
@@ -62,7 +63,7 @@ public record GmailBuddyProperties(
                     @Min(500) @Max(10000) long initialBackoffMs,
                     @Min(1) @Max(5) double backoffMultiplier,
                     @Min(5000) @Max(60000) long maxBackoffMs,
-                    @Min(10) @Max(100) int maxBatchSize,
+                    @Min(10) @Max(1000) int maxBatchSize,
                     @Min(0) @Max(100) long microDelayBetweenOperationsMs) {
                 // Default values are set in application.properties
             }

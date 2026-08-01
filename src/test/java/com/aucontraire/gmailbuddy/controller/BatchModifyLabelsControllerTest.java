@@ -318,8 +318,9 @@ class BatchModifyLabelsControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // (g) Oversized messageIds (exceeds the configured batchDeleteMaxResults
-    //     ceiling) -> 400
+    // (g) Oversized messageIds (exceeds the configured batchModifyMaxResults
+    //     ceiling, decoupled from the permanent-delete batchDeleteMaxResults cap
+    //     per FR-009) -> 400
     // -------------------------------------------------------------------------
 
     @Test

@@ -140,8 +140,8 @@ class GmailBatchClientTest {
      * per-message-recovery paths per FR-011) so only the pinned contract fields (status, counts,
      * successfulOperations, failedOperations) remain for comparison.
      */
-    private JsonNode toContractJsonWithoutMetadata(ObjectMapper objectMapper, ResponseMapper responseMapper, BulkOperationResult result)
-            throws IOException {
+    private JsonNode toContractJsonWithoutMetadata(
+            ObjectMapper objectMapper, ResponseMapper responseMapper, BulkOperationResult result) throws IOException {
         BatchOperationResponse dto = responseMapper.toBatchOperationResponse(result);
         JsonNode json = objectMapper.readTree(objectMapper.writeValueAsString(dto));
         ((ObjectNode) json).remove("metadata");
@@ -915,7 +915,8 @@ class GmailBatchClientTest {
             assertThat(result.getFailureCount()).isZero();
             assertThat(result.getSuccessfulOperations()).containsExactly(messageId);
 
-            ArgumentCaptor<BatchModifyMessagesRequest> captor = ArgumentCaptor.forClass(BatchModifyMessagesRequest.class);
+            ArgumentCaptor<BatchModifyMessagesRequest> captor =
+                    ArgumentCaptor.forClass(BatchModifyMessagesRequest.class);
             verify(messages).batchModify(eq(userId), captor.capture());
             assertThat(captor.getValue().getIds()).containsExactly(messageId);
             assertThat(captor.getValue().getAddLabelIds()).containsExactly("INBOX");
@@ -954,7 +955,8 @@ class GmailBatchClientTest {
         }
 
         @Test
-        @DisplayName("T006: TRASH label toggle (as used by batchTrash/batchUntrash) routes through the native batchModify primitive")
+        @DisplayName(
+                "T006: TRASH label toggle (as used by batchTrash/batchUntrash) routes through the native batchModify primitive")
         void batchModifyLabels_trashToggle_routesThroughNativeBatchModify() throws IOException {
             // Arrange: GmailRepositoryImpl.batchTrashMessages/batchUntrashMessages build a
             // ModifyMessageRequest that adds/removes the TRASH label and delegate to this same
@@ -973,14 +975,16 @@ class GmailBatchClientTest {
 
             // Assert
             assertThat(result.getSuccessCount()).isEqualTo(3);
-            ArgumentCaptor<BatchModifyMessagesRequest> captor = ArgumentCaptor.forClass(BatchModifyMessagesRequest.class);
+            ArgumentCaptor<BatchModifyMessagesRequest> captor =
+                    ArgumentCaptor.forClass(BatchModifyMessagesRequest.class);
             verify(messages).batchModify(eq(userId), captor.capture());
             assertThat(captor.getValue().getAddLabelIds()).containsExactly("TRASH");
             verify(messages, never()).modify(anyString(), anyString(), any(ModifyMessageRequest.class));
         }
 
         @Test
-        @DisplayName("T010: Non-transient native failure (404) recovers per-message; valid ids succeed, bad id fails, PARTIAL_SUCCESS")
+        @DisplayName(
+                "T010: Non-transient native failure (404) recovers per-message; valid ids succeed, bad id fails, PARTIAL_SUCCESS")
         void batchModifyLabels_oneBadId_nonTransientNativeFailure_recoversPerMessage_returnsPartialSuccess()
                 throws IOException {
             // Arrange: the native batchModify call fails for the whole chunk because of one bad
@@ -1030,7 +1034,8 @@ class GmailBatchClientTest {
         }
 
         @Test
-        @DisplayName("T011: Non-transient native failure (400) where every id is invalid recovers per-message and still fails all, without throwing")
+        @DisplayName(
+                "T011: Non-transient native failure (400) where every id is invalid recovers per-message and still fails all, without throwing")
         void batchModifyLabels_allInvalid_nonTransientNativeFailure_recoveryAlsoFails_returnsAllFailedWithoutThrowing()
                 throws IOException {
             // Arrange: native batchModify fails with a non-transient 400 (e.g. every id
@@ -1077,7 +1082,8 @@ class GmailBatchClientTest {
 
         @ParameterizedTest(name = "status {0} is treated as transient and retried natively")
         @ValueSource(ints = {429, 500, 503})
-        @DisplayName("T012: transient status codes exhaust bounded native retry without per-message fan-out, RETRYABLE reason")
+        @DisplayName(
+                "T012: transient status codes exhaust bounded native retry without per-message fan-out, RETRYABLE reason")
         void batchModifyLabels_transientStatusCodes_exhaustNativeRetry_noPerMessageFanOut(int statusCode)
                 throws IOException {
             // Arrange
@@ -1138,7 +1144,8 @@ class GmailBatchClientTest {
         }
 
         @Test
-        @DisplayName("T013: per-message recovery is idempotent -- re-applying to an already-modified message is a safe no-op that still succeeds")
+        @DisplayName(
+                "T013: per-message recovery is idempotent -- re-applying to an already-modified message is a safe no-op that still succeeds")
         void batchModifyLabels_recovery_reapplyingAlreadyModifiedMessage_isSafeNoOpAndSucceeds() throws IOException {
             // Arrange: native batchModify fails non-transiently (simulating a partial-apply
             // scenario where some ids were already modified before the whole-chunk call failed);
@@ -2412,16 +2419,17 @@ class GmailBatchClientTest {
         @Test
         @DisplayName("Should respect Gmail API limit even if configured higher")
         void getMaxBatchSize_ConfiguredAboveLimit_ShouldRespectApiLimit() {
-            // Arrange - Configure batch size above the DEFAULT_MAX_BATCH_SIZE (100)
-            when(batchOperations.maxBatchSize()).thenReturn(150);
+            // Arrange - Configure batch size above the DEFAULT_MAX_BATCH_SIZE (1000,
+            // the native batchModify hard cap raised in WI-1 US3)
+            when(batchOperations.maxBatchSize()).thenReturn(1500);
 
             // Act
             int maxBatchSize = gmailBatchClient.getMaxBatchSize();
 
-            // Assert - Should cap at DEFAULT_MAX_BATCH_SIZE (100)
+            // Assert - Should cap at DEFAULT_MAX_BATCH_SIZE (1000)
             assertThat(maxBatchSize)
-                    .as("getMaxBatchSize should cap at Gmail API limit of 100")
-                    .isEqualTo(100);
+                    .as("getMaxBatchSize should cap at Gmail API limit of 1000")
+                    .isEqualTo(1000);
         }
 
         @Test

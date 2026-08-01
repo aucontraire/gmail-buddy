@@ -67,7 +67,7 @@ class GmailServiceBatchModifyLabelsTest {
         GmailBuddyProperties properties = mock(GmailBuddyProperties.class);
         GmailBuddyProperties.GmailApi gmailApiProperties = mock(GmailBuddyProperties.GmailApi.class);
         when(properties.gmailApi()).thenReturn(gmailApiProperties);
-        when(gmailApiProperties.batchDeleteMaxResults()).thenReturn(TEST_MAX_BATCH_SIZE);
+        when(gmailApiProperties.batchModifyMaxResults()).thenReturn(TEST_MAX_BATCH_SIZE);
 
         gmailService = new GmailService(
                 gmailRepository,

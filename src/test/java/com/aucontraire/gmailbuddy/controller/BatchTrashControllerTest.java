@@ -234,15 +234,16 @@ class BatchTrashControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // (e) Oversized list (exceeds batchDeleteMaxResults) -> 400
+    // (e) Oversized list (exceeds batchModifyMaxResults) -> 400
     // -------------------------------------------------------------------------
 
     @Test
     @DisplayName("batchTrashMessages_batchSizeExceedsConfiguredMax_returns400WithValidationErrorProblemType")
     void batchTrashMessages_batchSizeExceedsConfiguredMax_returns400WithValidationErrorProblemType() throws Exception {
         // Arrange: application-test.properties sets
-        // gmail-buddy.gmail-api.batch-delete-max-results=10. Real enforcement of that
-        // ceiling (validateBatchSize) is unit-tested in GmailServiceBatchTrashTest (T013);
+        // gmail-buddy.gmail-api.batch-modify-max-results=10 (decoupled from the
+        // permanent-delete batch-delete-max-results cap per FR-009). Real enforcement of
+        // that ceiling (validateBatchSize) is unit-tested in GmailServiceBatchTrashTest (T013);
         // here GmailService is fully mocked, so this test verifies the controller's 400
         // contract when the service signals a batch-size violation. No uniqueness
         // constraint applies to messageIds, so a repeated valid id is sufficient.
