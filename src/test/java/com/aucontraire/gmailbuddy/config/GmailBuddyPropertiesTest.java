@@ -100,6 +100,26 @@ class GmailBuddyPropertiesTest {
     }
 
     @Test
+    void testDefaultHttpTransportValues() {
+        var httpTransport = properties.gmailApi().httpTransport();
+        assertNotNull(httpTransport);
+
+        assertEquals(16, httpTransport.maxPerRoute());
+        assertEquals(20, httpTransport.maxTotal());
+        assertEquals(2000L, httpTransport.validateAfterInactivityMs());
+        assertEquals(60000L, httpTransport.connectionTtlMs());
+    }
+
+    @Test
+    void testDefaultTokenValidationCacheValues() {
+        var tokenValidationCache = properties.gmailApi().tokenValidationCache();
+        assertNotNull(tokenValidationCache);
+
+        assertTrue(tokenValidationCache.enabled());
+        assertEquals(60, tokenValidationCache.ttlSeconds());
+    }
+
+    @Test
     void testDefaultOAuth2Values() {
         assertNotNull(properties.oauth2());
         assertEquals("google", properties.oauth2().clientRegistrationId());
@@ -188,7 +208,9 @@ class GmailBuddyPropertiesTest {
                 properties.gmailApi().rateLimit(),
                 properties.gmailApi().serviceUnavailable(),
                 properties.gmailApi().messageProcessing(),
-                properties.gmailApi().queryOperators());
+                properties.gmailApi().queryOperators(),
+                properties.gmailApi().httpTransport(),
+                properties.gmailApi().tokenValidationCache());
 
         var invalidProperties = new GmailBuddyProperties(
                 invalidGmailApi,
@@ -216,7 +238,9 @@ class GmailBuddyPropertiesTest {
                 properties.gmailApi().rateLimit(),
                 properties.gmailApi().serviceUnavailable(),
                 properties.gmailApi().messageProcessing(),
-                properties.gmailApi().queryOperators());
+                properties.gmailApi().queryOperators(),
+                properties.gmailApi().httpTransport(),
+                properties.gmailApi().tokenValidationCache());
 
         var invalidProperties = new GmailBuddyProperties(
                 invalidGmailApi,
@@ -250,7 +274,9 @@ class GmailBuddyPropertiesTest {
                 invalidRateLimit,
                 properties.gmailApi().serviceUnavailable(),
                 properties.gmailApi().messageProcessing(),
-                properties.gmailApi().queryOperators());
+                properties.gmailApi().queryOperators(),
+                properties.gmailApi().httpTransport(),
+                properties.gmailApi().tokenValidationCache());
 
         var invalidProperties = new GmailBuddyProperties(
                 invalidGmailApi,

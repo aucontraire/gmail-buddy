@@ -228,7 +228,8 @@ class OAuth2TokenProviderPhase2Test {
     class ApiClientAuthenticationTests {
 
         @Test
-        @DisplayName("Should retrieve token from API client authentication in SecurityContext")
+        @DisplayName("Should retrieve token from API client authentication in SecurityContext with zero live validation"
+                + " (US2/FR-003/FR-005)")
         void shouldRetrieveTokenFromApiClientAuthenticationInSecurityContext() {
             // Given
             mockApiClientAuthentication();
@@ -240,32 +241,38 @@ class OAuth2TokenProviderPhase2Test {
             // Then
             assertThat(result).isEqualTo(VALID_BEARER_TOKEN);
             verify(authentication).getCredentials();
+            // ADR-002 / FR-003: the reference path must not perform a second live validation
+            // round-trip - the filter already validated this request once.
+            verify(tokenValidator, never()).isValidGoogleToken(any());
         }
 
         @Test
-        @DisplayName("Should prioritize Bearer token over API client authentication")
-        void shouldPrioritizeBearerTokenOverApiClientAuthentication() {
-            // Given
+        @DisplayName(
+                "Should prioritize API client (token-reference) authentication over Bearer token, with no redundant"
+                        + " re-validation")
+        void shouldPrioritizeApiClientAuthenticationOverBearerToken() {
+            // Given - a directly-presented Bearer header is also present, but ADR-002 requires the
+            // already-authenticated ROLE_API_USER request to be served from the token reference,
+            // never by re-reading/re-trusting/re-validating the raw header token.
             String directBearerToken = "ya29.a0ARrdaM-direct-bearer";
             mockHttpRequestContext(directBearerToken);
-            when(tokenValidator.isValidGoogleToken(directBearerToken)).thenReturn(true);
-            mockApiClientAuthentication(); // Also present
+            mockApiClientAuthentication();
 
             // When
             String result = tokenProvider.getTokenFromContext();
 
             // Then
-            assertThat(result).isEqualTo(directBearerToken);
-            verify(tokenValidator).isValidGoogleToken(directBearerToken);
-            verify(authentication, never()).getCredentials(); // Should not fallback
+            assertThat(result).isEqualTo(VALID_BEARER_TOKEN); // from the token reference, not the raw header
+            verify(authentication).getCredentials();
+            verify(tokenValidator, never()).isValidGoogleToken(any()); // no redundant live validation
         }
 
         @Test
-        @DisplayName("Should fallback to API client authentication when Bearer token is invalid")
-        void shouldFallbackToApiClientAuthenticationWhenBearerTokenIsInvalid() {
-            // Given
+        @DisplayName("Should use API client (token-reference) authentication regardless of Bearer token validity")
+        void shouldUseApiClientAuthenticationRegardlessOfBearerTokenValidity() {
+            // Given - an invalid Bearer header is present, but since ROLE_API_USER is already
+            // authenticated the reference path wins outright and the invalid header is never consulted.
             mockHttpRequestContext(INVALID_BEARER_TOKEN);
-            when(tokenValidator.isValidGoogleToken(INVALID_BEARER_TOKEN)).thenReturn(false);
             mockApiClientAuthentication();
 
             // When
@@ -273,8 +280,8 @@ class OAuth2TokenProviderPhase2Test {
 
             // Then
             assertThat(result).isEqualTo(VALID_BEARER_TOKEN);
-            verify(tokenValidator).isValidGoogleToken(INVALID_BEARER_TOKEN);
             verify(authentication).getCredentials();
+            verify(tokenValidator, never()).isValidGoogleToken(any());
         }
 
         @Test
@@ -362,11 +369,10 @@ class OAuth2TokenProviderPhase2Test {
     class TokenContextResolutionPriorityTests {
 
         @Test
-        @DisplayName("Should follow correct priority: Bearer > API Client > OAuth2")
-        void shouldFollowCorrectPriorityBearerApiClientOAuth2() {
+        @DisplayName("Should follow correct priority: API Client (token reference) > Bearer > OAuth2")
+        void shouldFollowCorrectPriorityApiClientBearerOAuth2() {
             // Given - All three authentication methods present
             mockHttpRequestContext(VALID_BEARER_TOKEN);
-            when(tokenValidator.isValidGoogleToken(VALID_BEARER_TOKEN)).thenReturn(true);
             mockApiClientAuthentication();
             mockOAuth2Fallback();
 
@@ -375,19 +381,24 @@ class OAuth2TokenProviderPhase2Test {
 
             // Then
             assertThat(result).isEqualTo(VALID_BEARER_TOKEN);
-            verify(tokenValidator).isValidGoogleToken(VALID_BEARER_TOKEN);
-            verify(authentication, never()).getCredentials(); // Should not check API client
+            verify(authentication).getCredentials(); // Reference path wins
+            verify(tokenValidator, never()).isValidGoogleToken(any()); // no redundant live validation (ADR-002)
             verify(authorizedClientService, never())
                     .loadAuthorizedClient(any(), any()); // Should not fallback to OAuth2
         }
 
         @Test
-        @DisplayName("Should skip to API client when Bearer token validation fails")
-        void shouldSkipToApiClientWhenBearerTokenValidationFails() {
-            // Given
-            mockHttpRequestContext(INVALID_BEARER_TOKEN);
-            when(tokenValidator.isValidGoogleToken(INVALID_BEARER_TOKEN)).thenReturn(false);
-            mockApiClientAuthentication();
+        @DisplayName("Should fall back to Bearer token validation when no API client (ROLE_API_USER) authentication"
+                + " is present")
+        void shouldFallBackToBearerTokenWhenNoApiClientAuthenticationPresent() {
+            // Given - no ROLE_API_USER context, so the reference path is unavailable and the
+            // Bearer-header fallback (with its live validation) is exercised.
+            mockHttpRequestContext(VALID_BEARER_TOKEN);
+            when(tokenValidator.isValidGoogleToken(VALID_BEARER_TOKEN)).thenReturn(true);
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.isAuthenticated()).thenReturn(true);
+            when(authentication.getAuthorities())
+                    .thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
             mockOAuth2Fallback(); // Also available but should not be used
 
             // When
@@ -395,8 +406,7 @@ class OAuth2TokenProviderPhase2Test {
 
             // Then
             assertThat(result).isEqualTo(VALID_BEARER_TOKEN);
-            verify(tokenValidator).isValidGoogleToken(INVALID_BEARER_TOKEN);
-            verify(authentication).getCredentials();
+            verify(tokenValidator).isValidGoogleToken(VALID_BEARER_TOKEN);
             verify(authorizedClientService, never()).loadAuthorizedClient(any(), any());
         }
 
@@ -427,38 +437,48 @@ class OAuth2TokenProviderPhase2Test {
     class ErrorHandlingAndEdgeCasesTests {
 
         @Test
-        @DisplayName("Should handle GoogleTokenValidator exceptions gracefully")
+        @DisplayName("Should handle GoogleTokenValidator exceptions gracefully on Bearer fallback")
         void shouldHandleGoogleTokenValidatorExceptionsGracefully() {
-            // Given
+            // Given - no ROLE_API_USER authentication, so the Bearer fallback (with its live
+            // validation call) is reached and must gracefully fall through on error.
             mockHttpRequestContext(VALID_BEARER_TOKEN);
             when(tokenValidator.isValidGoogleToken(VALID_BEARER_TOKEN))
                     .thenThrow(new RuntimeException("Token validation service unavailable"));
-            mockApiClientAuthentication();
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.isAuthenticated()).thenReturn(true);
+            when(authentication.getAuthorities())
+                    .thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
+            mockOAuth2Fallback();
 
             // When
             String result = tokenProvider.getTokenFromContext();
 
             // Then
-            assertThat(result).isEqualTo(VALID_BEARER_TOKEN);
+            assertThat(result).isEqualTo(OAUTH2_TOKEN);
             verify(tokenValidator).isValidGoogleToken(VALID_BEARER_TOKEN);
-            verify(authentication).getCredentials();
+            verify(authorizedClientService).loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL);
         }
 
         @Test
-        @DisplayName("Should handle HTTP request context exceptions gracefully")
+        @DisplayName("Should handle HTTP request context exceptions gracefully on Bearer fallback")
         void shouldHandleHttpRequestContextExceptionsGracefully() {
-            // Given
+            // Given - no ROLE_API_USER authentication, so the Bearer fallback (which needs the
+            // HTTP request context) is reached and must gracefully fall through on error.
             mockedRequestContextHolder
                     .when(RequestContextHolder::getRequestAttributes)
                     .thenThrow(new RuntimeException("Request context error"));
-            mockApiClientAuthentication();
+            when(securityContext.getAuthentication()).thenReturn(authentication);
+            when(authentication.isAuthenticated()).thenReturn(true);
+            when(authentication.getAuthorities())
+                    .thenAnswer(invocation -> java.util.Arrays.asList(new SimpleGrantedAuthority("ROLE_USER")));
+            mockOAuth2Fallback();
 
             // When
             String result = tokenProvider.getTokenFromContext();
 
             // Then
-            assertThat(result).isEqualTo(VALID_BEARER_TOKEN);
-            verify(authentication).getCredentials();
+            assertThat(result).isEqualTo(OAUTH2_TOKEN);
+            verify(authorizedClientService).loadAuthorizedClient(CLIENT_REGISTRATION_ID, USER_EMAIL);
         }
 
         @Test

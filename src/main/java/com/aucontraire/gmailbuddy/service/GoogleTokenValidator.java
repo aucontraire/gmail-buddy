@@ -2,9 +2,11 @@ package com.aucontraire.gmailbuddy.service;
 
 import com.aucontraire.gmailbuddy.exception.AuthenticationException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -56,9 +58,30 @@ public class GoogleTokenValidator {
             "https://mail.google.com/");
 
     private final RestTemplate restTemplate;
+    private final TokenValidationCache tokenValidationCache;
 
-    public GoogleTokenValidator(RestTemplate restTemplate) {
+    /**
+     * Primary constructor used by Spring, wiring in the short-TTL validation memo (WI-2/US3)
+     * so rapid same-token requests don't each pay a live round-trip to Google.
+     *
+     * @param restTemplate HTTP client used for the live tokeninfo call
+     * @param tokenValidationCache memo of recent successful validations
+     */
+    @Autowired
+    public GoogleTokenValidator(RestTemplate restTemplate, TokenValidationCache tokenValidationCache) {
         this.restTemplate = restTemplate;
+        this.tokenValidationCache = tokenValidationCache;
+    }
+
+    /**
+     * Convenience constructor for callers (existing unit tests) that construct this validator
+     * directly without a Spring context. Uses a no-op cache so every call always performs a
+     * live validation, preserving pre-memo behavior exactly.
+     *
+     * @param restTemplate HTTP client used for the live tokeninfo call
+     */
+    public GoogleTokenValidator(RestTemplate restTemplate) {
+        this(restTemplate, NoOpTokenValidationCache.INSTANCE);
     }
 
     /**
@@ -107,6 +130,13 @@ public class GoogleTokenValidator {
     /**
      * Validates token with Google's TokenInfo endpoint and returns token information.
      *
+     * <p>WI-2/US3: consults the short-TTL validation memo first. A hit is returned without any
+     * live call to Google; a miss falls through to {@link #validateTokenWithGoogle(String)} and,
+     * on success, populates the memo. The returned {@link TokenInfoResponse} always carries the
+     * validated scope — on a memo hit exactly as on a live validation — so callers that
+     * subsequently run the scope-enforcement gate (e.g. {@code hasValidGmailScopes}) do so
+     * against the real scope; a memo hit never bypasses that check (FR-012).
+     *
      * @param accessToken the access token to validate
      * @return TokenInfoResponse containing token details, or null if validation fails
      */
@@ -115,8 +145,18 @@ public class GoogleTokenValidator {
             throw new AuthenticationException("Access token cannot be null or empty");
         }
 
+        Optional<TokenInfoResponse> memoized = tokenValidationCache.get(accessToken);
+        if (memoized.isPresent()) {
+            logger.debug("Token validation served from memo; no live Google round-trip");
+            return memoized.get();
+        }
+
         try {
-            return validateTokenWithGoogle(accessToken);
+            TokenInfoResponse tokenInfo = validateTokenWithGoogle(accessToken);
+            if (tokenInfo != null) {
+                tokenValidationCache.put(accessToken, tokenInfo);
+            }
+            return tokenInfo;
         } catch (Exception e) {
             logger.error("Failed to get token info for token validation: {}", e.getMessage());
             throw new AuthenticationException("Token validation failed: " + e.getMessage(), e);
@@ -299,6 +339,25 @@ public class GoogleTokenValidator {
                     + email + '\'' + ", expiresIn='"
                     + expiresIn + '\'' + ", accessType='"
                     + accessType + '\'' + '}';
+        }
+    }
+
+    /**
+     * No-op {@link TokenValidationCache} used by the test/back-compat single-arg constructor:
+     * every lookup misses and every write is discarded, so callers built without a Spring
+     * context always perform a live validation, matching pre-memo behavior exactly.
+     */
+    private static final class NoOpTokenValidationCache implements TokenValidationCache {
+        private static final NoOpTokenValidationCache INSTANCE = new NoOpTokenValidationCache();
+
+        @Override
+        public Optional<TokenInfoResponse> get(String rawToken) {
+            return Optional.empty();
+        }
+
+        @Override
+        public void put(String rawToken, TokenInfoResponse tokenInfo) {
+            // no-op
         }
     }
 }
