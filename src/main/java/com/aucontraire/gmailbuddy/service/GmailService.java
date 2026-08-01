@@ -408,16 +408,19 @@ public class GmailService {
 
     /**
      * Rejects a batch whose size exceeds the configured
-     * {@code gmail-buddy.gmail-api.batch-delete-max-results} ceiling (FR-004,
-     * shared bound with {@code batchDeleteMaxResults}). Emptiness is already
-     * enforced by {@code @NotEmpty} on the request DTO; this is the
-     * service-layer half of the bound (the configurable upper limit).
+     * {@code gmail-buddy.gmail-api.batch-modify-max-results} ceiling (FR-007). This
+     * is the by-ID input cap for the trash/untrash/modify-labels batch operations
+     * and is intentionally decoupled from {@code batchDeleteMaxResults} (the
+     * permanent-delete filter-query page cap): raising this cap MUST NOT widen the
+     * permanent-delete blast radius (FR-009). Emptiness is already enforced by
+     * {@code @NotEmpty} on the request DTO; this is the service-layer half of the
+     * bound (the configurable upper limit).
      *
      * @param messageIds the batch to validate
      * @throws ValidationException if the batch exceeds the configured maximum
      */
     private void validateBatchSize(List<String> messageIds) {
-        long max = properties.gmailApi().batchDeleteMaxResults();
+        long max = properties.gmailApi().batchModifyMaxResults();
         if (messageIds.size() > max) {
             throw new ValidationException(
                     String.format("messageIds size (%d) exceeds the configured maximum (%d)", messageIds.size(), max));

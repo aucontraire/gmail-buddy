@@ -113,17 +113,19 @@ class BatchTrashControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // (a.1) X-Gmail-Quota-Used header (T031) — totalOperations * 5
-    //     (MODIFY_QUOTA_PER_MESSAGE, per-message users.messages.modify cost)
+    // (a.1) X-Gmail-Quota-Used header (T031, updated WI-1 T009) — totalBatchesProcessed * 50
+    //     (BATCH_MODIFY_QUOTA_PER_CHUNK, flat native batchModify per-chunk cost)
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("batchTrashMessages_allMessagesSucceed_setsGmailQuotaUsedHeaderToTotalTimesFive")
-    void batchTrashMessages_allMessagesSucceed_setsGmailQuotaUsedHeaderToTotalTimesFive() throws Exception {
+    @DisplayName("batchTrashMessages_allMessagesSucceed_setsGmailQuotaUsedHeaderToChunksTimesFifty")
+    void batchTrashMessages_allMessagesSucceed_setsGmailQuotaUsedHeaderToChunksTimesFifty() throws Exception {
         // Arrange: ResponseMapper#toBatchOperationResponse computes quotaUsed as
-        // totalOperations * 5, so 3 messages -> 15.
+        // totalBatchesProcessed * 50 (native batchModify's flat per-chunk cost, WI-1/FR-008),
+        // so 3 messages processed as 1 native chunk -> 50.
         List<String> messageIds = BatchOperationFixtures.validMessageIds(3);
         BulkOperationResult bulkResult = BatchOperationFixtures.buildAllSuccessResult(messageIds);
+        bulkResult.incrementBatchesProcessed(); // 1 native batchModify call for the chunk
         when(gmailService.batchTrashMessages(eq(USER_ID), eq(messageIds))).thenReturn(bulkResult);
         String requestBody = objectMapper.writeValueAsString(new BatchMessageIdsRequest(messageIds));
 
@@ -133,7 +135,7 @@ class BatchTrashControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isOk())
-                .andExpect(header().string("X-Gmail-Quota-Used", "15"));
+                .andExpect(header().string("X-Gmail-Quota-Used", "50"));
     }
 
     // -------------------------------------------------------------------------
@@ -232,15 +234,16 @@ class BatchTrashControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // (e) Oversized list (exceeds batchDeleteMaxResults) -> 400
+    // (e) Oversized list (exceeds batchModifyMaxResults) -> 400
     // -------------------------------------------------------------------------
 
     @Test
     @DisplayName("batchTrashMessages_batchSizeExceedsConfiguredMax_returns400WithValidationErrorProblemType")
     void batchTrashMessages_batchSizeExceedsConfiguredMax_returns400WithValidationErrorProblemType() throws Exception {
         // Arrange: application-test.properties sets
-        // gmail-buddy.gmail-api.batch-delete-max-results=10. Real enforcement of that
-        // ceiling (validateBatchSize) is unit-tested in GmailServiceBatchTrashTest (T013);
+        // gmail-buddy.gmail-api.batch-modify-max-results=10 (decoupled from the
+        // permanent-delete batch-delete-max-results cap per FR-009). Real enforcement of
+        // that ceiling (validateBatchSize) is unit-tested in GmailServiceBatchTrashTest (T013);
         // here GmailService is fully mocked, so this test verifies the controller's 400
         // contract when the service signals a batch-size violation. No uniqueness
         // constraint applies to messageIds, so a repeated valid id is sufficient.

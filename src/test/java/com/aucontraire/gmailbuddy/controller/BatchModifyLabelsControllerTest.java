@@ -150,18 +150,20 @@ class BatchModifyLabelsControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // (b.1) X-Gmail-Quota-Used header (T031) — totalOperations * 5
-    //     (MODIFY_QUOTA_PER_MESSAGE, per-message users.messages.modify cost)
+    // (b.1) X-Gmail-Quota-Used header (T031, updated WI-1 T009) — totalBatchesProcessed * 50
+    //     (BATCH_MODIFY_QUOTA_PER_CHUNK, flat native batchModify per-chunk cost)
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("batchModifyLabelsByIds_addOnly_setsGmailQuotaUsedHeaderToTotalTimesFive")
-    void batchModifyLabelsByIds_addOnly_setsGmailQuotaUsedHeaderToTotalTimesFive() throws Exception {
+    @DisplayName("batchModifyLabelsByIds_addOnly_setsGmailQuotaUsedHeaderToChunksTimesFifty")
+    void batchModifyLabelsByIds_addOnly_setsGmailQuotaUsedHeaderToChunksTimesFifty() throws Exception {
         // Arrange: ResponseMapper#toBatchOperationResponse computes quotaUsed as
-        // totalOperations * 5, so 3 messages -> 15.
+        // totalBatchesProcessed * 50 (native batchModify's flat per-chunk cost, WI-1/FR-008),
+        // so 3 messages processed as 1 native chunk -> 50.
         List<String> messageIds = BatchOperationFixtures.validMessageIds(3);
         List<String> labelIdsToAdd = List.of("Label_42");
         BulkOperationResult bulkResult = BatchOperationFixtures.buildAllSuccessResult(messageIds);
+        bulkResult.incrementBatchesProcessed(); // 1 native batchModify call for the chunk
         when(gmailService.batchModifyLabelsByIds(eq(USER_ID), eq(messageIds), eq(labelIdsToAdd), isNull()))
                 .thenReturn(bulkResult);
         String requestBody =
@@ -173,7 +175,7 @@ class BatchModifyLabelsControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isOk())
-                .andExpect(header().string("X-Gmail-Quota-Used", "15"));
+                .andExpect(header().string("X-Gmail-Quota-Used", "50"));
     }
 
     // -------------------------------------------------------------------------
@@ -316,8 +318,9 @@ class BatchModifyLabelsControllerTest {
     }
 
     // -------------------------------------------------------------------------
-    // (g) Oversized messageIds (exceeds the configured batchDeleteMaxResults
-    //     ceiling) -> 400
+    // (g) Oversized messageIds (exceeds the configured batchModifyMaxResults
+    //     ceiling, decoupled from the permanent-delete batchDeleteMaxResults cap
+    //     per FR-009) -> 400
     // -------------------------------------------------------------------------
 
     @Test
