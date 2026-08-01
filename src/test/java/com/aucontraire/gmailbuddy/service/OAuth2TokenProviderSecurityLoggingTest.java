@@ -277,8 +277,8 @@ class OAuth2TokenProviderSecurityLoggingTest {
         @Test
         @DisplayName("Should mask token in API client authentication logs")
         void shouldMaskTokenInApiClientAuthenticationLogs() {
-            // Given
-            mockHttpRequestContext(null);
+            // Given - no HTTP request context needed: an authenticated ROLE_API_USER is served
+            // from the token reference outright (ADR-002 / FR-003), never touching the header.
             mockApiClientAuthentication(GITHUB_TOKEN);
 
             // When
@@ -402,9 +402,9 @@ class OAuth2TokenProviderSecurityLoggingTest {
         @Test
         @DisplayName("Should handle complex authentication scenarios securely")
         void shouldHandleComplexAuthenticationScenariosSecurely() {
-            // Given - Complex scenario with multiple fallbacks
-            mockHttpRequestContext(INVALID_BEARER_TOKEN);
-            when(tokenValidator.isValidGoogleToken(INVALID_BEARER_TOKEN)).thenReturn(false);
+            // Given - an authenticated ROLE_API_USER (API client). Per ADR-002/FR-003/FR-005 this
+            // wins outright via the token reference; there is no Bearer header to re-read/re-trust
+            // and no redundant live validation round-trip.
             mockApiClientAuthentication(GITHUB_TOKEN);
 
             // When
@@ -413,15 +413,14 @@ class OAuth2TokenProviderSecurityLoggingTest {
             // Then
             assertThat(result).isEqualTo(GITHUB_TOKEN);
 
-            // Verify both tokens are properly masked in logs
-            verifyNoSensitiveDataInLogs(INVALID_BEARER_TOKEN);
+            // Verify the reference token is properly masked in logs
             verifyNoSensitiveDataInLogs(GITHUB_TOKEN);
 
             List<String> logMessages = getLogMessages();
             assertThat(logMessages)
-                    .anyMatch(message -> message.contains("Bearer token validation failed"))
                     .anyMatch(message -> message.contains("Successfully retrieved token from secure token reference"))
                     .anyMatch(message -> message.contains("ghp_****wxyz"));
+            verify(tokenValidator, never()).isValidGoogleToken(any()); // no redundant live validation
         }
     }
 

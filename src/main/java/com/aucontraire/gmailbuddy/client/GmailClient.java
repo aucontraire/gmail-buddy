@@ -1,7 +1,7 @@
 package com.aucontraire.gmailbuddy.client;
 
 import com.aucontraire.gmailbuddy.config.GmailBuddyProperties;
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.gmail.Gmail;
 import java.io.IOException;
@@ -24,15 +24,20 @@ public class GmailClient {
     private static final Logger logger = LoggerFactory.getLogger(GmailClient.class);
 
     private final GmailBuddyProperties properties;
+    private final HttpTransport httpTransport;
 
     @Autowired
-    public GmailClient(GmailBuddyProperties properties) {
+    public GmailClient(GmailBuddyProperties properties, HttpTransport httpTransport) {
         this.properties = properties;
+        this.httpTransport = httpTransport;
     }
 
     /**
      * Creates a Gmail service instance authenticated with the provided access token.
-     * Uses Google's trusted HTTP transport and Gson JSON factory for API communication.
+     * Uses the shared, pooled {@link HttpTransport} (see {@code GoogleTransportConfig}) and Gson
+     * JSON factory for API communication. The transport is shared across all callers; only the
+     * OAuth2 access token is per-request, applied via the {@code HttpRequestInitializer} below —
+     * it never touches the shared transport, preserving per-caller token isolation.
      *
      * @param accessToken the OAuth2 access token for authentication
      * @return an authenticated Gmail service instance
@@ -44,10 +49,8 @@ public class GmailClient {
         String tokenPrefix = properties.oauth2().token().prefix();
         String applicationName = properties.gmailApi().applicationName();
 
-        return new Gmail.Builder(
-                        GoogleNetHttpTransport.newTrustedTransport(),
-                        GsonFactory.getDefaultInstance(),
-                        request -> request.getHeaders().setAuthorization(tokenPrefix + " " + accessToken))
+        return new Gmail.Builder(httpTransport, GsonFactory.getDefaultInstance(), request -> request.getHeaders()
+                        .setAuthorization(tokenPrefix + " " + accessToken))
                 .setApplicationName(applicationName)
                 .build();
     }

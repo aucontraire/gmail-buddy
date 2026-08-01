@@ -42,7 +42,9 @@ public record GmailBuddyProperties(
             @Valid @NotNull RateLimit rateLimit,
             @Valid @NotNull ServiceUnavailable serviceUnavailable,
             @Valid @NotNull MessageProcessing messageProcessing,
-            @Valid @NotNull QueryOperators queryOperators) {
+            @Valid @NotNull QueryOperators queryOperators,
+            @Valid @NotNull HttpTransport httpTransport,
+            @Valid @NotNull TokenValidationCache tokenValidationCache) {
         public GmailApi {
             // Validation will be handled by the annotations
             // Default values will be set in application.properties
@@ -99,6 +101,26 @@ public record GmailBuddyProperties(
                 @NotBlank String hasAttachment,
                 @NotBlank String label,
                 @NotBlank String and) {
+            // Default values are set in application.properties
+        }
+
+        /**
+         * Shared Gmail API HTTP transport / connection pool configuration.
+         * Backs the single app-scoped pooled {@code ApacheHttpTransport} (WI-2/US1).
+         */
+        public record HttpTransport(
+                @Min(1) int maxPerRoute,
+                @Min(1) int maxTotal,
+                @Min(0) long validateAfterInactivityMs,
+                @Positive long connectionTtlMs) {
+            // Default values are set in application.properties
+        }
+
+        /**
+         * Token validation memo (cache) configuration for the tokeninfo validation
+         * path (WI-2/US3).
+         */
+        public record TokenValidationCache(boolean enabled, @Min(1) int ttlSeconds) {
             // Default values are set in application.properties
         }
     }

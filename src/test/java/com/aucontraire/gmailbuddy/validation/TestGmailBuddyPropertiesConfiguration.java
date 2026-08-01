@@ -29,7 +29,9 @@ public class TestGmailBuddyPropertiesConfiguration {
                                         "text/html", "text/plain"),
                                 new GmailBuddyProperties.GmailApi.MessageProcessing.Labels("UNREAD")),
                         new GmailBuddyProperties.GmailApi.QueryOperators(
-                                "from:", "to:", "subject:", "has:attachment", "label:", " AND ")),
+                                "from:", "to:", "subject:", "has:attachment", "label:", " AND "),
+                        new GmailBuddyProperties.GmailApi.HttpTransport(16, 20, 2000L, 60000L),
+                        new GmailBuddyProperties.GmailApi.TokenValidationCache(true, 60)),
                 new GmailBuddyProperties.OAuth2("google", new GmailBuddyProperties.OAuth2.Token("Bearer ")),
                 new GmailBuddyProperties.ErrorHandling(
                         new GmailBuddyProperties.ErrorHandling.ErrorCodes(

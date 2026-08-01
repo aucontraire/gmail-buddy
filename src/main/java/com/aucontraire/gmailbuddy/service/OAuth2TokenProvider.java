@@ -186,30 +186,20 @@ public class OAuth2TokenProvider implements TokenProvider {
     public String getTokenFromContext() throws AuthenticationException {
         Exception lastException = null;
 
-        // First, try to extract Bearer token from HTTP request headers (API clients)
-        try {
-            String bearerToken = getBearerToken();
-            if (isValidBearerToken(bearerToken)) {
-                logger.debug(
-                        "Successfully authenticated using Bearer token: {}",
-                        SecurityLogUtil.maskBearerToken(bearerToken));
-                return bearerToken;
-            } else {
-                logger.debug("Bearer token validation failed");
-            }
-        } catch (Exception e) {
-            logger.debug("Bearer token authentication failed: {}", e.getMessage());
-            lastException = e;
-        }
-
-        // Second, check if we have API client authentication from our custom filter
+        // First, check for API client authentication established by our custom filter
+        // (TokenAuthenticationFilter). SECURITY (ADR-002 hard constraint / FR-003 / FR-005):
+        // for an already-authenticated ROLE_API_USER request, the token MUST be obtained via
+        // the encrypted token reference the security boundary created - NOT by re-reading,
+        // re-trusting, or re-validating the raw token from the request header. The filter
+        // already performed the one live validation round-trip for this request; retrieving
+        // the token via the reference here performs no second live validation call.
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null
                     && authentication.isAuthenticated()
                     && authentication.getAuthorities().stream()
                             .anyMatch(auth -> auth.getAuthority().equals("ROLE_API_USER"))) {
-                // SECURITY FIX: API client authenticated via our custom filter - retrieve token from secure reference
+                // API client authenticated via our custom filter - retrieve token from secure reference
                 Object credentials = authentication.getCredentials();
                 if (credentials instanceof String) {
                     String tokenReferenceId = (String) credentials;
@@ -233,6 +223,25 @@ public class OAuth2TokenProvider implements TokenProvider {
             lastException = e;
         }
 
+        // Second, fall back to extracting and validating a Bearer token from HTTP request
+        // headers. This path (and its live Google validation round-trip) is only reached for
+        // contexts that lack an authenticated ROLE_API_USER SecurityContext - e.g. no request
+        // context available to TokenAuthenticationFilter.
+        try {
+            String bearerToken = getBearerToken();
+            if (isValidBearerToken(bearerToken)) {
+                logger.debug(
+                        "Successfully authenticated using Bearer token: {}",
+                        SecurityLogUtil.maskBearerToken(bearerToken));
+                return bearerToken;
+            } else {
+                logger.debug("Bearer token validation failed");
+            }
+        } catch (Exception e) {
+            logger.debug("Bearer token authentication failed: {}", e.getMessage());
+            lastException = e;
+        }
+
         // Finally, fallback to OAuth2 SecurityContext for browser sessions
         try {
             String principalName = getCurrentPrincipalName();
@@ -241,9 +250,8 @@ public class OAuth2TokenProvider implements TokenProvider {
             return oauth2Token;
         } catch (Exception e) {
             logger.error(
-                    "All authentication methods failed. Bearer: {}, API Client: {}, OAuth2: {}",
+                    "All authentication methods failed. API Client/Bearer: {}, OAuth2: {}",
                     lastException != null ? lastException.getMessage() : "None",
-                    "No API client authentication found",
                     e.getMessage());
             throw new AuthenticationException("Authentication failed: No valid authentication method found", e);
         }
