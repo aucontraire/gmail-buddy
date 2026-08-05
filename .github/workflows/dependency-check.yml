@@ -34,7 +34,7 @@ jobs:
 
       # Cache the NVD database between runs so only the delta is downloaded.
       - name: Cache NVD data
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           key: nvd-data-${{ github.run_id }}
