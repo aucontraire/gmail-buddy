@@ -1,6 +1,12 @@
 package com.aucontraire.gmailbuddy.config;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Duration;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -70,10 +76,21 @@ public class SecurityConfig {
     public RestTemplate restTemplate() {
         RestTemplate restTemplate = new RestTemplate();
 
-        // Configure timeout to prevent 21-second hangs
+        // Configure timeouts to prevent 21-second hangs. Spring Framework 7 removed the
+        // factory-level connect-timeout setter; the connect timeout now lives on the Apache
+        // HttpClient 5 connection manager (via ConnectionConfig), while the read timeout remains
+        // a factory setting. Behavior preserved from 3.4.0: 5s connect, 10s read.
+        ConnectionConfig connectionConfig = ConnectionConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(5))
+                .build();
+        PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+        connectionManager.setDefaultConnectionConfig(connectionConfig);
+        CloseableHttpClient httpClient =
+                HttpClients.custom().setConnectionManager(connectionManager).build();
+
         HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
-        factory.setConnectTimeout(5000); // 5 seconds connection timeout
-        factory.setReadTimeout(10000); // 10 seconds read timeout
+        factory.setHttpClient(httpClient);
+        factory.setReadTimeout(Duration.ofSeconds(10));
         restTemplate.setRequestFactory(factory);
 
         logger.info("RestTemplate configured with connect timeout: 5s, read timeout: 10s");
