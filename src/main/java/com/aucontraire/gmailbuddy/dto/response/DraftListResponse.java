@@ -16,14 +16,17 @@ import java.util.List;
  */
 @Schema(description = "Paginated list of draft summaries")
 public record DraftListResponse(
-        @Schema(description = "Page of draft summaries; empty list if no drafts found") List<DraftListItem> results,
+        @Schema(description = "Page of draft summaries; empty list if no drafts found")
+        List<DraftListItem> results,
+
         @Schema(
-                        description = "Token for the next page; null when all results are exhausted",
-                        example = "AKmmh...",
-                        nullable = true)
-                String nextPageToken,
+                description = "Token for the next page; null when all results are exhausted",
+                example = "AKmmh...",
+                nullable = true)
+        String nextPageToken,
+
         @Schema(
-                        description = "Estimated total count from Gmail API; null when unavailable",
-                        example = "42",
-                        nullable = true)
-                Integer totalCount) {}
+                description = "Estimated total count from Gmail API; null when unavailable",
+                example = "42",
+                nullable = true)
+        Integer totalCount) {}

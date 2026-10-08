@@ -38,8 +38,7 @@ public class OpenApiConfig {
         return new Info()
                 .title("Gmail Buddy API")
                 .version("1.0.0")
-                .description(
-                        """
+                .description("""
                         Gmail Buddy is a REST API for managing Gmail messages with OAuth2 authentication.
 
                         ## Features

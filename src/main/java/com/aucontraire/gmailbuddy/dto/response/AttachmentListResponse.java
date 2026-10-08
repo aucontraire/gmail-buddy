@@ -16,5 +16,7 @@ import java.util.List;
 @Schema(description = "Response envelope for listing attachments on a message")
 public record AttachmentListResponse(
         @Schema(description = "List of attachment metadata items; empty when message has no attachments")
-                List<MessageAttachmentMetadata> results,
-        @Schema(description = "Total number of attachments on this message", example = "2") int totalCount) {}
+        List<MessageAttachmentMetadata> results,
+
+        @Schema(description = "Total number of attachments on this message", example = "2")
+        int totalCount) {}

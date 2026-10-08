@@ -200,8 +200,7 @@ class ProblemDetailTest {
     @Test
     @DisplayName("JSON deserialization recreates ProblemDetail correctly")
     void testJsonDeserialization() throws Exception {
-        String json =
-                """
+        String json = """
             {
                 "type": "/problems/validation-error",
                 "title": "Validation Error",

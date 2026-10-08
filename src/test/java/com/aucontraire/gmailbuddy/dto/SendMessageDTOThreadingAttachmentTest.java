@@ -204,8 +204,7 @@ class SendMessageDTOThreadingAttachmentTest {
         void threadId_validLowerHex_passesValidation() throws Exception {
             // Arrange: use raw JSON so Jackson doesn't filter out null fields and we
             // control exactly what goes on the wire.
-            String json =
-                    """
+            String json = """
                     {
                       "to": ["recruiter@example.com"],
                       "subject": "Follow-up",
@@ -238,8 +237,7 @@ class SendMessageDTOThreadingAttachmentTest {
         @DisplayName("threadId with non-hex characters returns 400 with validation error on threadId")
         void threadId_containsNonHexCharacters_returns400WithFieldExtension() throws Exception {
             // Arrange: 'g' is not a hex character; @Pattern("[0-9a-fA-F]{1,32}") rejects it.
-            String json =
-                    """
+            String json = """
                     {
                       "to": ["recruiter@example.com"],
                       "subject": "Follow-up",
@@ -309,8 +307,7 @@ class SendMessageDTOThreadingAttachmentTest {
         @DisplayName("inReplyToMessageId with non-hex characters returns 400")
         void inReplyToMessageId_containsNonHexCharacters_returns400WithFieldExtension() throws Exception {
             // Arrange: 'z' is not a hex character.
-            String json =
-                    """
+            String json = """
                     {
                       "to": ["recruiter@example.com"],
                       "subject": "Follow-up",
@@ -361,8 +358,7 @@ class SendMessageDTOThreadingAttachmentTest {
         void attachments_pathTraversalFilename_returns400WithFilenameError() throws Exception {
             // Arrange: "../../etc/passwd" fails @SafeFilename. The @Valid cascade on
             // attachments must propagate the violation to the controller response.
-            String json =
-                    """
+            String json = """
                     {
                       "to": ["recruiter@example.com"],
                       "subject": "Follow-up",
@@ -394,8 +390,7 @@ class SendMessageDTOThreadingAttachmentTest {
         void attachments_invalidBase64_returns400WithBase64Error() throws Exception {
             // Arrange: "not-valid-base64!!!" contains '-' and '!' which the standard
             // Base64.getDecoder() rejects, failing @ValidBase64.
-            String json =
-                    """
+            String json = """
                     {
                       "to": ["recruiter@example.com"],
                       "subject": "Follow-up",
@@ -426,8 +421,7 @@ class SendMessageDTOThreadingAttachmentTest {
         @DisplayName("attachment with malformed MIME type returns 400 with error on mimeType")
         void attachments_malformedMimeType_returns400WithMimeTypeError() throws Exception {
             // Arrange: "application" without "/subtype" fails @ValidMimeType.
-            String json =
-                    """
+            String json = """
                     {
                       "to": ["recruiter@example.com"],
                       "subject": "Follow-up",

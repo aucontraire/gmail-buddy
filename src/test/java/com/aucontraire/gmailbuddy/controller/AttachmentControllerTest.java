@@ -183,8 +183,7 @@ class AttachmentControllerTest {
 
         // Arrange: CRLF in filename — @SafeFilename rejects header-injection characters
         // Use a raw JSON approach to embed actual CRLF bytes in the filename field.
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Test",
