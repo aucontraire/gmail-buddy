@@ -13,12 +13,10 @@ updates:
       logback:
         patterns:
           - "ch.qos.logback:*"
-    ignore:
-      # logback 1.6.x requires SLF4J 2.1 / Spring Boot 4; this project is on Spring Boot 3.4
-      # with logback pinned on the 1.5.x line (see pom.xml). Cap at <1.6.0 so Dependabot stops
-      # proposing the incompatible major but still offers 1.5.x patch updates.
-      - dependency-name: "ch.qos.logback:*"
-        versions: [">=1.6.0"]
+    # The former <1.6.0 logback cap was removed with the Spring Boot 4 upgrade (WI-008):
+    # logback and slf4j are no longer declared as direct dependencies (the explicit pins were
+    # dropped), so their versions are BOM-managed transitively (Boot 4.1.1 ships logback 1.5.38 /
+    # slf4j 2.0.18) and Dependabot no longer needs a cap on them.
 
   - package-ecosystem: "github-actions"
     directory: "/"

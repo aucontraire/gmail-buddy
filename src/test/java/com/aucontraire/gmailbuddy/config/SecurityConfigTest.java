@@ -17,8 +17,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
@@ -161,7 +161,7 @@ class SecurityConfigTest {
         void shouldRedirectUnauthenticatedDashboardAccess() throws Exception {
             mockMvc.perform(get("/dashboard"))
                     .andExpect(status().is3xxRedirection())
-                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(redirectedUrl("/oauth2/authorization/google"));
         }
 
         @Test
@@ -205,7 +205,7 @@ class SecurityConfigTest {
         void shouldRequireAuthenticationForApiEndpoints() throws Exception {
             mockMvc.perform(get("/api/v1/gmail/messages"))
                     .andExpect(status().is3xxRedirection()) // Redirect to login
-                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(redirectedUrl("/oauth2/authorization/google"));
         }
 
         @Test
@@ -213,7 +213,7 @@ class SecurityConfigTest {
         void shouldRequireAuthenticationForApiFilterEndpoints() throws Exception {
             mockMvc.perform(post("/api/v1/gmail/messages/filter"))
                     .andExpect(status().is3xxRedirection()) // Redirect to login
-                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(redirectedUrl("/oauth2/authorization/google"));
         }
 
         @Test
@@ -221,7 +221,7 @@ class SecurityConfigTest {
         void shouldRequireAuthenticationForApiDeleteEndpoints() throws Exception {
             mockMvc.perform(delete("/api/v1/gmail/messages/123"))
                     .andExpect(status().is3xxRedirection()) // Redirect to login
-                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(redirectedUrl("/oauth2/authorization/google"));
         }
 
         @Test
@@ -229,7 +229,7 @@ class SecurityConfigTest {
         void shouldRequireAuthenticationForDashboard() throws Exception {
             mockMvc.perform(get("/dashboard"))
                     .andExpect(status().is3xxRedirection()) // Redirect to login
-                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(redirectedUrl("/oauth2/authorization/google"));
         }
     }
 
@@ -281,7 +281,7 @@ class SecurityConfigTest {
             // When & Then
             mockMvc.perform(get("/dashboard").header("Authorization", "Bearer " + validToken))
                     .andExpect(status().is3xxRedirection()) // Should still redirect to OAuth2 login
-                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(redirectedUrl("/oauth2/authorization/google"));
 
             verifyNoInteractions(tokenValidator); // Token should not be validated for non-API endpoints
         }
@@ -356,7 +356,7 @@ class SecurityConfigTest {
             // When & Then
             mockMvc.perform(get("/dashboard"))
                     .andExpect(status().is3xxRedirection())
-                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(redirectedUrl("/oauth2/authorization/google"));
 
             // Session creation is handled by Spring Security internally for OAuth2 flows
         }
@@ -465,7 +465,7 @@ class SecurityConfigTest {
             // When & Then
             mockMvc.perform(get("/api/v1/gmail/messages").header("Authorization", "Malformed header"))
                     .andExpect(status().is3xxRedirection()) // Should redirect to login
-                    .andExpect(redirectedUrlPattern("**/oauth2/authorization/google"));
+                    .andExpect(redirectedUrl("/oauth2/authorization/google"));
 
             verifyNoInteractions(tokenValidator);
         }

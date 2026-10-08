@@ -208,7 +208,7 @@ class GoogleTokenValidatorTest {
             // Given
             when(restTemplate.exchange(
                             eq(GOOGLE_TOKEN_INFO_URL), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
-                    .thenReturn(new ResponseEntity<>(null, HttpStatus.OK));
+                    .thenReturn(new ResponseEntity<>((Map<String, Object>) null, HttpStatus.OK));
 
             // When
             boolean result = tokenValidator.isValidGoogleToken(VALID_GOOGLE_TOKEN);
