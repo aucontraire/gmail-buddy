@@ -53,7 +53,9 @@ public record GmailBuddyProperties(
         /**
          * Rate limiting configuration for Gmail API calls.
          */
-        public record RateLimit(@Positive long defaultRetrySeconds, @Valid @NotNull BatchOperations batchOperations) {
+        public record RateLimit(
+                @Positive long defaultRetrySeconds,
+                @Valid @NotNull BatchOperations batchOperations) {
             // Default values are set in application.properties
 
             /**
@@ -81,8 +83,11 @@ public record GmailBuddyProperties(
         /**
          * Message processing configuration.
          */
-        public record MessageProcessing(@Valid @NotNull MimeTypes mimeTypes, @Valid @NotNull Labels labels) {
-            public record MimeTypes(@NotBlank String html, @NotBlank String plain) {
+        public record MessageProcessing(
+                @Valid @NotNull MimeTypes mimeTypes,
+                @Valid @NotNull Labels labels) {
+            public record MimeTypes(
+                    @NotBlank String html, @NotBlank String plain) {
                 // Default values are set in application.properties
             }
 
@@ -120,7 +125,8 @@ public record GmailBuddyProperties(
          * Token validation memo (cache) configuration for the tokeninfo validation
          * path (WI-2/US3).
          */
-        public record TokenValidationCache(boolean enabled, @Min(1) int ttlSeconds) {
+        public record TokenValidationCache(
+                boolean enabled, @Min(1) int ttlSeconds) {
             // Default values are set in application.properties
         }
     }
@@ -128,7 +134,9 @@ public record GmailBuddyProperties(
     /**
      * OAuth2 configuration properties.
      */
-    public record OAuth2(@NotBlank String clientRegistrationId, @Valid @NotNull Token token) {
+    public record OAuth2(
+            @NotBlank String clientRegistrationId,
+            @Valid @NotNull Token token) {
         // Default values are set in application.properties
 
         /**
@@ -143,7 +151,8 @@ public record GmailBuddyProperties(
      * Error handling configuration properties.
      */
     public record ErrorHandling(
-            @Valid @NotNull ErrorCodes errorCodes, @Valid @NotNull ErrorCategories errorCategories) {
+            @Valid @NotNull ErrorCodes errorCodes,
+            @Valid @NotNull ErrorCategories errorCategories) {
         /**
          * Error codes used throughout the application.
          */
@@ -165,7 +174,8 @@ public record GmailBuddyProperties(
         /**
          * Error categories for response classification.
          */
-        public record ErrorCategories(@NotBlank String clientError, @NotBlank String serverError) {
+        public record ErrorCategories(
+                @NotBlank String clientError, @NotBlank String serverError) {
             // Default values are set in application.properties
         }
     }
@@ -173,18 +183,22 @@ public record GmailBuddyProperties(
     /**
      * Validation configuration properties.
      */
-    public record Validation(@Valid @NotNull GmailQuery gmailQuery, @Valid @NotNull Email email) {
+    public record Validation(
+            @Valid @NotNull GmailQuery gmailQuery,
+            @Valid @NotNull Email email) {
         /**
          * Gmail query validation patterns.
          */
-        public record GmailQuery(@NotBlank String dangerousPattern, @NotBlank String validOperatorsPattern) {
+        public record GmailQuery(
+                @NotBlank String dangerousPattern, @NotBlank String validOperatorsPattern) {
             // Default values are set in application.properties
         }
 
         /**
          * Email validation configuration.
          */
-        public record Email(@NotBlank @Pattern(regexp = "^.+$") String pattern) {
+        public record Email(
+                @NotBlank @Pattern(regexp = "^.+$") String pattern) {
             // Default values are set in application.properties
         }
     }
@@ -192,13 +206,17 @@ public record GmailBuddyProperties(
     /**
      * Security configuration properties.
      */
-    public record Security(@Valid @NotNull String[] permitAllPatterns, @Valid @NotNull OAuth2Security oauth2Security) {
+    public record Security(
+            @Valid @NotNull String[] permitAllPatterns,
+            @Valid @NotNull OAuth2Security oauth2Security) {
         // Default values are set in application.properties
 
         /**
          * OAuth2 security configuration.
          */
-        public record OAuth2Security(@NotBlank String defaultSuccessUrl, @NotBlank String authorizationBaseUri) {
+        public record OAuth2Security(
+                @NotBlank String defaultSuccessUrl,
+                @NotBlank String authorizationBaseUri) {
             // Default values are set in application.properties
         }
     }
@@ -210,7 +228,8 @@ public record GmailBuddyProperties(
         /**
          * Environment file configuration.
          */
-        public record EnvFile(@NotBlank String directory, @NotBlank String name) {
+        public record EnvFile(
+                @NotBlank String directory, @NotBlank String name) {
             // Default values are set in application.properties
         }
     }
@@ -219,7 +238,8 @@ public record GmailBuddyProperties(
      * Application-level rate limiting configuration.
      */
     public record ApplicationRateLimit(
-            @Min(1) @Max(10000) int requestsPerWindow, @Min(1) @Max(3600) long windowSizeSeconds) {
+            @Min(1) @Max(10000) int requestsPerWindow,
+            @Min(1) @Max(3600) long windowSizeSeconds) {
         // Default values are set in application.properties
     }
 

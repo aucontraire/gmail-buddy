@@ -72,15 +72,15 @@ public record SendMessageDTO(
          * is needed.</p>
          */
         @Schema(
-                        description =
-                                "Optional Gmail short thread ID (16-32 hex chars). When supplied, the outgoing message is "
-                                        + "placed in this thread. If inReplyToMessageId is also supplied and references a message in "
-                                        + "a different thread, the original message's threadId wins.",
-                        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
-                        nullable = true,
-                        example = "1976a4bc3fe89d0c")
-                @GmailMessageId
-                String threadId,
+                description =
+                        "Optional Gmail short thread ID (16-32 hex chars). When supplied, the outgoing message is "
+                                + "placed in this thread. If inReplyToMessageId is also supplied and references a message in "
+                                + "a different thread, the original message's threadId wins.",
+                requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+                nullable = true,
+                example = "1976a4bc3fe89d0c")
+        @GmailMessageId
+        String threadId,
 
         /**
          * Optional Gmail short message ID of the message being replied to. When non-null,
@@ -95,15 +95,15 @@ public record SendMessageDTO(
          * (HTTP 422).</p>
          */
         @Schema(
-                        description =
-                                "Optional Gmail short message ID (16-32 hex chars). When supplied, gmail-buddy fetches the "
-                                        + "original message and constructs In-Reply-To and References headers for proper RFC 5322 "
-                                        + "threading. Returns 422 if the message doesn't exist.",
-                        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
-                        nullable = true,
-                        example = "1976a4bc3fe89d0c")
-                @GmailMessageId
-                String inReplyToMessageId,
+                description =
+                        "Optional Gmail short message ID (16-32 hex chars). When supplied, gmail-buddy fetches the "
+                                + "original message and constructs In-Reply-To and References headers for proper RFC 5322 "
+                                + "threading. Returns 422 if the message doesn't exist.",
+                requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+                nullable = true,
+                example = "1976a4bc3fe89d0c")
+        @GmailMessageId
+        String inReplyToMessageId,
 
         /**
          * Optional list of file attachments. Null is normalized to an empty immutable list
@@ -112,13 +112,12 @@ public record SendMessageDTO(
          * on {@link Attachment} fields.
          */
         @Schema(
-                        description =
-                                "Optional list of base64-encoded attachments. When non-empty, the message is built as "
-                                        + "multipart/mixed; total payload (body + attachments) capped at 25 MB.",
-                        requiredMode = Schema.RequiredMode.NOT_REQUIRED,
-                        nullable = true)
-                @Valid
-                List<Attachment> attachments) {
+                description = "Optional list of base64-encoded attachments. When non-empty, the message is built as "
+                        + "multipart/mixed; total payload (body + attachments) capped at 25 MB.",
+                requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+                nullable = true)
+        @Valid
+        List<Attachment> attachments) {
 
     /**
      * Compact constructor that normalises null collections to empty immutable lists,

@@ -231,8 +231,7 @@ class SendMessageValidationTest {
     @DisplayName("postDraft_missingSubject_returns400WithFieldExtension")
     void postDraft_missingSubject_returns400WithFieldExtension() throws Exception {
         // Arrange: no subject provided; @NotBlank must reject it.
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "body": "Hello"
@@ -254,8 +253,7 @@ class SendMessageValidationTest {
     @DisplayName("postDraft_missingBody_returns400WithFieldExtension")
     void postDraft_missingBody_returns400WithFieldExtension() throws Exception {
         // Arrange: no body provided; @NotBlank must reject it.
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Hello"
@@ -377,8 +375,7 @@ class SendMessageValidationTest {
     @DisplayName("postDraft_blankAttachmentFilename_returns400WithValidationError")
     void postDraft_blankAttachmentFilename_returns400WithValidationError() throws Exception {
         // Arrange: attachment with blank filename — @NotBlank must fire
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Valid Subject",
@@ -413,8 +410,7 @@ class SendMessageValidationTest {
     @DisplayName("postDraft_blankAttachmentMimeType_returns400WithValidationError")
     void postDraft_blankAttachmentMimeType_returns400WithValidationError() throws Exception {
         // Arrange: attachment with blank mimeType — @NotBlank must fire
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Valid Subject",
@@ -449,8 +445,7 @@ class SendMessageValidationTest {
     @DisplayName("postDraft_blankAttachmentBase64Data_returns400WithValidationError")
     void postDraft_blankAttachmentBase64Data_returns400WithValidationError() throws Exception {
         // Arrange: attachment with blank base64Data — @NotBlank must fire
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Valid Subject",
@@ -487,8 +482,7 @@ class SendMessageValidationTest {
         // Arrange: filename of 256 characters exceeds @Size(max=255) limit
         String longFilename = "a".repeat(256) + ".pdf";
 
-        String rawJson = String.format(
-                """
+        String rawJson = String.format("""
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Valid Subject",
@@ -502,8 +496,7 @@ class SendMessageValidationTest {
                     }
                   ]
                 }
-                """,
-                longFilename);
+                """, longFilename);
 
         // Act & Assert
         mockMvc.perform(post(DRAFTS_ENDPOINT)
@@ -524,8 +517,7 @@ class SendMessageValidationTest {
     @DisplayName("postDraft_dotDotInFilename_returns400WithSafeFilenameViolation")
     void postDraft_dotDotInFilename_returns400WithSafeFilenameViolation() throws Exception {
         // Arrange: ".." in filename is a path-traversal pattern that @SafeFilename must reject
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Valid Subject",
@@ -555,8 +547,7 @@ class SendMessageValidationTest {
     @DisplayName("postDraft_forwardSlashInFilename_returns400")
     void postDraft_forwardSlashInFilename_returns400() throws Exception {
         // Arrange: "/" in filename is a path separator — @SafeFilename must reject it
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Valid Subject",
@@ -590,8 +581,7 @@ class SendMessageValidationTest {
     @DisplayName("postDraft_malformedMimeTypeNoSlash_returns400WithValidationError")
     void postDraft_malformedMimeTypeNoSlash_returns400WithValidationError() throws Exception {
         // Arrange: "application" lacks "/" separator — @ValidMimeType must reject it
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Valid Subject",
@@ -622,8 +612,7 @@ class SendMessageValidationTest {
     @DisplayName("postDraft_mimeTypeWithSpaces_returns400WithValidationError")
     void postDraft_mimeTypeWithSpaces_returns400WithValidationError() throws Exception {
         // Arrange: whitespace in MIME type is not RFC 6838 compliant
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Valid Subject",
@@ -658,8 +647,7 @@ class SendMessageValidationTest {
     @DisplayName("postDraft_invalidBase64Data_returns400WithValidationError")
     void postDraft_invalidBase64Data_returns400WithValidationError() throws Exception {
         // Arrange: "not-valid-base64!!!" contains invalid characters — @ValidBase64 must reject
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Valid Subject",
@@ -693,8 +681,7 @@ class SendMessageValidationTest {
         // standard Base64 alphabet ('+' and '/' are standard; '-' and '_' are URL-safe only).
         // The standard decoder (Base64.getDecoder()) ALWAYS rejects '-' and '_' characters.
         // "SGVsbG8-V29ybGQ_" contains '-' and '_' which are definitively invalid for standard decoder.
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Valid Subject",
@@ -729,8 +716,7 @@ class SendMessageValidationTest {
     @DisplayName("postDraft_validAttachment_passesAllAttachmentConstraints")
     void postDraft_validAttachment_passesAllAttachmentConstraints() throws Exception {
         // Arrange: a fully valid attachment — all constraints should pass, request reaches service
-        String rawJson =
-                """
+        String rawJson = """
                 {
                   "to": ["recruiter@example.com"],
                   "subject": "Valid Subject",

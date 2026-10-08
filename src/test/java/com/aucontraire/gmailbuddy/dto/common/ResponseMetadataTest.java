@@ -99,8 +99,7 @@ class ResponseMetadataTest {
     @Test
     @DisplayName("JSON deserialization recreates object correctly")
     void testJsonDeserialization() throws Exception {
-        String json =
-                """
+        String json = """
             {
                 "timestamp": "2025-10-12T10:30:00.000Z",
                 "durationMs": 156,

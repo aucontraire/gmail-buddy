@@ -49,8 +49,10 @@ public class GmailClient {
         String tokenPrefix = properties.oauth2().token().prefix();
         String applicationName = properties.gmailApi().applicationName();
 
-        return new Gmail.Builder(httpTransport, GsonFactory.getDefaultInstance(), request -> request.getHeaders()
-                        .setAuthorization(tokenPrefix + " " + accessToken))
+        return new Gmail.Builder(
+                        httpTransport,
+                        GsonFactory.getDefaultInstance(),
+                        request -> request.getHeaders().setAuthorization(tokenPrefix + " " + accessToken))
                 .setApplicationName(applicationName)
                 .build();
     }

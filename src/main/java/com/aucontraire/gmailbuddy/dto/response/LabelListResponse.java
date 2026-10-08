@@ -17,5 +17,7 @@ import java.util.List;
 @Schema(description = "Non-paginated label list response")
 public record LabelListResponse(
         @Schema(description = "All visible labels (system + user-created) for the authenticated user")
-                List<LabelSummary> results,
-        @Schema(description = "Total number of labels returned", example = "28") int totalCount) {}
+        List<LabelSummary> results,
+
+        @Schema(description = "Total number of labels returned", example = "28")
+        int totalCount) {}

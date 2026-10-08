@@ -1276,21 +1276,22 @@ public class GmailRepositoryImpl implements GmailRepository {
         }
 
         return switch (reason) {
-            case "invalidArgument" -> new InvalidRecipientException(
-                    "Gmail rejected one or more recipient addresses or message fields", e);
+            case "invalidArgument" ->
+                new InvalidRecipientException("Gmail rejected one or more recipient addresses or message fields", e);
 
-            case "insufficientPermissions" -> new AuthorizationException(
-                    "Insufficient Gmail permissions to send mail", e);
+            case "insufficientPermissions" ->
+                new AuthorizationException("Insufficient Gmail permissions to send mail", e);
 
-                // CRITICAL: dailySendLimitExceeded MUST NOT go through any retry-with-backoff
-                // path. The daily send limit resets at the next calendar day; retrying within
-                // the same day wastes quota and does not resolve the limit. retryAfterSeconds
-                // is set to 86400 (24 hours) to inform the caller of the reset window.
-            case "dailySendLimitExceeded" -> new RateLimitException(
-                    "Daily Gmail send limit reached; retry after the next-day reset", e, 86400L);
+            // CRITICAL: dailySendLimitExceeded MUST NOT go through any retry-with-backoff
+            // path. The daily send limit resets at the next calendar day; retrying within
+            // the same day wastes quota and does not resolve the limit. retryAfterSeconds
+            // is set to 86400 (24 hours) to inform the caller of the reset window.
+            case "dailySendLimitExceeded" ->
+                new RateLimitException("Daily Gmail send limit reached; retry after the next-day reset", e, 86400L);
 
-            case "forbidden" -> new AuthorizationException(
-                    "Gmail rejected send: forbidden (unverified send-as identity or account restricted)", e);
+            case "forbidden" ->
+                new AuthorizationException(
+                        "Gmail rejected send: forbidden (unverified send-as identity or account restricted)", e);
 
             case "messageTooLarge" -> new MessageTooLargeException("Message exceeds Gmail's maximum allowed size", e);
 

@@ -31,23 +31,33 @@ import java.util.Map;
  */
 @Schema(description = "Full message content with whitelisted headers and attachment metadata")
 public record MessageDetailResponse(
-        @Schema(description = "Gmail message identifier", example = "1976a4bc3fe89d0c") String id,
+        @Schema(description = "Gmail message identifier", example = "1976a4bc3fe89d0c")
+        String id,
+
         @Schema(description = "Gmail thread identifier; null if not threaded", example = "1976a4bc3fe89d0c")
-                String threadId,
+        String threadId,
+
         @Schema(
-                        description = "Whitelisted RFC 5322 headers; absent headers produce no map entry",
-                        example = "{\"From\":\"recruiter@example.com\",\"Subject\":\"Hello\"}")
-                Map<String, String> headers,
+                description = "Whitelisted RFC 5322 headers; absent headers produce no map entry",
+                example = "{\"From\":\"recruiter@example.com\",\"Subject\":\"Hello\"}")
+        Map<String, String> headers,
+
         @Schema(
-                        description = "Gmail-provided body preview (~100 chars)",
-                        example = "Hi there, I wanted to follow up...")
-                String snippet,
-        @Schema(description = "Decoded body text; null when ?format=metadata") String body,
+                description = "Gmail-provided body preview (~100 chars)",
+                example = "Hi there, I wanted to follow up...")
+        String snippet,
+
+        @Schema(description = "Decoded body text; null when ?format=metadata")
+        String body,
+
         @Schema(
-                        description = "Body content type",
-                        example = "html",
-                        allowableValues = {"html", "text"})
-                String bodyType,
-        @Schema(description = "Per-message label IDs", example = "[\"INBOX\", \"UNREAD\"]") List<String> labelIds,
+                description = "Body content type",
+                example = "html",
+                allowableValues = {"html", "text"})
+        String bodyType,
+
+        @Schema(description = "Per-message label IDs", example = "[\"INBOX\", \"UNREAD\"]")
+        List<String> labelIds,
+
         @Schema(description = "Attachment metadata list (no binary content)")
-                List<MessageAttachmentMetadata> attachments) {}
+        List<MessageAttachmentMetadata> attachments) {}

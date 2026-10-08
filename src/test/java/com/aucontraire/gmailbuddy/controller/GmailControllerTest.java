@@ -441,8 +441,7 @@ public class GmailControllerTest {
         when(gmailService.updateDraft(eq("me"), eq("abc123"), any(SendMessageDTO.class)))
                 .thenReturn(updated);
 
-        String requestBody =
-                """
+        String requestBody = """
                 {
                   "to": ["to@example.com"],
                   "cc": [],
@@ -468,8 +467,7 @@ public class GmailControllerTest {
         when(gmailService.updateDraft(eq("me"), eq("deadbeef"), any(SendMessageDTO.class)))
                 .thenThrow(new ResourceNotFoundException("Draft not found"));
 
-        String requestBody =
-                """
+        String requestBody = """
                 {
                   "to": ["to@example.com"],
                   "cc": [],
@@ -490,8 +488,7 @@ public class GmailControllerTest {
 
     @Test
     public void updateDraft_400ForInvalidDraftId() throws Exception {
-        String requestBody =
-                """
+        String requestBody = """
                 {
                   "to": ["to@example.com"],
                   "cc": [],
@@ -515,8 +512,7 @@ public class GmailControllerTest {
         when(gmailService.updateDraft(eq("me"), eq("abc123"), any(SendMessageDTO.class)))
                 .thenThrow(new OriginalMessageNotFoundException("inReplyTo target not found"));
 
-        String requestBody =
-                """
+        String requestBody = """
                 {
                   "to": ["to@example.com"],
                   "cc": [],
@@ -540,8 +536,7 @@ public class GmailControllerTest {
     public void updateDraft_401WhenUnauthenticated() throws Exception {
         SecurityContextHolder.clearContext();
 
-        String requestBody =
-                """
+        String requestBody = """
                 {
                   "to": ["to@example.com"],
                   "cc": [],
@@ -565,8 +560,7 @@ public class GmailControllerTest {
         when(gmailService.updateDraft(eq("me"), eq("abc123"), any(SendMessageDTO.class)))
                 .thenThrow(new GmailApiException("Gmail API error", new java.io.IOException("io")));
 
-        String requestBody =
-                """
+        String requestBody = """
                 {
                   "to": ["to@example.com"],
                   "cc": [],
