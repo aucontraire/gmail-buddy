@@ -220,10 +220,20 @@
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
-                <version>3.10.3</version>
+                <version>3.10.4</version>
                 <configuration>
                     <java>
-                        <palantirJavaFormat/>
+                        <!--
+                            Pin the formatter version explicitly so a spotless-maven-plugin bump
+                            cannot silently change formatting output (it otherwise defaults to
+                            whatever palantir-java-format the plugin bundles). 2.98.0 is what the
+                            plugin bundled when the codebase was last formatted; bumping the plugin
+                            alone must not reformat. Changing formatter rules is now a deliberate
+                            version bump here, not a side effect of a plugin patch bump.
+                        -->
+                        <palantirJavaFormat>
+                            <version>2.98.0</version>
+                        </palantirJavaFormat>
                         <removeUnusedImports/>
                     </java>
                 </configuration>
