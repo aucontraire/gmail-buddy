@@ -74,11 +74,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
@@ -90,7 +85,6 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 public class GmailController {
 
     private final GmailService gmailService;
-    private final OAuth2AuthorizedClientService authorizedClientService;
     private final GmailBuddyProperties properties;
     private final ResponseMapper responseMapper;
     private final GmailMessageMapper gmailMessageMapper;
@@ -108,12 +102,10 @@ public class GmailController {
     @Autowired
     public GmailController(
             GmailService gmailService,
-            OAuth2AuthorizedClientService authorizedClientService,
             GmailBuddyProperties properties,
             ResponseMapper responseMapper,
             GmailMessageMapper gmailMessageMapper) {
         this.gmailService = gmailService;
-        this.authorizedClientService = authorizedClientService;
         this.properties = properties;
         this.responseMapper = responseMapper;
         this.gmailMessageMapper = gmailMessageMapper;
@@ -2156,38 +2148,6 @@ public class GmailController {
                         "Filename contains forbidden characters (line-terminators, NUL, or control characters)");
             }
         }
-    }
-
-    @Operation(
-            summary = "Debug OAuth token",
-            description =
-                    "Returns the current OAuth2 access token for debugging purposes. Use this to get a Bearer token for Postman.")
-    @ApiResponses(
-            value = {
-                @ApiResponse(
-                        responseCode = "200",
-                        description = "Token retrieved successfully",
-                        content = @Content(mediaType = "application/json", schema = @Schema(type = "string"))),
-                @ApiResponse(responseCode = "401", description = "Not authenticated")
-            })
-    @GetMapping(value = "/debug/token", produces = MediaType.APPLICATION_JSON_VALUE)
-    public String debugToken() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null
-                && authentication.isAuthenticated()
-                && authentication instanceof OAuth2AuthenticationToken) {
-            OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
-            String registrationId = properties.oauth2().clientRegistrationId();
-            OAuth2AuthorizedClient client =
-                    authorizedClientService.loadAuthorizedClient(registrationId, oauthToken.getName());
-            if (client != null) {
-                String accessToken = client.getAccessToken().getTokenValue();
-                String tokenPrefix = properties.oauth2().token().prefix();
-                System.out.println("Access Token: " + tokenPrefix + accessToken);
-                return "Access Token: " + tokenPrefix + accessToken;
-            }
-        }
-        return "No token found or user not authenticated.";
     }
 
     /**
