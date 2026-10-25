@@ -6,17 +6,6 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
-    groups:
-      # logback-classic and logback-core must move in lockstep — a version mismatch throws
-      # NoClassDefFoundError. Group them so Dependabot bumps both in ONE PR instead of two
-      # separate (and individually-broken) ones.
-      logback:
-        patterns:
-          - "ch.qos.logback:*"
-    # The former <1.6.0 logback cap was removed with the Spring Boot 4 upgrade (WI-008):
-    # logback and slf4j are no longer declared as direct dependencies (the explicit pins were
-    # dropped), so their versions are BOM-managed transitively (Boot 4.1.1 ships logback 1.5.38 /
-    # slf4j 2.0.18) and Dependabot no longer needs a cap on them.
 
   - package-ecosystem: "github-actions"
     directory: "/"
